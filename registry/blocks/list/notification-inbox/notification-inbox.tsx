@@ -219,4 +219,4 @@ export function useUnreadCount(client: {
   return (query.data?.rows ?? []).filter((row) => !row.read).length;
 }
 
-export type NotificationClient = ResourceClient<NotificationRow, any, any>;
+export type NotificationClient = ResourceClient<NotificationRow>;

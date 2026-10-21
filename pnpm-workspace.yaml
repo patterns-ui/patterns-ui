@@ -44,6 +44,7 @@ catalog:
   tailwindcss: 4.3.3
   "@tailwindcss/vite": 4.3.3
   vitest: 5.0.5
+  "@playwright/test": 1.58.0
   "@testing-library/react": 16.3.3
   happy-dom: 21.0.4
   tsup: 9.0.0

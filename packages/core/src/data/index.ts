@@ -205,6 +205,20 @@ export type UpdateVars<TUpdate> = Omit<TUpdate, "version"> & {
   version?: string | number;
 };
 
+/**
+ * 「任意资源」形态：blocks 公共 props（reference-field 等）只读 name/tenantScoped/getId/client，
+ * 不关心 create/update 变体 —— 单点收敛渲染层的 any，逻辑层请使用具体 Resource<TData, ...>。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: 单点收敛「任意资源」泛型（TCreate/TUpdate 对渲染层不可见；禁止在 core 逻辑内新开 any）
+export type AnyResource = Resource<any, any, any>;
+
+/**
+ * 「具体行 + 松散变体」资源：useResourceTable/useResourceForm 等公共签名形态
+ * （core-api §1/§3：Resource<TData, any, any> —— 变体类型由 createResource 边界收窄）。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: 与 core-api §3 签名保持一致（Resource<TData, any, any>）
+export type ResourceOf<TData> = Resource<TData, any, any>;
+
 export interface CreateResourceConfig<TData, TCreate, TUpdate> {
   name: string;
   client: ResourceClient<TData, TCreate, TUpdate>;

@@ -6,7 +6,7 @@
  * ListPage + FilterBar + AsyncState + DataTable + PaginationBar。
  * 列渲染经 cellFor 消费列 meta.cell（inferColumns 的推断标记）。
  */
-import type { Resource, ResourceClient } from "@fleetly/ui-component-core/data";
+import type { ResourceClient, ResourceOf } from "@fleetly/ui-component-core/data";
 import { createResource } from "@fleetly/ui-component-core/data";
 import { type ListColumnDef, useResourceTable } from "@fleetly/ui-component-core/list";
 import type { ResourceDef } from "@fleetly/ui-component-core/resource";
@@ -19,25 +19,26 @@ import { ListPage, ListPageGrid } from "@/components/blocks/list/list-page/list-
 import { PaginationBar } from "@/components/blocks/list/pagination-bar/pagination-bar";
 import { AsyncState } from "@/components/blocks/shared/async-state/async-state";
 
+/** L4 视图工厂的行约束（与 core ResourceDef<TData extends RowData> 的泛型边界对齐） */
+// biome-ignore lint/suspicious/noExplicitAny: ResourceDef 泛型边界形态（core-api §13）；仅作约束，禁止在实现体内新开 any
+type AnyRow = Record<string, any>;
+
 /** def → Resource 实例缓存（同一 def 复用；hooks 身份稳定） */
 const resourceCache = new WeakMap<
   ResourceClient<unknown, unknown, unknown>,
-  Resource<unknown, unknown, unknown>
+  ResourceOf<Record<string, unknown>>
 >();
 
-// biome-ignore lint/suspicious/noExplicitAny: ResourceDef<TData> 的 L4 通用形态（core-api §13）
-export function resourceOf<TData extends Record<string, any>>(
-  def: ResourceDef<TData>,
-): Resource<TData, any, any> {
+export function resourceOf<TData extends AnyRow>(def: ResourceDef<TData>): ResourceOf<TData> {
   const client = def.client as unknown as ResourceClient<unknown, unknown, unknown>;
-  let cached = resourceCache.get(client) as Resource<TData, any, any> | undefined;
+  let cached = resourceCache.get(client) as ResourceOf<TData> | undefined;
   if (cached === undefined) {
-    cached = createResource<TData, any, any>({
+    cached = createResource<TData>({
       name: def.name,
       client: def.client,
       tenantScoped: def.tenantScoped !== false,
     });
-    resourceCache.set(client, cached as unknown as Resource<unknown, unknown, unknown>);
+    resourceCache.set(client, cached as unknown as ResourceOf<Record<string, unknown>>);
   }
   return cached;
 }
@@ -65,7 +66,7 @@ function cellTypeOf(metaCell: string | undefined): CellForType | undefined {
 }
 
 /** 列定义装饰：meta.cell → cellFor 渲染（无标记列保持原样） */
-export function decorateColumns<TData extends Record<string, any>>(
+export function decorateColumns<TData extends AnyRow>(
   columns: ListColumnDef<TData>[],
 ): ListColumnDef<TData>[] {
   return columns.map((column) => {
@@ -89,7 +90,7 @@ export function decorateColumns<TData extends Record<string, any>>(
   });
 }
 
-export interface ResourceListViewProps<TData extends Record<string, any>> {
+export interface ResourceListViewProps<TData extends AnyRow> {
   def: ResourceDef<TData>;
   /** 展示变体（默认 table；grid = 磁贴墙，标题取 name/title/id 字段） */
   variant?: "table" | "grid";
@@ -103,7 +104,7 @@ export interface ResourceListViewProps<TData extends Record<string, any>> {
   className?: string;
 }
 
-export function ResourceListView<TData extends Record<string, any>>({
+export function ResourceListView<TData extends AnyRow>({
   def,
   variant = "table",
   actions,

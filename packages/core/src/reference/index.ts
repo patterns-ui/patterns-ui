@@ -6,7 +6,7 @@
  */
 import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { getManyViaList, type Resource } from "../data";
+import { type AnyResource, getManyViaList, type ListParams, type Page } from "../data";
 import { useTenantOptional } from "../tenant";
 
 export interface UseReferenceResult<TData> {
@@ -16,11 +16,26 @@ export interface UseReferenceResult<TData> {
 }
 
 /**
+ * useReference 系列的最小资源形状：只消费 name/tenantScoped/getId/client 的读路径。
+ * 任意 `Resource<TData, X, Y>`（含 AnyResource）都可赋给它 —— 渲染层不再传播 any。
+ */
+export interface ReferenceSource<TData> {
+  readonly name: string;
+  readonly tenantScoped: boolean;
+  readonly getId: (row: TData) => string;
+  readonly client: {
+    list(params: ListParams): Promise<Page<TData>>;
+    get(id: string): Promise<TData>;
+    getMany?(ids: string[]): Promise<TData[]>;
+  };
+}
+
+/**
  * 批量解析外键引用。ids 去重 + 排序后作为 queryKey 的一部分（同 ids 多处调用共享一次请求）。
  * client.getMany 优先；缺省走 list + in 过滤分块（每块 50，getManyViaList）。
  */
 export function useReference<TData>(
-  resource: Resource<TData, any, any>,
+  resource: ReferenceSource<TData>,
   ids: string[],
 ): UseReferenceResult<TData> {
   const tenantId = useTenantOptional()?.tenantId;
@@ -78,10 +93,10 @@ export interface UseReferenceLabelResult<TData = unknown> {
 
 /** label 解析（blocks reference-field / cell-user 引用态消费） */
 export function useReferenceLabel<TData>(
-  resource: Resource<TData, any, any>,
+  resource: ReferenceSource<TData>,
   ids: string[],
   getIdLabel?: (row: TData) => string,
-): UseReferenceLabelResult {
+): UseReferenceLabelResult<TData> {
   const { data, isLoading } = useReference(resource, ids);
   const labels = useMemo(() => {
     const out: Record<string, string> = {};
@@ -98,7 +113,7 @@ export function useReferenceLabel<TData>(
 
 /** blocks 层 ReferenceSelect 的 core 约定（形态见 docs/core-api.md §4） */
 export interface ReferenceSelectProps {
-  resource: Resource<any, any, any>;
+  resource: AnyResource;
   value: string | string[] | undefined;
   onChange(v: string | string[]): void;
   multiple?: boolean;

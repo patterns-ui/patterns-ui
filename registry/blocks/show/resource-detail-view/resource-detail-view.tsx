@@ -17,8 +17,11 @@ import { DetailGrid, type DetailGridItem } from "@/components/blocks/show/detail
 import { DetailPage, useDetailTabParam } from "@/components/blocks/show/detail-page/detail-page";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// biome-ignore lint/suspicious/noExplicitAny: ResourceDef<TData> 的 L4 通用形态（core-api §13）
-export interface ResourceDetailViewProps<TData extends Record<string, any>> {
+/** L4 详情工厂的行约束（与 ResourceDef<TData extends RowData> 的泛型边界对齐） */
+// biome-ignore lint/suspicious/noExplicitAny: ResourceDef 泛型边界形态（core-api §13）；仅作约束，禁止在实现体内新开 any
+type AnyRow = Record<string, any>;
+
+export interface ResourceDetailViewProps<TData extends AnyRow> {
   def: ResourceDef<TData>;
   id: string;
   /** 详情路由的相对返回前缀（默认 '../../'：/services/svc-1 → ../..；宿主按路由层级给） */
@@ -34,7 +37,7 @@ export interface ResourceDetailViewProps<TData extends Record<string, any>> {
   className?: string;
 }
 
-export function ResourceDetailView<TData extends Record<string, any>>({
+export function ResourceDetailView<TData extends AnyRow>({
   def,
   id,
   backPrefix = "../../",
@@ -172,7 +175,7 @@ export function ResourceDetailView<TData extends Record<string, any>>({
 }
 
 /** 从列定义 meta.enumValues 取某字段的枚举选项（cell-enum-badge 用） */
-function enumOptionsOf<TData extends Record<string, any>>(
+function enumOptionsOf<TData extends AnyRow>(
   def: ResourceDef<TData>,
   field: string,
 ): { value: string; variant: "secondary" }[] | undefined {

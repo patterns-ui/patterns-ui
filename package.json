@@ -9,14 +9,18 @@
     "dev": "pnpm --filter demo dev",
     "build": "pnpm --filter @fleetly/ui-component-core build && pnpm registry:build",
     "test": "pnpm -r test",
+    "test:e2e": "pnpm --filter demo test:e2e",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
-    "registry:build": "tsx registry/scripts/build.ts"
+    "registry:build": "tsx registry/scripts/build.ts",
+    "changeset": "changeset",
+    "version-packages": "changeset version"
   },
   "devDependencies": {
     "@base-ui/react": "catalog:",
     "@biomejs/biome": "catalog:",
+    "@changesets/cli": "^3.0.3",
     "@fleetly/ui-component-core": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",

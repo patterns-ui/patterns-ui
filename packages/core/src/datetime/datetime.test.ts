@@ -105,6 +105,38 @@ describe("formatAbsolute", () => {
     ).toContain("07:00");
   });
 
+  it("America/New_York 2026-03-08 切换日：两侧偏移各自正确（02:00–03:00 本地不存在）", () => {
+    // 美东 2026 年夏令时始于 3 月 8 日 02:00 EST（= 07:00 UTC）。切换前 EST（UTC-5）：
+    expect(
+      formatAbsolute("2026-03-08T06:59:00Z", {
+        timeZone: "America/New_York",
+        absolutePattern: "datetime",
+      }),
+    ).toContain("01:59");
+    // 切换后 EDT（UTC-4）：07:01Z = 03:01（本地时钟直接跳过 02:00–03:00）
+    expect(
+      formatAbsolute("2026-03-08T07:01:00Z", {
+        timeZone: "America/New_York",
+        absolutePattern: "datetime",
+      }),
+    ).toContain("03:01");
+  });
+
+  it("caches Intl formatters by (timeZone, hour12, pattern)：同配置不重复构造", () => {
+    const spy = vi.spyOn(Intl, "DateTimeFormat");
+    // 用本文件其它用例未触及的时区，确保缓存从冷启动
+    const prefs = { timeZone: "Australia/Sydney", absolutePattern: "datetime" as const };
+    formatAbsolute("2026-01-15T12:00:00Z", prefs);
+    const constructed = spy.mock.calls.length;
+    expect(constructed).toBeGreaterThan(0);
+    formatAbsolute("2026-06-15T06:00:00Z", prefs);
+    expect(spy.mock.calls.length).toBe(constructed); // 命中缓存
+    // 配置变化（hour12）→ 新 formatter
+    formatAbsolute("2026-01-15T12:00:00Z", { ...prefs, hour12: true });
+    expect(spy.mock.calls.length).toBe(constructed + 1);
+    spy.mockRestore();
+  });
+
   it("passes invalid values through as strings", () => {
     expect(formatAbsolute("nope", {})).toBe("nope");
   });

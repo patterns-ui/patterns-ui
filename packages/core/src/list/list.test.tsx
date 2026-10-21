@@ -319,6 +319,33 @@ describe("useResourceTable", () => {
     );
   });
 
+  it("搜索防抖跳页：连续输入合并为一次提交，提交后跳回第 1 页", async () => {
+    const harness = makeHarness();
+    const { result } = renderTable(
+      { mode: "server-offset", search: { fields: ["name"], debounceMs: 120 } },
+      harness,
+    );
+    await waitFor(() => expect(result.current.query.data).toBeDefined());
+    await act(async () => result.current.setPage(3));
+    await waitFor(() => expect(harness.listCalls.at(-1)?.page).toBe(3));
+    const callsBeforeCommit = harness.listCalls.length;
+
+    // 防抖窗口内连续三次输入：草稿即时更新，状态源不动
+    await act(async () => {
+      result.current.setSearch("g");
+      result.current.setSearch("ga");
+      result.current.setSearch("gate");
+    });
+    expect(result.current.searchDraft).toBe("gate");
+    expect(result.current.state.search).toBe("");
+
+    await waitFor(() => expect(result.current.state.search).toBe("gate"), { timeout: 2000 });
+    await waitFor(() => expect(harness.listCalls.at(-1)?.search).toBe("gate"));
+    // 提交一次（防抖合并三次输入）且跳回第 1 页
+    expect(harness.listCalls.length).toBe(callsBeforeCommit + 1);
+    expect(result.current.state.page).toBe(1);
+  });
+
   it("permanentFilters 合并进请求且不进 URL/内存树", async () => {
     const harness = makeHarness();
     const { result } = renderTable(

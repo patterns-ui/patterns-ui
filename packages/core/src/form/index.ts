@@ -6,7 +6,7 @@
  */
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { HttpError, type MutationOpts, type Resource } from "../data";
+import { HttpError, type MutationOpts, type ResourceOf } from "../data";
 import { useMounted } from "../mounted";
 
 // ---------------------------------------------------------------------------
@@ -29,13 +29,13 @@ export interface FormAutosaveOptions {
 }
 
 export interface UseResourceFormOptions<TData> {
-  resource: Resource<TData, any, any>;
+  resource: ResourceOf<TData>;
   /** 有值 = edit 模式（自动 useOne 取数填充） */
   id?: string;
   /** zod v4 直传（Standard Schema；由消费端绑进表单 validators） */
   schema: FormSchema;
   defaultValues: Partial<TData>;
-  mutationMode?: MutationOpts<any>["mutationMode"];
+  mutationMode?: "pessimistic" | "optimistic" | "undoable";
   /** 提交成功后跳转：list（默认）回列表 / detail 回详情 / stay 留在本页；函数形态返回显式路径 */
   redirect?:
     | "list"
@@ -238,7 +238,7 @@ export function useResourceForm<TData>(
   // 提交（create/update 映射 + 422/409 映射 + redirect + 清草稿）
   // -------------------------------------------------------------------------
   const navigate = useNavigate();
-  const mutationOpts = useMemo<MutationOpts<any>>(
+  const mutationOpts = useMemo<MutationOpts<unknown>>(
     () => ({ mutationMode, onSuccess: onSuccess as (data: unknown) => void }),
     [mutationMode, onSuccess],
   );

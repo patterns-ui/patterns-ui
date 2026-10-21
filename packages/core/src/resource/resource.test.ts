@@ -12,11 +12,11 @@ import { type AuthSnapshot, getAuthSnapshot } from "../auth";
 import type { Page, ResourceClient } from "../data";
 import type { SelectFilterDef } from "../filters";
 import {
+  type AnyResourceDef,
   defineResource,
   inferColumns,
   inferFormFields,
   navFromResources,
-  type ResourceDef,
   resourceDetailRouteOptions,
   resourceListRouteOptions,
 } from "./index";
@@ -52,7 +52,7 @@ const SAMPLE: Row[] = [
   },
 ];
 
-function makeClient(rows: Row[]): ResourceClient<Row, any, any> {
+function makeClient(rows: Row[]): ResourceClient<Row, unknown, unknown> {
   return {
     list: async (): Promise<Page<Row>> => ({ rows, total: rows.length }),
     get: async (id: string) => {
@@ -252,6 +252,21 @@ describe("inferColumns", () => {
     const { columns } = inferColumns(rows);
     expect(columns[0]?.meta?.cell).toBe("text");
   });
+
+  it("distinct 边界：恰好 12 仍为 enum，13 回落 text；skipFields 排除指定字段", () => {
+    // 13 行但只有 12 个 distinct（e12 与 e0 相同）→ enum
+    const rows12 = Array.from({ length: 13 }, (_, i) => ({
+      env: `e${i % 12}`,
+      internal: `secret-${i}`,
+    }));
+    const r12 = inferColumns(rows12, { skipFields: ["internal"] });
+    expect(r12.columns.find((c) => c.id === "internal")).toBeUndefined();
+    expect(r12.columns.find((c) => c.id === "env")?.meta?.cell).toBe("enum");
+    expect(r12.columns.find((c) => c.id === "env")?.meta?.enumValues).toHaveLength(12);
+    // 13 个 distinct → text
+    const rows13 = Array.from({ length: 13 }, (_, i) => ({ env: `e${i}` }));
+    expect(inferColumns(rows13).columns[0]?.meta?.cell).toBe("text");
+  });
 });
 
 describe("inferFormFields", () => {
@@ -300,7 +315,7 @@ describe("inferFormFields", () => {
 });
 
 describe("navFromResources", () => {
-  const defs: ResourceDef<any>[] = [
+  const defs: AnyResourceDef[] = [
     defineResource({
       name: "services",
       client: makeClient(SAMPLE),

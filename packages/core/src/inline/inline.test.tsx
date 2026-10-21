@@ -45,7 +45,6 @@ function harness(
     probe.ctl = ctl;
     return null;
   };
-  // biome-ignore lint/correctness/noComponentHookFactories: 测试探针 —— 经 render 包裹后执行
   const rendered = render(createElement(host));
   return { probe, ...rendered };
 }
@@ -166,7 +165,6 @@ describe("useInlineEdit", () => {
       }, []);
       return null;
     };
-    // biome-ignore lint/correctness/noComponentHookFactories: 同上（测试探针）
     render(createElement(host));
     await act(async () => {
       probe.ctl.getCell("d1", "replicas").set(4);
@@ -180,6 +178,46 @@ describe("useInlineEdit", () => {
     expect(probe.ctl.dirtyCount).toBe(1);
     expect(probe.ctl.getCell("d3", "env").isDirty).toBe(true);
     expect(probe.ctl.getCell("d1", "replicas").isDirty).toBe(false);
+  });
+
+  it("行离开后回来：脏键已被清理，值回原值（不复活陈旧脏值）", async () => {
+    const probe: Probe = { ctl: undefined as never, commitCalls: [] };
+    let currentRows = ROWS;
+    let bump: ((n: number) => void) | undefined;
+    const host = () => {
+      const [, setTick] = useState(0);
+      bump = (n: number) => setTick(n);
+      probe.ctl = useInlineEdit<Row>({
+        rows: currentRows,
+        getId: (r) => r.id,
+        commit: async (changes: InlineChange<Row>[]) => {
+          probe.commitCalls.push(changes);
+        },
+      });
+      return null;
+    };
+    render(createElement(host));
+    await act(async () => {
+      probe.ctl.getCell("d2", "env").set("staging");
+    });
+    expect(probe.ctl.getCell("d2", "env").isDirty).toBe(true);
+    // 离开（行集移除 d2）→ 脏键清理
+    await act(async () => {
+      currentRows = ROWS.filter((r) => r.id !== "d2");
+      bump?.(1);
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(probe.ctl.getCell("d2", "env").isDirty).toBe(false);
+    expect(probe.ctl.dirtyCount).toBe(0);
+    // 回来（行集恢复）→ 读原值，陈旧脏值不复活
+    await act(async () => {
+      currentRows = ROWS;
+      bump?.(2);
+      await new Promise((r) => setTimeout(r, 30));
+    });
+    expect(probe.ctl.getCell("d2", "env").isDirty).toBe(false);
+    expect(probe.ctl.getCell("d2", "env").value).toBe("dev");
+    expect(probe.ctl.changes).toEqual([]);
   });
 
   it("commit 无脏变更时不调提交实现", async () => {

@@ -11,7 +11,10 @@
   },
   "include": [
     "src",
+    "e2e",
     "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
     "../../registry/blocks/**/*.ts",
     "../../registry/blocks/**/*.tsx"
   ]

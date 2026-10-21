@@ -61,14 +61,14 @@ export interface ResourceNavDef {
   order?: number;
 }
 
-export interface ResourceDef<TData extends RowData = any> {
+export interface ResourceDef<TData extends RowData = RowData> {
   /** 复数 kebab：'services'（URL 段与 queryKey 前缀） */
   name: string;
   /** 'service'（用于文案；缺省按英文复数规则退化） */
   singular?: string;
   /** 列表/详情标题（缺省 name 首字母大写） */
   label?: string;
-  client: ResourceClient<TData, any, any>;
+  client: ResourceClient<TData, unknown, unknown>;
   /** 手写列定义或经 inferColumns 生成（meta.cell 标记由 blocks cellFor 消费） */
   columns: ListColumnDef<TData>[];
   filters?: FilterDef[];
@@ -94,6 +94,13 @@ function naiveSingular(name: string): string {
   if (name.endsWith("s")) return name.slice(0, -1);
   return name;
 }
+
+/**
+ * 「任意资源 def」：路由 options 工厂 / Guesser / 导航注册表接收混合 TData 的 def 集合，
+ * 统一收集形态（与 data 层 AnyResource 同理，单点收敛）。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: 混合 TData 资源注册表的统一形态（core-api §13）；禁止在具体逻辑内新开 any
+export type AnyResourceDef = ResourceDef<any>;
 
 /** 声明资源：补默认值（singular/label/tenantScoped）并做最小校验；不生成路由树 */
 export function defineResource<TData extends RowData>(def: ResourceDef<TData>): ResourceDef<TData> {
@@ -126,7 +133,7 @@ interface RouteCtx {
 
 /** canAccess → requireRole 风格守卫：未认证 → sign-in?next；无权限 → /403 */
 function guardFor(
-  def: ResourceDef<any>,
+  def: AnyResourceDef,
 ): ((ctx: RouteCtx) => Promise<AnyRedirect | undefined>) | undefined {
   if (!def.canAccess) return undefined;
   return async (ctx) => {
@@ -149,7 +156,7 @@ export interface ResourceListRouteOptions {
 }
 
 /** 列表路由 options：validateSearch 按 def.filters/list 生成 + 权限 beforeLoad + staticData.title */
-export function resourceListRouteOptions(def: ResourceDef<any>): ResourceListRouteOptions {
+export function resourceListRouteOptions(def: AnyResourceDef): ResourceListRouteOptions {
   const shape = createListSearchSchema({
     search: true,
     filters: def.filters,
@@ -185,7 +192,7 @@ export interface ResourceDetailRouteOptions {
  * 预取经 queryClient.ensureQueryData 走与 createResource 一致的 detail key
  * （`[name, tenantId?, 'detail', id]`）→ 详情挂载即命中缓存。
  */
-export function resourceDetailRouteOptions(def: ResourceDef<any>): ResourceDetailRouteOptions {
+export function resourceDetailRouteOptions(def: AnyResourceDef): ResourceDetailRouteOptions {
   const options: ResourceDetailRouteOptions = {
     staticData: { title: def.singular ?? naiveSingular(def.name) },
   };
@@ -283,7 +290,7 @@ function inferFieldKind(
 const HIDDEN_FIELDS = new Set(["version", "_secretOnce"]);
 
 export interface InferColumnsResult {
-  columns: ListColumnDef<any>[];
+  columns: ListColumnDef<RowData>[];
   report: string;
 }
 
@@ -303,7 +310,7 @@ export function inferColumns(
   const fields = Object.keys(sample[0] ?? {}).filter((f) => !skip.has(f));
   const enumLimit = opts.enumLimit ?? 12;
 
-  const columns: ListColumnDef<any>[] = [];
+  const columns: ListColumnDef<RowData>[] = [];
   const lines: string[] = [];
   for (const field of fields) {
     const { kind, enumValues } = inferFieldKind(
@@ -311,7 +318,7 @@ export function inferColumns(
       sample.map((row) => row[field]),
       enumLimit,
     );
-    const column: ListColumnDef<any> = {
+    const column: ListColumnDef<RowData> = {
       id: field,
       accessorKey: field,
       header: field,
@@ -533,7 +540,7 @@ function isDev(): boolean {
  * dev-only Guesser：拉一页样本 → console.info 推断出的 columns/form 配置。
  * 生产环境静默跳过（不产生请求与日志）。
  */
-export async function printGuess(def: ResourceDef<any>): Promise<void> {
+export async function printGuess(def: AnyResourceDef): Promise<void> {
   if (!isDev()) return;
   try {
     const page = await def.client.list({ pageSize: 25 });
@@ -572,7 +579,7 @@ export interface NavResourceGroup {
  * 资源注册表 → 导航分组：按 nav.group 聚合、组内 nav.order 排序（缺省排最后、保持声明序）、
  * canAccess fail-closed 过滤（user 缺失且有 canAccess → 隐藏）。无 nav 的资源不进导航。
  */
-export function navFromResources(defs: ResourceDef<any>[], user?: AuthUser): NavResourceGroup[] {
+export function navFromResources(defs: AnyResourceDef[], user?: AuthUser): NavResourceGroup[] {
   const groups = new Map<
     string,
     { group: string; items: (NavResourceItem & { seq: number; order: number })[] }

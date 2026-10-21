@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: lint / build / typecheck / test / registry validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本读根 package.json 的 packageManager 字段
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (biome)
+        run: pnpm lint
+
+      # 先构建：demo 的 typecheck 依赖 core dist 的 d.ts；registry:build 产出 registry.json 供 validate
+      - name: Build (core + registry)
+        run: pnpm build
+
+      - name: Typecheck (all workspaces)
+        run: pnpm -r typecheck
+
+      - name: Unit & guard tests (core + demo)
+        run: pnpm -r test
+
+      # shadcn CLI 直拉法：CI 网络可直连 schema（本机 init/add 挂起是网络环境问题）
+      - name: Validate shadcn registry
+        run: pnpm dlx shadcn@latest registry validate
+
+      - name: Build demo (vite)
+        run: pnpm --filter demo build
+
+  e2e:
+    name: Playwright smoke (manual)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build core (demo 依赖 workspace dist)
+        run: pnpm --filter @fleetly/ui-component-core build
+      - name: Install Playwright chromium
+        run: pnpm --filter demo exec playwright install chromium --with-deps
+      - name: Run smoke (webServer 自起 vite dev)
+        run: pnpm --filter demo test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-trace
+          path: apps/demo/test-results/
+          retention-days: 7

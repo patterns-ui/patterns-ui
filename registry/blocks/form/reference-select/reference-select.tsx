@@ -3,8 +3,8 @@
  * 数据经 core createResource hooks（useList/useReferenceLabel）；blocks 不发裸请求。
  */
 
-import type { Resource } from "@fleetly/ui-component-core/data";
-import { useReferenceLabel } from "@fleetly/ui-component-core/reference";
+import type { ResourceOf } from "@fleetly/ui-component-core/data";
+import { type ReferenceSource, useReferenceLabel } from "@fleetly/ui-component-core/reference";
 import { cn } from "cn";
 import { ChevronsUpDown, Plus, Search } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -15,8 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export interface ReferenceSelectProps {
-  resource: Resource<any, any, any>;
+export interface ReferenceSelectProps<TData = Record<string, unknown>> {
+  /** 关联资源（createResource 产物；TData 从 resource 推断） */
+  resource: ResourceOf<TData> & ReferenceSource<TData>;
   value: string | string[] | undefined;
   onChange(v: string | string[]): void;
   multiple?: boolean;
@@ -31,7 +32,7 @@ export interface ReferenceSelectProps {
   placeholder?: string;
   disabled?: boolean;
   /** 宿主可覆盖 label 取值（默认 name ?? title ?? id） */
-  getIdLabel?: (row: any) => string;
+  getIdLabel?: (row: TData) => string;
   className?: string;
 }
 
@@ -39,7 +40,9 @@ export interface ReferenceSelectProps {
  * 关联选择：Popover 触发（展示已选 label，多选为 chips）+ 搜索输入（防抖 250ms）+
  * 选项列表（复选，多选）+ 加载更多（分页）+ allowCreate 就地新建回选。
  */
-export function ReferenceSelect(props: ReferenceSelectProps) {
+export function ReferenceSelect<TData = Record<string, unknown>>(
+  props: ReferenceSelectProps<TData>,
+) {
   const {
     resource,
     value,
@@ -58,7 +61,7 @@ export function ReferenceSelect(props: ReferenceSelectProps) {
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<TData[]>([]);
 
   // 防抖搜索词
   useEffect(() => {
@@ -171,7 +174,10 @@ export function ReferenceSelect(props: ReferenceSelectProps) {
             ) : (
               rows.map((row) => {
                 const id = resource.getId(row);
-                const label = getIdLabel ? getIdLabel(row) : String(row.name ?? row.title ?? id);
+                const record = row as Record<string, unknown>;
+                const label = getIdLabel
+                  ? getIdLabel(row)
+                  : String(record.name ?? record.title ?? id);
                 return (
                   <Label
                     key={id}

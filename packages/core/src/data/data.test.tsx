@@ -1,10 +1,20 @@
 // @vitest-environment happy-dom
 /**
- * createResource 契约测试：queryKey 结构 / 失效规则 / mutationMode 三档（含 undoable 缓存时序）。
+ * createResource 契约测试：queryKey 结构 / 失效规则 / mutationMode 三档（含 undoable 缓存时序）
+ * / 租户作用域 queryKey。
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+  RouterProvider,
+} from "@tanstack/react-router";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { TenantProvider } from "../tenant";
 import {
   type BulkResult,
   createResource,
@@ -45,8 +55,8 @@ function makeClient(rows: Row[]) {
       rows.push(row);
       return row;
     },
-    update: async (id, vars) => {
-      calls.push({ method: "update", args: [id, vars] });
+    update: async (id, vars, opts) => {
+      calls.push({ method: "update", args: [id, vars, opts] });
       const row = rows.find((r) => r.id === id);
       if (!row) throw new HttpError(404, "not found");
       Object.assign(row, vars);
@@ -293,5 +303,132 @@ describe("createResource", () => {
     });
     expect(bulkResult?.succeeded).toEqual(["ghost"]);
     expect(bulkResult?.failed.length).toBe(1);
+  });
+
+  it("undoable update（createResource 层接线）：乐观改缓存，撤销还原且不提交；超时后真提交", async () => {
+    const rows: Row[] = [
+      { id: "a", name: "A", status: "running", version: 1 },
+      { id: "b", name: "B", status: "running" },
+    ];
+    const { client, calls } = makeClient(rows);
+    const resource = createResource<Row, Partial<Row>, Partial<Row>>({
+      name: "widgets",
+      client,
+      tenantScoped: false,
+    });
+    const { queryClient, wrapper } = makeWrapper();
+    const one = renderHook(() => resource.useOne("a"), { wrapper });
+    const list = renderHook(() => resource.useList({ page: 1, pageSize: 20 }), { wrapper });
+    await waitFor(() => expect(one.result.current.data?.name).toBe("A"));
+    await waitFor(() => expect(list.result.current.data?.rows.length).toBe(2));
+
+    let toastCtl: { undo: () => void; dismiss: () => void; secondsLeft: number } | undefined;
+    const update = renderHook(
+      () =>
+        resource.useUpdate({
+          mutationMode: "undoable",
+          undoDurationMs: 400,
+          onUndoableToast: (ctl) => {
+            toastCtl = ctl;
+          },
+        }),
+      { wrapper },
+    );
+
+    // 撤销路径：乐观写入 list+detail → undo 还原，客户端 update 未被调用
+    let mutatePromise: Promise<Row> | undefined;
+    act(() => {
+      mutatePromise = update.result.current.mutateAsync({ id: "a", name: "A-undo" });
+    });
+    await waitFor(() => {
+      const page = queryClient.getQueriesData<Page<Row>>({ queryKey: ["widgets", "list"] });
+      expect(page[0]?.[1]?.rows[0]?.name).toBe("A-undo");
+      expect(queryClient.getQueryData<Row>(["widgets", "detail", "a"])?.name).toBe("A-undo");
+    });
+    expect(calls.find((c) => c.method === "update")).toBeUndefined();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+      toastCtl?.undo();
+      await mutatePromise;
+    });
+    await waitFor(() => {
+      const page = queryClient.getQueriesData<Page<Row>>({ queryKey: ["widgets", "list"] });
+      expect(page[0]?.[1]?.rows[0]?.name).toBe("A");
+      expect(queryClient.getQueryData<Row>(["widgets", "detail", "a"])?.name).toBe("A");
+    });
+    expect(calls.find((c) => c.method === "update")).toBeUndefined();
+
+    // 超时路径：倒计时走完 → 真提交（版本随 vars 透传）
+    await act(async () => {
+      const p = update.result.current.mutateAsync({ id: "a", name: "A-final", version: 3 });
+      await new Promise((r) => setTimeout(r, 600));
+      await p;
+    });
+    const updateCall = calls.find((c) => c.method === "update");
+    expect(updateCall?.args[0]).toBe("a");
+    expect(updateCall?.args[2]).toMatchObject({ version: 3 });
+    await waitFor(() => expect(one.result.current.data?.name).toBe("A-final"));
+  });
+
+  it("tenantScoped=true：queryKey 含租户段 [name, tenantId, 'list', params]", async () => {
+    const rows: Row[] = [{ id: "a", name: "A", status: "running" }];
+    const { client } = makeClient(rows);
+    const resource = createResource<Row, Partial<Row>, Partial<Row>>({
+      name: "widgets",
+      client,
+      tenantScoped: true,
+    });
+    const { queryClient } = makeWrapper();
+
+    let captured: { data?: Page<Row> } = {};
+    // biome-ignore lint/correctness/noComponentHookFactories: 测试探针组件（路由组件内闭包捕获）
+    function Probe() {
+      const query = resource.useList({ page: 1, pageSize: 20 });
+      captured = query;
+      return null;
+    }
+    // biome-ignore lint/correctness/noComponentHookFactories: 布局组件内联（TenantProvider 需路由 params）
+    function TenantLayout() {
+      return (
+        <TenantProvider
+          resolveTenant={async (id) => ({ id, name: `org-${id}` })}
+          listTenants={async () => [{ id: "acme-web", name: "Acme" }]}
+        >
+          <Outlet />
+        </TenantProvider>
+      );
+    }
+    const rootRoute = createRootRoute({ component: () => <Outlet /> });
+    const shellRoute = createRoute({
+      getParentRoute: () => rootRoute,
+      id: "_shell",
+      component: TenantLayout,
+    });
+    const tenantRoute = createRoute({
+      getParentRoute: () => shellRoute,
+      path: "t/$tenantId",
+      component: Probe,
+    });
+    const router = createRouter({
+      routeTree: rootRoute.addChildren([shellRoute.addChildren([tenantRoute])]),
+      history: createMemoryHistory({ initialEntries: ["/t/acme-web"] }),
+    });
+    await act(async () => {
+      await router.load();
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(captured.data).toBeDefined());
+    expect(
+      queryClient.getQueryData<Page<Row>>([
+        "widgets",
+        "acme-web",
+        "list",
+        { page: 1, pageSize: 20 },
+      ]),
+    ).toBeDefined();
   });
 });

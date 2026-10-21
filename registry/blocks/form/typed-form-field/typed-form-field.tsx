@@ -121,15 +121,22 @@ export function FormMessage() {
 
 export const typedFormComponents = { SubmitButton, FormMessage } as const;
 
+/**
+ * 松组件形态：TanStack createFormHook 的 fieldComponents/formComponents 官方签名即
+ * `Record<string, ComponentType<any>>`（widget 接收的 props 由各字段自带泛型决定）。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: createFormHook env 的官方签名形态（ComponentType<any>）；禁止用于其它场景
+type AnyComponent = ComponentType<any>;
+
 // ---------------------------------------------------------------------------
 // createTypedForm 工厂
 // ---------------------------------------------------------------------------
 
 export interface TypedFormEnv {
   /** 追加/覆盖字段 widget（如项目自有富文本编辑器） */
-  fieldComponents?: Record<string, ComponentType<any>>;
+  fieldComponents?: Record<string, AnyComponent>;
   /** 追加/覆盖表单级组件 */
-  formComponents?: Record<string, ComponentType<any>>;
+  formComponents?: Record<string, AnyComponent>;
 }
 
 /**
@@ -158,7 +165,7 @@ export interface TypedFieldProps {
   form: any;
   name: string;
   /** widget 组件（如 TextWidget；或经 createTypedForm 扩展的自定义 widget） */
-  component: ComponentType<any>;
+  component: AnyComponent;
   /** 透传给 widget 的 props（label/description/options…） */
   props?: Record<string, unknown>;
 }

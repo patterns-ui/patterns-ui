@@ -13,6 +13,8 @@ apps/demo/src/routeTree.gen.ts
 
 # test
 coverage/
+apps/demo/test-results/
+apps/demo/playwright-report/
 
 # env
 .env

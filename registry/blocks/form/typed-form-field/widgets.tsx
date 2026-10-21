@@ -6,7 +6,7 @@
  * MultiSelect/Tags/Upload/RepeatableRows → 数组；Switch → boolean；
  * DateRange → { from?, to? }；KvPairs → { key, value }[]；Json → string（内容由 schema 校验）。
  */
-import type { FieldApi } from "@tanstack/react-form";
+import type { AnyFieldApi } from "@tanstack/react-form";
 import { cn } from "cn";
 import { Eye, EyeOff, FileText, Plus, Trash2, UploadCloud, X } from "lucide-react";
 import { type ReactNode, useCallback, useMemo, useRef, useState } from "react";
@@ -40,31 +40,7 @@ export interface WidgetBaseProps {
   className?: string;
 }
 
-type AnyFieldApi = FieldApi<
-  any,
-  string,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any,
-  any
->;
+// AnyFieldApi 复用 @tanstack/react-form 的官方导出（等价 FieldApi<any × 22>：widget 不感知具体表单泛型）
 
 /** 字段态 + 错误收集（widget 内公共样板） */
 function useFieldState(field: AnyFieldApi) {
