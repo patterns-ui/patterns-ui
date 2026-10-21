@@ -5,7 +5,8 @@ import {
   useResourceTable,
 } from "@fleetly/ui-component-core/list";
 import { useNewItemsSignal } from "@fleetly/ui-component-core/task";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CellEnumBadge } from "@/components/blocks/cells/cell-enum-badge/cell-enum-badge";
@@ -28,6 +29,7 @@ import { RefreshBar } from "@/components/blocks/list/refresh-bar/refresh-bar";
 import { SelectionBar } from "@/components/blocks/list/selection-bar/selection-bar";
 import { useResourceMutations } from "@/components/blocks/list/use-resource-mutations/use-resource-mutations";
 import { AsyncState } from "@/components/blocks/shared/async-state/async-state";
+import { Button } from "@/components/ui/button";
 import { fetchAllForExport } from "@/lib/clients";
 import type { MockService } from "@/mocks/db";
 import { resolveUser, servicesResource } from "@/resources";
@@ -67,6 +69,7 @@ const helper = createListColumnHelper<MockService>();
 
 function ServicesPage() {
   const [autoIntervalMs, setAutoIntervalMs] = useState<number | false>(false);
+  const { tenantId } = Route.useParams();
 
   const { useDeleteWithUndo, useBulkDeleteWithUndo } = useResourceMutations(servicesResource);
   const deleteRow = useDeleteWithUndo();
@@ -79,7 +82,7 @@ function ServicesPage() {
   const rowActions = (row: MockService) => [
     {
       label: "标记为 running",
-      run: () => updateRow.mutate({ id: row.id, status: "running" }),
+      run: () => updateRow.mutate({ id: row.id, status: "running", version: String(row.version) }),
     },
     {
       label: "复制 ID",
@@ -221,6 +224,9 @@ function ServicesPage() {
             ]}
             filename="services"
           />
+          <Button render={<Link to="/t/$tenantId/services/new" params={{ tenantId }} />}>
+            <Plus /> 新建服务
+          </Button>
         </>
       }
       filter={

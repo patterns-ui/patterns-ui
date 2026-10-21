@@ -1,0 +1,10 @@
+{
+  "name": "reference-select",
+  "type": "registry:block",
+  "title": "Reference Select",
+  "description": "关联选择：Popover 触发（已选 label/chips）+ 防抖搜索（默认 name contains）+ 分页选项加载更多 + allowCreate 就地新建回选；数据经 core /reference 与 resource.useList。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/reference-select"
+}

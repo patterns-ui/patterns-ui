@@ -1,0 +1,10 @@
+{
+  "name": "form-sheet",
+  "type": "registry:block",
+  "title": "Form Sheet",
+  "description": "抽屉表单宿主（复杂表单）：头部标题描述 + 滚动主体 + sticky 底部动作条，sm/md/lg 三档宽度。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/form-sheet"
+}

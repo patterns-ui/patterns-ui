@@ -1,0 +1,10 @@
+{
+  "name": "form-page",
+  "type": "registry:block",
+  "title": "Form Page",
+  "description": "整页表单宿主：页头(返回/标题/动作) + 分区表单(左侧标题描述右侧字段) + sticky 底部动作条。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/form-page"
+}

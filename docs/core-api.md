@@ -72,7 +72,7 @@ export interface ResourceClient<TData, TCreate = Partial<TData>, TUpdate = Parti
   list(params: ListParams): Promise<Page<TData>>
   get(id: string): Promise<TData>
   create?(vars: TCreate): Promise<TData>
-  update?(id: string, vars: TUpdate, opts?: { version?: string }): Promise<TData>  // 409 由实现方抛 HttpError(409)
+  update?(id: string, vars: TUpdate, opts?: { version?: string | number }): Promise<TData>  // 409 由实现方抛 HttpError(409)
   delete?(id: string): Promise<void>
   getMany?(ids: string[]): Promise<TData[]>   // 可选；缺省用 list + in 过滤分块（每块 50）兜底
   bulkDelete?(ids: string[]): Promise<BulkResult>
@@ -104,7 +104,7 @@ export interface Resource<TData, TCreate, TUpdate> {
   useOne(id: string | undefined, opts?: { enabled?: boolean }): UseQueryResult<TData>
 
   useCreate(opts?: MutationOpts<TCreate>): UseMutationResult<TData, Error, TCreate>
-  useUpdate(opts?: MutationOpts<TUpdate & { id: string }>): ...
+  useUpdate(opts?: MutationOpts<UpdateVars<TUpdate>>): ...   // UpdateVars<T> = Omit<T,'version'> & { id; version?: string|number }
   useDelete(opts?: MutationOpts<{ id: string }>): ...
   useBulkDelete(opts?: MutationOpts<{ ids: string[] }>): ...
   useBulkUpdate(opts?: MutationOpts<{ ids: string[]; vars: TUpdate }>): ...
@@ -272,15 +272,22 @@ export function useReference<TData>(resource: Resource<TData, any, any>, ids: st
   data: Record<string, TData | undefined>
   isLoading: boolean
 }   // 去重 → 优先 client.getMany → 否则 list+in 过滤分块(50)；queryKey [name, tenant, 'many', idsSorted]
-export function useReferenceLabel(resource, getIdLabel?: (row) => string)
-// 默认 label = row.name ?? row.title ?? row.id
+export function useReferenceLabel<TData>(
+  resource: Resource<TData, any, any>,
+  ids: string[],
+  getIdLabel?: (row: TData) => string,
+): {
+  labels: Record<string, string>       // id → label（默认 name ?? title ?? id，空串逐级回落）
+  data: Record<string, TData | undefined>
+  isLoading: boolean
+}
 
 export interface ReferenceSelectProps (blocks 层组件的 core 约定) {
   resource: Resource<any, any, any>
   value: string | string[] | undefined
   onChange(v: string | string[]): void
   multiple?: boolean
-  searchToFilter?: (q: string) => FilterTree            // 默认 name contains
+  searchToFilter?: (q: string) => FilterTree            // 预留（当前实现直接走 ListParams.search）
   enableAfterChars?: number                              // 默认 0（即始终取选项）
   initialPageSize?: number                               // 默认 25
   allowCreate?: { render: (props: { onCreated: (id: string) => void }) => ReactNode }
@@ -299,29 +306,48 @@ export interface UseResourceFormOptions<TData> {
   schema: StandardSchema                        // zod v4 直传
   defaultValues: Partial<TData>
   mutationMode?: MutationOpts<any>['mutationMode']
-  redirect?: 'list' | 'detail' | 'stay'         // 默认 'list'；detail 需提供 getId
-  autosave?: { enabled?: boolean; debounceMs?: number }   // 草稿 localStorage：`fc:draft:<resource>:<id|new>`
+  redirect?: 'list' | 'detail' | 'stay' | ((ctx: { mode; data: TData }) => string)
+  // 默认 'list'；相对路径约定（TanStack Router 相对导航）：create+list → '..'；create+detail → '../<id>'；
+  // edit+list → '../..'；edit+detail → '..'；函数形态返回显式路径（绝对/相对均可）
+  autosave?: { enabled?: boolean; debounceMs?: number }   // 草稿 localStorage：`fc:draft:<resource>:<id|new>`；debounce 默认 800ms
   submitText?: string
+  versionOf?: (record: TData) => string | undefined       // edit 提交的 If-Match 版本来源；默认 record.version
+  versionField?: string                                    // 默认 'version'
+  onSuccess?: (data: TData) => void                        // 透传 createResource mutation onSuccess
 }
 
 export function useResourceForm<TData>(opts): {
   mode: 'create' | 'edit'
-  initialValues: Partial<TData> | undefined     // edit 取数完成前为 undefined（宿主渲染骨架）
+  initialValues: Partial<TData> | undefined     // edit 取数完成前为 undefined（宿主渲染骨架）；create 立即 = defaults（+草稿，mount 后 effect 读出合并）
   recordLoading: boolean
   draftRestored: boolean                        // 恢复过草稿 → UI 提示「已恢复未保存草稿」
   discardDraft(): void
+  saveDraft(values: Partial<TData>): void       // 消费端 values 变化时调用（内部防抖写；建议仅在 isDirty 时调用）
+  clearDraft(): void                            // 提交成功后由 onSubmit 内部自动调用
   onSubmit(values: TData): Promise<
     | { ok: true; data: TData }
     | { ok: false; fieldErrors: Record<string, string>; formError?: string }
   >
+  isSubmitting: boolean
   // 服务端 422/400 字段错误 → fieldErrors（由适配器从 HttpError.body 提取或抛 { fields, form } 形状）
   // 409 → formError = '记录已被他人修改，请刷新后重试'
 }
+
+export function extractFieldErrors(err: unknown): { fieldErrors: Record<string, string>; formError?: string }
+export function draftKey(resourceName: string, id: string | undefined): string
 ```
 
-**TanStack Form 绑定在 blocks 层**（`typed-form-field` block）：core 不含 UI。blocks 用 `createFormHookContexts` + `createFormHook` 组合出 `useAppForm`，字段组件基于 `useFieldContext`，错误形状 `{ fields: Record<string,string>, form?: string }`。core 的 form 模块只约定上述逻辑壳。
+**TanStack Form 绑定在 blocks 层**（`typed-form-field` block）：core 不含 UI。blocks 用 `createFormHookContexts` + `createFormHook` 组合出 `useAppForm`，字段组件基于 `useFieldContext`。**TanStack Form v1.33 实际 API 事实**（M3 spike 实跑确认，后续复用）：
 
-**dirty guard**：`useFormDirtyGuard(isDirty: boolean, enabled?: boolean)` —— 拦截 router beforeUnload + TanStack Router `useBlocker`（阻塞行内导航），弹确认（确认 UI 由 blocks 提供，core 提供回调钩子）。
+- `createFormHookContexts()` → `{ fieldContext, useFieldContext, useFormContext, formContext }`（`useFormContext` 不在 `@tanstack/react-form` 顶层导出，必须用 contexts 工厂返回的那个）。
+- `createFormHook({ fieldContext, formContext, fieldComponents, formComponents })` → `{ useAppForm, withForm, withFieldGroup, useTypedAppFormContext, extendForm }`。
+- 字段渲染是 **children render prop**：`<form.AppField name="x">{(field) => <field.TextWidget label="…" />}</form.AppField>`（field API 上合并了 fieldComponents；v1.33 **没有** `component` prop）。
+- `form.AppForm` 是纯 context Provider（不渲染 DOM `<form>`、不接 onSubmit）——外层 `<form onSubmit={(e) => { e.preventDefault(); void form.handleSubmit() }}>` 由宿主写。
+- zod v4 Standard Schema 直传 `validators: { onChange: schema }`，字段错误自动分派。
+- **服务端错误**：`onSubmit` 的返回值在 v1.33 被忽略；必须 `formApi.setErrorMap({ onSubmit: { fields, form } })`（或 onServer 时相）。`isGlobalFormValidationError = 对象含 "fields" 键`。
+- 便利封装：blocks `typed-form-field` 导出 `TypedField`（component prop 风格）与 `VisibleWhen`（条件显隐）。
+
+**dirty guard**：`useFormDirtyGuard(isDirty: boolean, enabled?: boolean)` → `{ blocked, proceed(), stay() }` —— 拦截 router beforeUnload + TanStack Router `useBlocker`（阻塞行内导航）；确认 UI 由 blocks 提供（`blocked === true` 时渲染确认框）。注意：提交成功后的 redirect 导航会被自身 guard 拦截 —— 宿主应在 `isSubmitting || isSubmitSuccessful` 期间禁用 guard（demo `DirtyGuardHost` 的做法）。
 
 ---
 
@@ -406,13 +432,20 @@ export function filterNavByCan<T extends { canAccess?: (action: string, resource
 
 ```ts
 export interface TaskState { id: string; state: 'queued'|'running'|'succeeded'|'failed'; progress?: number; error?: string }
+export function isTerminal(state: TaskState['state']): boolean   // succeeded / failed
+export function taskIdOf(ref: unknown): string | undefined      // { taskId } | { id } | { task: { id } } | 字符串
 
 export function useTaskSubmit(getTask: (ref: unknown) => Promise<TaskState>, opts?: {
   pollIntervalMs?: number                   // 默认 1500
   onDone?: (t: TaskState) => void
 }): { submit(trigger: () => Promise<unknown>): Promise<TaskState> }
-export function useTaskPoll(taskId: string | undefined, getTask: (id: string) => Promise<TaskState>, opts?): TaskState | undefined
-//   终态停止轮询；组件卸载清理
+//   trigger() 拿到 { taskId } 后轮询至终态；组件卸载停止（返回最后已知状态）；响应缺 taskId 抛错
+export function useTaskPoll(taskId: string | undefined, getTask: (id: string) => Promise<TaskState>, opts?: {
+  intervalMs?: number                       // 默认 1500
+  enabled?: boolean                         // 默认 true
+  onDone?: (t: TaskState) => void
+}): TaskState | undefined
+//   每次.tick 取状态；终态停止；taskId 变化重置；卸载清理定时器
 
 export function useNewItemsSignal<TRow>(query: UseQueryResult<Page<TRow>>, opts?: {
   key?: (row: TRow) => string               // 默认 row.id

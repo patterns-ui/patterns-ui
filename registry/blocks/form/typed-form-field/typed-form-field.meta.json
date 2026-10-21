@@ -1,0 +1,10 @@
+{
+  "name": "typed-form-field",
+  "type": "registry:block",
+  "title": "Typed Form Field",
+  "description": "TanStack Form v1 组合工厂 createTypedForm()（createFormHookContexts + createFormHook，zod v4 Standard Schema 直传）+ 字段 widget 全家（text/textarea/number/select/multi-select/tags/switch/date/date-range/secret/kv-pairs/upload/json/repeatable-rows）+ 条件显隐 VisibleWhen + TypedField component 风格封装 + SubmitButton/FormMessage 表单级组件。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/typed-form-field"
+}

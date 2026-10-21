@@ -70,7 +70,7 @@ export interface BulkResult {
 }
 
 export interface UpdateOptions {
-  version?: string;
+  version?: string | number;
 }
 
 export interface ResourceClient<TData, TCreate = Partial<TData>, TUpdate = Partial<TData>> {
@@ -188,8 +188,8 @@ export interface Resource<TData, TCreate = Partial<TData>, TUpdate = Partial<TDa
 
   useCreate(opts?: MutationOpts<TCreate>): UseMutationResult<TData, Error, TCreate>;
   useUpdate(
-    opts?: MutationOpts<TUpdate & { id: string; version?: string }>,
-  ): UseMutationResult<TData, Error, TUpdate & { id: string; version?: string }>;
+    opts?: MutationOpts<UpdateVars<TUpdate>>,
+  ): UseMutationResult<TData, Error, UpdateVars<TUpdate>>;
   useDelete(opts?: MutationOpts<{ id: string }>): UseMutationResult<void, Error, { id: string }>;
   useBulkDelete(
     opts?: MutationOpts<{ ids: string[] }>,
@@ -198,6 +198,12 @@ export interface Resource<TData, TCreate = Partial<TData>, TUpdate = Partial<TDa
     opts?: MutationOpts<{ ids: string[]; vars: TUpdate }>,
   ): UseMutationResult<BulkResult | undefined, Error, { ids: string[]; vars: TUpdate }>;
 }
+
+/** update 变量：patch + 定位 id + 可选乐观并发版本（Omit 避免与 TUpdate 自带 version 字段交叉出 never） */
+export type UpdateVars<TUpdate> = Omit<TUpdate, "version"> & {
+  id: string;
+  version?: string | number;
+};
 
 export interface CreateResourceConfig<TData, TCreate, TUpdate> {
   name: string;
@@ -428,8 +434,8 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
     useUpdate(opts) {
       const queryClient = useQueryClient();
       const tenantId = useResourceTenantId(tenantScoped);
-      return useMutation<TData, Error, TUpdate & { id: string; version?: string }>({
-        mutationFn: makeMutationFn<TData, TUpdate & { id: string; version?: string }>(
+      return useMutation<TData, Error, UpdateVars<TUpdate>>({
+        mutationFn: makeMutationFn<TData, UpdateVars<TUpdate>>(
           queryClient,
           tenantId,
           opts,

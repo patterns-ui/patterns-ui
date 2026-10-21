@@ -1,0 +1,10 @@
+{
+  "name": "diff-viewer",
+  "type": "registry:block",
+  "title": "Diff Viewer",
+  "description": "两版对比：字段对比（diffRecords 扁平 diff + 删除/新增/变更三色徽标）与逐行对比（左右两栏着色）两模式；状态色走 --status-* token。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/diff-viewer"
+}

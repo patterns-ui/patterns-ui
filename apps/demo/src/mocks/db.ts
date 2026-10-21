@@ -226,3 +226,130 @@ export function usersForRef(): MockUser[] {
 }
 
 usersForRef();
+
+// ---------------------------------------------------------------------------
+// M3：deployments / tasks / api-keys（内存态；deployments 状态由 createdAt 时间推算）
+// ---------------------------------------------------------------------------
+
+export interface MockDeployment {
+  id: string;
+  serviceId: string;
+  /** 由 createdAt 时间推算：queued → building → deploying → succeeded/failed */
+  status: "queued" | "building" | "deploying" | "succeeded" | "failed";
+  replicas: number;
+  source: { kind: "git" | "image"; ref: string };
+  branch?: string;
+  envOverrides: Record<string, string>;
+  taskId: string;
+  progress: number;
+  createdAt: string;
+  finishedAt?: string;
+  triggeredBy: string;
+}
+
+export interface MockTask {
+  id: string;
+  kind: "deployment" | "generic";
+  state: "queued" | "running" | "succeeded" | "failed";
+  progress: number;
+  error?: string;
+  createdAt: number;
+  /** 总时长（ms）；到点 succeeded（除非 failMode） */
+  durationMs: number;
+  failMode?: boolean;
+}
+
+export interface MockApiKey {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  expiresAt?: string;
+  lastUsedAt?: string;
+  /** 一次性 secret：仅在创建响应中出现；内存不落（再次查看不可得） */
+  _secretOnce?: string;
+}
+
+const tenantDeployments = new Map<string, MockDeployment[]>();
+const tenantApiKeys = new Map<string, MockApiKey[]>();
+/** 全局 task 注册表（id → MockTask；跨租户共享任务命名空间） */
+export const tasks = new Map<string, MockTask>();
+
+export function deploymentsOf(tenantId: string): MockDeployment[] {
+  let rows = tenantDeployments.get(tenantId);
+  if (!rows) {
+    rows = [];
+    tenantDeployments.set(tenantId, rows);
+  }
+  return rows;
+}
+
+export function apiKeysOf(tenantId: string): MockApiKey[] {
+  let rows = tenantApiKeys.get(tenantId);
+  if (!rows) {
+    rows = [
+      {
+        id: "key_legacy",
+        name: "legacy-ci-token",
+        prefix: "fl_a91f",
+        createdAt: seededIso(60, 6, 30),
+        lastUsedAt: seededIso(3, 1, 12),
+      },
+      {
+        id: "key_terraform",
+        name: "terraform-prod",
+        prefix: "fl_7c02",
+        createdAt: seededIso(20, 9, 45),
+      },
+    ];
+    tenantApiKeys.set(tenantId, rows);
+  }
+  return rows;
+}
+
+/** task 状态机：queued（<800ms）→ running（progress 线性）→ 终态（durationMs 到点） */
+export function taskState(task: MockTask): MockTask {
+  const elapsed = Date.now() - task.createdAt;
+  if (task.failMode && elapsed >= task.durationMs) {
+    return { ...task, state: "failed", progress: 100, error: "部署失败：健康检查未通过（演示）" };
+  }
+  if (elapsed >= task.durationMs) {
+    return { ...task, state: "succeeded", progress: 100 };
+  }
+  if (elapsed < 800) {
+    return { ...task, state: "queued", progress: 0 };
+  }
+  const ratio = Math.min(0.98, (elapsed - 800) / task.durationMs);
+  return { ...task, state: "running", progress: Math.round(ratio * 100) };
+}
+
+/** deployment 状态机：由绑定 task 推算（queued/building/deploying → succeeded/failed） */
+export function deploymentState(row: MockDeployment): MockDeployment {
+  const task = tasks.get(row.taskId);
+  if (!task) return row;
+  const state = taskState(task);
+  if (state.state === "succeeded") {
+    return {
+      ...row,
+      status: "succeeded",
+      progress: 100,
+      finishedAt: row.finishedAt ?? new Date().toISOString(),
+    };
+  }
+  if (state.state === "failed") {
+    return {
+      ...row,
+      status: "failed",
+      progress: state.progress,
+      finishedAt: row.finishedAt ?? new Date().toISOString(),
+    };
+  }
+  if (state.state === "queued") {
+    return { ...row, status: "queued", progress: 0 };
+  }
+  return {
+    ...row,
+    status: state.progress < 40 ? "building" : "deploying",
+    progress: state.progress,
+  };
+}

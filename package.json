@@ -32,6 +32,7 @@
     "typescript": "catalog:"
   },
   "dependencies": {
+    "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-table": "catalog:",
     "sonner": "catalog:"
   }

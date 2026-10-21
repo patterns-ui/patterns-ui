@@ -1,0 +1,10 @@
+{
+  "name": "danger-zone",
+  "type": "registry:block",
+  "title": "Danger Zone",
+  "description": "危险操作区：底部红框卡（--status-danger 语义）+ 动作列表 + confirm-dialog 内部编排（含 type-to-confirm）。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": ["confirm-dialog"],
+  "targetDir": "components/blocks/show/danger-zone"
+}

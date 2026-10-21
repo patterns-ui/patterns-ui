@@ -1,0 +1,10 @@
+{
+  "name": "record-pager",
+  "type": "registry:block",
+  "title": "Record Pager",
+  "description": "上一条/下一条：基于来源列表 query 相邻 id 跳转，保留当前路由 search（过滤/tab 态）。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/record-pager"
+}

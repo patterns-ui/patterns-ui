@@ -1,0 +1,10 @@
+{
+  "name": "detail-page",
+  "type": "registry:block",
+  "title": "Detail Page",
+  "description": "详情页模板：返回链 + hero(图标/头像+标题+StatusBadge+actions) + tabs（受控 + useDetailTabParam URL 深链）+ lead 槽。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": ["status-badge"],
+  "targetDir": "components/blocks/show/detail-page"
+}

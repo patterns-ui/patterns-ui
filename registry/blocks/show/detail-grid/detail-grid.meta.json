@@ -1,0 +1,10 @@
+{
+  "name": "detail-grid",
+  "type": "registry:block",
+  "title": "Detail Grid",
+  "description": "键值两列网格区：值经 cells（cellFor）渲染或 render 自定义，空值占位。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": ["cell-for"],
+  "targetDir": "components/blocks/show/detail-grid"
+}

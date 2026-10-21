@@ -1,0 +1,10 @@
+{
+  "name": "form-dialog",
+  "type": "registry:block",
+  "title": "Form Dialog",
+  "description": "弹窗表单宿主（小表单/创建流）：头部 + 内嵌 form 主体 + 底部动作，sm/md/lg 三档尺寸。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/form-dialog"
+}

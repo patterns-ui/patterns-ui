@@ -214,15 +214,31 @@ export const serviceRoutes: MockRoute[] = [
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
       const gated = demoErrorGate(ctx);
       if (gated) return gated;
-      const body = (ctx.body ?? {}) as Partial<MockService>;
-      if (!body.name || typeof body.name !== "string") {
-        return fail(422, "name 必填");
+      const body = (ctx.body ?? {}) as Partial<MockService> & { name?: unknown };
+      // 422 字段错误演示：name < 3 字符 / env 非法（{ fields, form? } 形状，core useResourceForm 消费）
+      const fields: Record<string, string> = {};
+      if (typeof body.name !== "string" || body.name.trim() === "") {
+        fields.name = "名称必填";
+      } else if (body.name.trim().length < 3) {
+        fields.name = "名称至少 3 个字符（服务端校验）";
+      } else if (body.name.toLowerCase().includes("taken")) {
+        // 服务端独有规则（客户端 zod 不含）：演示 422 字段错误回填
+        fields.name = "该名称已被占用（服务端独有校验）";
+      }
+      if (body.env !== undefined && !["rep", "staging", "prod"].includes(String(body.env))) {
+        fields.env = `环境只能是 rep/staging/prod（收到 "${String(body.env)}"）`;
+      }
+      if (Object.keys(fields).length > 0) {
+        return {
+          status: 422,
+          body: { fields, form: "请修正标记的字段后重试", message: "校验失败" },
+        };
       }
       const services = servicesOf(ctx.params.tid ?? "");
       const now = new Date().toISOString();
       const row: MockService = {
         id: `svc-new-${randomUUID().slice(0, 8)}`,
-        name: body.name,
+        name: body.name as string,
         env: body.env ?? "rep",
         status: "stopped",
         replicas: body.replicas ?? 1,
@@ -312,10 +328,13 @@ export const serviceRoutes: MockRoute[] = [
       if (gated) return gated;
       const row = servicesOf(ctx.params.tid ?? "").find((s) => s.id === ctx.params.id);
       if (!row) return fail(404, "服务不存在");
-      // 409 演示：If-Match 头携带的版本与当前不符 → 冲突
+      // 409 严格乐观并发：If-Match 缺失或不符 → 冲突（M3 起演示表单 409 流）
       const ifMatch = ctx.req.headers["if-match"];
       const expectedVersion = Array.isArray(ifMatch) ? ifMatch[0] : ifMatch;
-      if (expectedVersion !== undefined && expectedVersion !== String(row.version)) {
+      if (expectedVersion === undefined) {
+        return fail(409, "缺少 If-Match 版本头：编辑必须基于当前版本（M3 起强制乐观并发）");
+      }
+      if (expectedVersion !== String(row.version)) {
         return fail(409, `版本冲突：期望 ${row.version}，收到 ${expectedVersion}`);
       }
       const body = (ctx.body ?? {}) as Partial<MockService>;

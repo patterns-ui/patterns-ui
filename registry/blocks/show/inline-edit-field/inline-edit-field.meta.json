@@ -1,0 +1,10 @@
+{
+  "name": "inline-edit-field",
+  "type": "registry:block",
+  "title": "Inline Edit Field",
+  "description": "点击即改字段：展示态虚线文本 → 编辑态输入 → Enter/✓ 保存（异步 pending）、Esc/✕ 取消。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/inline-edit-field"
+}

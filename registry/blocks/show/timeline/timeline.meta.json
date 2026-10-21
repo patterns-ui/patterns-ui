@@ -1,0 +1,10 @@
+{
+  "name": "timeline",
+  "type": "registry:block",
+  "title": "Timeline",
+  "description": "垂直事件时间线：done/running/waiting/failed 四态节点 + 相对/绝对时间（core /datetime）。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/timeline"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "reference-field",
+  "type": "registry:block",
+  "title": "Reference Field",
+  "description": "外键显示：异步解析 label（core useReferenceLabel，同 id 共享缓存）+ 自定义 render。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/reference-field"
+}

@@ -45,14 +45,16 @@ export function createRestClient<TData, TCreate, TUpdate>(
       return api<Page<TData>>(`${base()}?${query}`);
     },
     get: async (id: string) => api<TData>(`${base()}/${encodeURIComponent(id)}`),
-    create: async (vars: TCreate) =>
-      api<TData>(base(), { method: "POST", body: JSON.stringify(vars) }),
+    create: async (vars: TCreate) => {
+      const row = await api<unknown>(base(), { method: "POST", body: JSON.stringify(vars) });
+      return row as TData;
+    },
     update: async (id: string, vars: TUpdate, updateOpts?: { version?: string }) =>
       api<TData>(`${base()}/${encodeURIComponent(id)}`, {
         method: "PUT",
         body: JSON.stringify(vars),
         ...(opts.withVersionConflict && updateOpts?.version !== undefined
-          ? { headers: { "if-match": updateOpts.version } }
+          ? { headers: { "if-match": String(updateOpts.version) } }
           : {}),
       }),
     delete: async (id: string) => {
@@ -89,6 +91,45 @@ export async function fetchAllForExport<TData>(
     if (page > maxPages) break;
   }
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// M3：cursor 列表（deployments keyset）与普通 REST 的 cursor 变体
+// ---------------------------------------------------------------------------
+
+/** cursor 分页版 REST 客户端（list 走 ?cursor=；query 构造同 createRestClient） */
+export function createCursorClient<TData, TCreate, TUpdate>(
+  collectionPath: () => string,
+): ResourceClient<TData, TCreate, TUpdate> {
+  return {
+    list: async (params: ListParams) => {
+      const query = buildQuery(params);
+      return api<Page<TData>>(`${collectionPath()}?${query}`);
+    },
+    get: async (id: string) => api<TData>(`${collectionPath()}/${encodeURIComponent(id)}`),
+    create: async (vars: TCreate) => {
+      const row = await api<unknown>(collectionPath(), {
+        method: "POST",
+        body: JSON.stringify(vars),
+      });
+      return row as TData;
+    },
+    update: async (id: string, vars: TUpdate) =>
+      api<TData>(`${collectionPath()}/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(vars),
+      }),
+  };
+}
+
+/** 长任务触发 + 状态查询（POST 响应 { taskId } → GET /api/tasks/:id 轮询） */
+export async function getTask(taskId: string): Promise<{
+  id: string;
+  state: "queued" | "running" | "succeeded" | "failed";
+  progress?: number;
+  error?: string;
+}> {
+  return api(`/api/tasks/${encodeURIComponent(taskId)}`);
 }
 
 export type { FilterTree };

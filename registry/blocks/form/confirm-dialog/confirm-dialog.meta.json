@@ -1,0 +1,10 @@
+{
+  "name": "confirm-dialog",
+  "type": "registry:block",
+  "title": "Confirm Dialog",
+  "description": "确认框：普通变体 + typeToConfirm 高危变体（输入指定名称才解锁确认）；danger 走 destructive 语义。",
+  "categories": ["form"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/form/confirm-dialog"
+}
