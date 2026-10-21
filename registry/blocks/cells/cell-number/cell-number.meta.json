@@ -1,0 +1,10 @@
+{
+  "name": "cell-number",
+  "type": "registry:component",
+  "title": "Cell: Number",
+  "description": "数值单元格：tabular-nums + Intl 格式化（int/decimal/percent/bytes）+ 可选单位后缀。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-number"
+}

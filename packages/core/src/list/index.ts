@@ -1,5 +1,757 @@
 /**
- * `core/list` 模块占位 —— 实现于 M2（见 docs/milestones.md 与 docs/core-api.md）。
- * 消费入口：`@fleetly/ui-component-core/list`。
+ * core/list —— useResourceTable 与 URL 状态（docs/core-api.md §3）。
+ *
+ * 状态哲学（architecture.md §3）：查询语义（q/filters/sort/page/size）全部进 URL（zod schema
+ * 兜底坏值），cursor token 栈 / 行选择 / 草稿留在内存。四模式：
+ *  - client：一次整取（clientFetchSize 默认 500），applyFilterTree + 表内排序分页，页码钳制；
+ *  - server-offset：page/pageSize/sort/filters/search 进请求，keepPreviousData；
+ *  - server-cursor：内存 token 栈；URL page 为序数；深链无栈页码回退第 1 页；
+ *  - load-more：累计拼接，page 为已加载页数。
  */
-export {};
+
+import type { UseQueryResult } from "@tanstack/react-query";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
+import {
+  type ColumnDef,
+  type ColumnHelper,
+  columnOrderingFeature,
+  columnResizingFeature,
+  columnSizingFeature,
+  columnVisibilityFeature,
+  createColumnHelper,
+  createExpandedRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  type ReactTable,
+  type RowData,
+  rowExpandingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  type SortingState,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FacetResult, ListParams, Page, Resource } from "../data";
+import {
+  andTrees,
+  applyFilterTree,
+  decodeFiltersFromParams,
+  encodeFiltersToParams,
+  type FilterDef,
+  type FilterTree,
+  type SortSpec,
+} from "../filters";
+
+export type { FacetResult, ListParams, Page } from "../data";
+export type { FilterDef, FilterTree, SortDirection, SortSpec } from "../filters";
+
+// ---------------------------------------------------------------------------
+// TanStack Table v9：列表场景共享 features 集（显式注册，禁止 v8 兼容层）
+// ---------------------------------------------------------------------------
+
+export const listTableFeatures = tableFeatures({
+  rowSortingFeature,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowExpandingFeature,
+  columnOrderingFeature,
+  columnSizingFeature,
+  columnResizingFeature,
+  columnVisibilityFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+  expandedRowModel: createExpandedRowModel(),
+});
+
+export type ListTableFeatures = typeof listTableFeatures;
+// biome-ignore lint/suspicious/noExplicitAny: TanStack ColumnDef 的 TValue 在 cell/render 协变位置，官方形态即 any
+export type ListColumnDef<TData extends RowData> = ColumnDef<ListTableFeatures, TData, any>;
+export type ListTable<TData extends RowData> = ReactTable<ListTableFeatures, TData>;
+export type ListColumnHelper<TData extends RowData> = ColumnHelper<ListTableFeatures, TData>;
+
+/** 列定义 helper（与 listTableFeatures 配套；类型经 createColumnHelper<TFeatures, TData>()） */
+export function createListColumnHelper<TData extends RowData>(): ListColumnHelper<TData> {
+  return createColumnHelper<ListTableFeatures, TData>();
+}
+
+// ---------------------------------------------------------------------------
+// sort 参数编解码（URL 单一形态：field:asc,field2:desc）
+// ---------------------------------------------------------------------------
+
+export function formatSortParam(sort: SortSpec[]): string {
+  return sort.map((s) => `${s.field}:${s.direction}`).join(",");
+}
+
+export function parseSortParam(raw: unknown, multi = true): SortSpec[] {
+  if (typeof raw !== "string" || raw.trim() === "") return [];
+  const specs: SortSpec[] = [];
+  for (const part of raw.split(",")) {
+    const [field, dir] = part.split(":");
+    if (!field) continue;
+    specs.push({ field, direction: dir === "desc" ? "desc" : "asc" });
+    if (!multi) break;
+  }
+  return specs;
+}
+
+function toSortingState(sort: SortSpec[]): SortingState {
+  return sort.map((s) => ({ id: s.field, desc: s.direction === "desc" }));
+}
+
+function fromSortingState(sorting: SortingState): SortSpec[] {
+  return sorting.map((s) => ({ field: s.id, direction: s.desc ? "desc" : "asc" }));
+}
+
+// ---------------------------------------------------------------------------
+// createListSearchSchema
+// ---------------------------------------------------------------------------
+
+export interface ListSearchSchemaConfig {
+  search?: boolean;
+  filters?: FilterDef[];
+  sort?: { multi?: boolean };
+  pagination?: { pageSizeOptions?: number[] };
+}
+
+export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+export const DEFAULT_PAGE_SIZE = 20;
+export const DEFAULT_SEARCH_DEBOUNCE_MS = 250;
+export const DEFAULT_CLIENT_FETCH_SIZE = 500;
+
+import { z } from "zod";
+
+/**
+ * 生成路由 validateSearch 用的 zod schema（Standard Schema 直传）。
+ * 字段：q / f（树模式 JSON）/ <filter field>… / sort / page / size / view，全部 .catch() 兜底。
+ */
+export function createListSearchSchema(
+  cfg: ListSearchSchemaConfig = {},
+): z.ZodObject<Record<string, z.ZodType>> {
+  const pageSizeOptions = cfg.pagination?.pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS;
+  const shape: Record<string, z.ZodType> = {
+    // optional + catch(undefined)：缺省/坏值 → undefined（序列化时键被丢弃，URL 不带默认值噪音）
+    f: z.string().optional().catch(undefined),
+    sort: z.string().optional().catch(undefined),
+    page: z.coerce.number().int().min(1).optional().catch(undefined),
+    size: z.coerce
+      .number()
+      .int()
+      .refine(
+        (n) => pageSizeOptions.includes(n),
+        `size must be one of ${pageSizeOptions.join("/")}`,
+      )
+      .optional()
+      .catch(undefined),
+    view: z.string().optional().catch(undefined),
+  };
+  if (cfg.search !== false) {
+    shape.q = z.string().optional().catch(undefined);
+  }
+  for (const def of cfg.filters ?? []) {
+    shape[def.field] = z.string().optional().catch(undefined);
+  }
+  return z.object(shape);
+}
+
+// ---------------------------------------------------------------------------
+// Router 访问（无 RouterProvider 宿主下安全降级；hooks 调用数量恒定）
+// ---------------------------------------------------------------------------
+
+const EMPTY_SEARCH: Record<string, unknown> = {};
+
+interface RouterAccess {
+  search: Record<string, unknown>;
+  searchStr: string;
+  navigateSearch: (makeNext: (prev: Record<string, unknown>) => Record<string, unknown>) => void;
+}
+
+function useRouterAccess(enabled: boolean): RouterAccess {
+  let search: Record<string, unknown> = EMPTY_SEARCH;
+  let searchStr = "";
+  let navigate: ((opts: Parameters<ReturnType<typeof useNavigate>>[0]) => void) | undefined;
+  try {
+    // biome-ignore lint/correctness/useHookAtTopLevel: hook 位于 try 内是刻意的 —— 无 Router 宿主（嵌入场景）时安全降级；hook 调用顺序恒定
+    const s = useRouterState({
+      select: (st) => ({
+        search: st.location.search as Record<string, unknown>,
+        searchStr: st.location.searchStr,
+      }),
+    });
+    if (enabled) {
+      search = s.search ?? EMPTY_SEARCH;
+      searchStr = s.searchStr ?? "";
+    }
+  } catch {
+    /* 无 Router 宿主（syncWithLocation:false 嵌入场景） */
+  }
+  try {
+    // biome-ignore lint/correctness/useHookAtTopLevel: 同上（useNavigate 无 Provider 时抛错被捕获，hook 数量恒定）
+    const nav = useNavigate();
+    if (enabled) navigate = nav;
+  } catch {
+    /* 同上 */
+  }
+  const navigateSearch = useCallback(
+    (makeNext: (prev: Record<string, unknown>) => Record<string, unknown>) => {
+      navigate?.({ search: makeNext, replace: true } as Parameters<typeof navigate>[0]);
+    },
+    [navigate],
+  );
+  return { search, searchStr, navigateSearch };
+}
+
+// ---------------------------------------------------------------------------
+// useResourceTable
+// ---------------------------------------------------------------------------
+
+export type ListMode = "client" | "server-offset" | "server-cursor" | "load-more";
+
+export interface UseResourceTableOptions<TData extends RowData> {
+  // biome-ignore lint/suspicious/noExplicitAny: 与 core-api §3 签名一致（Resource<TData, any, any>）
+  resource: Resource<TData, any, any>;
+  mode: ListMode;
+  /** TanStack Table v9 列定义（createListColumnHelper / listTableFeatures 配套） */
+  columns: ListColumnDef<TData>[];
+  filters?: FilterDef[];
+  search?: { enabled?: boolean; fields?: string[]; debounceMs?: number };
+  /** multi 默认 true */
+  sort?: { initial?: SortSpec[]; multi?: boolean };
+  pagination?: { initialPageSize?: number; pageSizeOptions?: number[] };
+  /** 不可被 UI 修改，进 query 不进 URL 可见区（编码时合并） */
+  permanentFilters?: FilterTree;
+  /** 默认 true；false 时状态留在内存（测试/嵌入场景） */
+  syncWithLocation?: boolean;
+  /** 请求计数的字段 */
+  facets?: string[];
+  queryOptions?: { staleTime?: number; refetchInterval?: number | false };
+  /** client 模式一次整取的条数（默认 500） */
+  clientFetchSize?: number;
+}
+
+export interface ResourceTableState {
+  search: string;
+  filters: FilterTree | undefined;
+  sort: SortSpec[];
+  /** offset: 页码；cursor/load-more: 已加载页数 */
+  page: number;
+  pageSize: number;
+}
+
+export interface ResourceTableResult<TData extends RowData> {
+  table: ListTable<TData>;
+  query: UseQueryResult<Page<TData>>;
+  state: ResourceTableState;
+  /** 搜索输入的即时草稿（受控输入用；防抖后进 state.search/URL） */
+  searchDraft: string;
+  setSearch(v: string): void;
+  applyFilters(tree?: FilterTree): void;
+  setSort(next: SortSpec[]): void;
+  setPage(n: number): void;
+  setPageSize(n: number): void;
+  reset(): void;
+  /** cursor 模式：页 token 栈（内存态，不进 URL） */
+  cursorStack: string[];
+  nextPage(): void;
+  prevPage(): void;
+  /** load-more 模式 */
+  loadMore(): void;
+  totalRows: number | undefined;
+  facetData: FacetResult[] | undefined;
+  /** client 模式：过滤排序分页后的最终行 */
+  clientRows: TData[] | undefined;
+  /** 当前请求实际使用的 filters（含 permanentFilters 合并） */
+  effectiveFilters: FilterTree | undefined;
+}
+
+interface InternalState {
+  q: string;
+  tree: FilterTree | undefined;
+  sort: SortSpec[];
+  page: number;
+  size: number;
+}
+
+function clampSize(n: unknown, options: number[]): number {
+  const num = typeof n === "number" ? n : Number(n);
+  if (Number.isFinite(num) && options.includes(num)) return num;
+  return options.includes(DEFAULT_PAGE_SIZE)
+    ? DEFAULT_PAGE_SIZE
+    : (options[0] ?? DEFAULT_PAGE_SIZE);
+}
+
+function searchTreeFor<TData>(
+  q: string,
+  fields: string[] | undefined,
+  rows: TData[],
+): FilterTree | undefined {
+  if (q === "") return undefined;
+  if (fields !== undefined) {
+    if (fields.length === 0) return undefined;
+    return {
+      combinator: "or",
+      children: fields.map((field) => ({ field, op: "contains" as const, value: q })),
+    };
+  }
+  // fields 未声明：对首行全部顶层字符串字段做 contains（client 模式兜底）
+  const sample = rows[0] as Record<string, unknown> | undefined;
+  if (sample === undefined) return undefined;
+  const stringFields = Object.keys(sample).filter((k) => typeof sample[k] === "string");
+  if (stringFields.length === 0) return undefined;
+  return {
+    combinator: "or",
+    children: stringFields.map((field) => ({ field, op: "contains" as const, value: q })),
+  };
+}
+
+export function useResourceTable<TData extends RowData>(
+  options: UseResourceTableOptions<TData>,
+): ResourceTableResult<TData> {
+  const {
+    resource,
+    mode,
+    columns,
+    filters: defs = [],
+    search: searchCfg = {},
+    sort: sortCfg = {},
+    pagination: paginationCfg = {},
+    permanentFilters,
+    syncWithLocation = true,
+    facets,
+    queryOptions,
+    clientFetchSize = DEFAULT_CLIENT_FETCH_SIZE,
+  } = options;
+
+  const pageSizeOptions = paginationCfg.pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS;
+  const initialSort = sortCfg.initial ?? [];
+  const multiSort = sortCfg.multi ?? true;
+  const debounceMs = searchCfg.debounceMs ?? DEFAULT_SEARCH_DEBOUNCE_MS;
+  const router = useRouterAccess(syncWithLocation);
+
+  // -------------------------------------------------------------------------
+  // 状态源：URL（默认）或内存
+  // -------------------------------------------------------------------------
+
+  const urlState: InternalState | undefined = syncWithLocation
+    ? {
+        q: typeof router.search.q === "string" ? router.search.q : "",
+        tree: decodeFiltersFromParams(router.search, defs),
+        sort: parseSortParam(router.search.sort, multiSort),
+        page: typeof router.search.page === "number" ? router.search.page : 1,
+        size: clampSize(router.search.size, pageSizeOptions),
+      }
+    : undefined;
+
+  const [memState, setMemState] = useState<InternalState>({
+    q: "",
+    tree: undefined,
+    sort: initialSort,
+    page: 1,
+    size: clampSize(paginationCfg.initialPageSize, pageSizeOptions),
+  });
+
+  const state: InternalState = urlState ?? memState;
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  /** 会引起回第 1 页的提交同时清空 cursor 栈 / load-more 累计 */
+  const [cursorStack, setCursorStack] = useState<string[]>([]);
+  const [loadedPages, setLoadedPages] = useState<TData[][]>([]);
+
+  const filterParamKeys = useMemo(() => ["f", ...defs.map((d) => d.field)], [defs]);
+
+  const buildSearch = useCallback(
+    (prev: Record<string, unknown>, next: InternalState): Record<string, unknown> => {
+      const out: Record<string, unknown> = { ...prev };
+      for (const key of filterParamKeys) delete out[key];
+      delete out.view;
+      Object.assign(out, encodeFiltersToParams(next.tree, defs));
+      out.q = next.q !== "" ? next.q : undefined;
+      out.sort = next.sort.length > 0 ? formatSortParam(next.sort) : undefined;
+      out.page = next.page > 1 ? next.page : undefined;
+      out.size = next.size !== clampSize(undefined, pageSizeOptions) ? next.size : undefined;
+      return out;
+    },
+    [filterParamKeys, defs, pageSizeOptions],
+  );
+
+  const commit = useCallback(
+    (patch: Partial<InternalState>) => {
+      const next: InternalState = { ...stateRef.current, ...patch };
+      if (syncWithLocation) {
+        router.navigateSearch((prev) => buildSearch(prev, next));
+      } else {
+        setMemState(next);
+      }
+    },
+    [syncWithLocation, router, buildSearch],
+  );
+
+  const commitWithReset = useCallback(
+    (patch: Partial<InternalState>) => {
+      setCursorStack([]);
+      setLoadedPages([]);
+      commit({ ...patch, page: 1 });
+    },
+    [commit],
+  );
+
+  // 搜索防抖：searchDraft 即时更新，debounceMs 后写入状态源
+  const [searchDraft, setSearchDraft] = useState(state.q);
+  useEffect(() => {
+    if (searchDraft === stateRef.current.q) return;
+    const timer = setTimeout(() => commitWithReset({ q: searchDraft }), debounceMs);
+    return () => clearTimeout(timer);
+  }, [searchDraft, debounceMs, commitWithReset]);
+
+  const applyFilters = useCallback(
+    (tree?: FilterTree) => commitWithReset({ tree }),
+    [commitWithReset],
+  );
+  const setSort = useCallback(
+    (next: SortSpec[]) => {
+      const current = stateRef.current.sort;
+      const changed =
+        current.length !== next.length ||
+        current.some((s, i) => s.field !== next[i]?.field || s.direction !== next[i]?.direction);
+      if (changed) commitWithReset({ sort: next });
+    },
+    [commitWithReset],
+  );
+  const setPage = useCallback((n: number) => commit({ page: Math.max(1, n) }), [commit]);
+  const setPageSize = useCallback(
+    (n: number) => commitWithReset({ size: clampSize(n, pageSizeOptions) }),
+    [commitWithReset, pageSizeOptions],
+  );
+  const reset = useCallback(() => {
+    setSearchDraft(""); // 同步清空搜索草稿，防止防抖定时器把旧词写回
+    commitWithReset({ q: "", tree: undefined, sort: [] });
+  }, [commitWithReset]);
+  const loadMore = useCallback(() => {
+    commit({ page: stateRef.current.page + 1 });
+  }, [commit]);
+
+  // -------------------------------------------------------------------------
+  // 数据取数（四模式参数构造）
+  // -------------------------------------------------------------------------
+
+  const effectiveFilters = useMemo(
+    () => andTrees(state.tree, permanentFilters),
+    [state.tree, permanentFilters],
+  );
+
+  const baseParams = useMemo<ListParams>(() => {
+    const params: ListParams = {
+      pageSize: mode === "client" ? clientFetchSize : state.size,
+      search: state.q !== "" ? state.q : undefined,
+      sort: state.sort.length > 0 ? state.sort : undefined,
+      filters: effectiveFilters,
+      facets: facets && facets.length > 0 ? facets : undefined,
+    };
+    if (mode === "server-offset") params.page = state.page;
+    if (mode === "server-cursor" || mode === "load-more") {
+      const token = state.page > 1 ? cursorStack[state.page - 2] : undefined;
+      params.cursor = token;
+      params.pageSize = state.size;
+    }
+    return params;
+  }, [
+    mode,
+    state.q,
+    state.size,
+    state.page,
+    state.sort,
+    effectiveFilters,
+    facets,
+    cursorStack,
+    clientFetchSize,
+  ]);
+
+  // 经 resource.useList 取数：queryKey/失效规则与 createResource 全局约定一致（租户隔离 + mutation 失效联动）
+  const query = resource.useList({
+    ...baseParams,
+    placeholderData: mode === "client" ? undefined : "keep",
+    staleTime: queryOptions?.staleTime,
+    refetchInterval: queryOptions?.refetchInterval,
+  });
+
+  // -------------------------------------------------------------------------
+  // cursor / load-more：token 栈维护 + 累计行
+  // -------------------------------------------------------------------------
+
+  const pageRows = query.data?.rows;
+
+  useEffect(() => {
+    if (mode !== "server-cursor" && mode !== "load-more") return;
+    const data = query.data;
+    if (data === undefined || query.isPlaceholderData) return;
+    setCursorStack((prev) => {
+      if (prev.length === stateRef.current.page - 1 && data.nextCursor) {
+        return [...prev, data.nextCursor];
+      }
+      return prev;
+    });
+  }, [query.data, query.isPlaceholderData, mode]);
+
+  useEffect(() => {
+    if (mode !== "load-more") return;
+    const data = query.data;
+    if (data === undefined || query.isPlaceholderData) return;
+    const pageIndex = stateRef.current.page - 1;
+    setLoadedPages((prev) => {
+      if (pageIndex === 0) return [data.rows];
+      const next = prev.slice(0, pageIndex);
+      next[pageIndex] = data.rows;
+      return next;
+    });
+  }, [query.data, query.isPlaceholderData, mode]);
+
+  // 深链到无栈页码时回退第 1 页（已知限制：cursor/load-more 位置无法从 URL 恢复；
+  // load-more 的 page 是「已加载页数」，栈为空时 >1 即无意义）
+  useEffect(() => {
+    if ((mode !== "server-cursor" && mode !== "load-more") || !syncWithLocation) return;
+    if (state.page > cursorStack.length + 1) {
+      commit({ page: cursorStack.length + 1 });
+    }
+  }, [mode, syncWithLocation, state.page, cursorStack.length, commit]);
+
+  // -------------------------------------------------------------------------
+  // client 模式：整取后本地过滤 + 表内排序分页；页码钳制
+  // -------------------------------------------------------------------------
+
+  const clientFiltered = useMemo<TData[] | undefined>(() => {
+    if (mode !== "client" || pageRows === undefined) return undefined;
+    const searchCfgFields = searchCfg.fields;
+    const tree = andTrees(effectiveFilters, searchTreeFor(state.q, searchCfgFields, pageRows));
+    return applyFilterTree(pageRows, tree, defs);
+  }, [mode, pageRows, effectiveFilters, state.q, searchCfg.fields, defs]);
+
+  const clientTotal = clientFiltered?.length;
+  useEffect(() => {
+    if (mode !== "client" || clientTotal === undefined) return;
+    const maxPage = Math.max(1, Math.ceil(clientTotal / stateRef.current.size));
+    if (stateRef.current.page > maxPage) commit({ page: maxPage });
+  }, [mode, clientTotal, commit]);
+
+  const tableData: TData[] = useMemo(() => {
+    if (mode === "client") return clientFiltered ?? [];
+    if (mode === "load-more") return loadedPages.flat();
+    return pageRows ?? [];
+  }, [mode, clientFiltered, loadedPages, pageRows]);
+
+  // -------------------------------------------------------------------------
+  // Table 实例（v9 useTable + 显式 features + 控制态注入）
+  // -------------------------------------------------------------------------
+
+  const [rowSelection, setRowSelection] = useState<Record<string, true>>({});
+  const [expanded, setExpanded] = useState<true | Record<string, boolean>>({});
+
+  const table = useTable(
+    {
+      features: listTableFeatures,
+      data: tableData,
+      columns,
+      getRowId: (row) => resource.getId(row),
+      manualSorting: mode !== "client",
+      manualPagination: mode !== "client",
+      enableMultiSort: multiSort,
+      pageCount:
+        mode === "server-offset"
+          ? Math.max(1, Math.ceil((query.data?.total ?? 0) / state.size))
+          : -1,
+      rowCount: mode === "server-offset" ? query.data?.total : undefined,
+      state: {
+        sorting: toSortingState(state.sort),
+        pagination: { pageIndex: state.page - 1, pageSize: state.size },
+        rowSelection,
+        expanded,
+      },
+      onSortingChange: (updater) => {
+        const next =
+          typeof updater === "function" ? updater(toSortingState(stateRef.current.sort)) : updater;
+        setSort(fromSortingState(next));
+      },
+      onPaginationChange: (updater) => {
+        const next =
+          typeof updater === "function"
+            ? updater({ pageIndex: stateRef.current.page - 1, pageSize: stateRef.current.size })
+            : updater;
+        if (next.pageSize !== stateRef.current.size) setPageSize(next.pageSize);
+        else if (next.pageIndex !== stateRef.current.page - 1) setPage(next.pageIndex + 1);
+      },
+      onRowSelectionChange: setRowSelection,
+      onExpandedChange: (updater) => {
+        setExpanded(
+          typeof updater === "function"
+            ? (updater as (prev: true | Record<string, boolean>) => true | Record<string, boolean>)(
+                expanded,
+              )
+            : (updater ?? {}),
+        );
+      },
+    },
+    (s) => ({
+      sorting: s.sorting,
+      pagination: s.pagination,
+      rowSelection: s.rowSelection,
+      expanded: s.expanded,
+      columnSizing: s.columnSizing,
+      columnOrder: s.columnOrder,
+      columnVisibility: s.columnVisibility,
+    }),
+  );
+
+  const totalRows: number | undefined = useMemo(() => {
+    if (mode === "client") return clientTotal;
+    if (mode === "server-offset") return query.data?.total;
+    if (mode === "load-more") return loadedPages.flat().length;
+    return undefined;
+  }, [mode, clientTotal, query.data?.total, loadedPages]);
+
+  const nextPage = useCallback(() => {
+    const maxPage =
+      totalRows !== undefined
+        ? Math.max(1, Math.ceil(totalRows / stateRef.current.size))
+        : undefined;
+    const target = stateRef.current.page + 1;
+    if (maxPage === undefined || target <= maxPage) setPage(target);
+  }, [totalRows, setPage]);
+  const prevPage = useCallback(() => setPage(Math.max(1, stateRef.current.page - 1)), [setPage]);
+
+  return {
+    table: table as unknown as ListTable<TData>,
+    query,
+    state: {
+      search: state.q,
+      filters: state.tree,
+      sort: state.sort,
+      page: state.page,
+      pageSize: state.size,
+    },
+    searchDraft,
+    setSearch: setSearchDraft,
+    applyFilters,
+    setSort,
+    setPage,
+    setPageSize,
+    reset,
+    cursorStack,
+    nextPage,
+    prevPage,
+    loadMore,
+    totalRows,
+    facetData: query.data?.facets,
+    clientRows: mode === "client" ? (clientFiltered ?? []) : undefined,
+    effectiveFilters,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// useSavedViews（命名视图：localStorage 'fc:view:<resourceKey>'）
+// ---------------------------------------------------------------------------
+
+export interface SavedView {
+  id: string;
+  name: string;
+  /** search = 查询串本身（不含 '?'） */
+  search: string;
+}
+
+export function savedViewsKey(resourceKey: string): string {
+  return `fc:view:${resourceKey}`;
+}
+
+export function readSavedViews(resourceKey: string): SavedView[] {
+  try {
+    const raw = globalThis.localStorage?.getItem(savedViewsKey(resourceKey));
+    if (raw === null || raw === undefined) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (v): v is SavedView =>
+        typeof v === "object" &&
+        v !== null &&
+        typeof (v as SavedView).id === "string" &&
+        typeof (v as SavedView).name === "string" &&
+        typeof (v as SavedView).search === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+export function writeSavedViews(resourceKey: string, views: SavedView[]): void {
+  try {
+    globalThis.localStorage?.setItem(savedViewsKey(resourceKey), JSON.stringify(views));
+  } catch {
+    /* 非浏览器环境 / 隐私模式：静默降级 */
+  }
+}
+
+export interface UseSavedViewsResult {
+  views: SavedView[];
+  /** 以当前 URL 查询段保存（与现有视图查询串相同则去重返回现有项） */
+  save(name: string): SavedView;
+  /** 导航到该查询段 */
+  apply(view: SavedView): void;
+  remove(id: string): void;
+  update(id: string, name: string): void;
+}
+
+export function useSavedViews(resourceKey: string): UseSavedViewsResult {
+  const router = useRouterAccess(true);
+  const [views, setViews] = useState<SavedView[]>(() => readSavedViews(resourceKey));
+
+  const persist = useCallback(
+    (next: SavedView[]) => {
+      setViews(next);
+      writeSavedViews(resourceKey, next);
+    },
+    [resourceKey],
+  );
+
+  const save = useCallback(
+    (name: string): SavedView => {
+      const search = router.searchStr.startsWith("?")
+        ? router.searchStr.slice(1)
+        : router.searchStr;
+      const existing = views.find((v) => v.search === search);
+      if (existing) return existing;
+      const view: SavedView = {
+        id:
+          typeof globalThis.crypto?.randomUUID === "function"
+            ? globalThis.crypto.randomUUID()
+            : `v_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        search,
+      };
+      persist([...views, view]);
+      return view;
+    },
+    [views, router.searchStr, persist],
+  );
+
+  const apply = useCallback(
+    (view: SavedView) => {
+      const parsed: Record<string, unknown> = {};
+      for (const [key, value] of new URLSearchParams(view.search)) {
+        parsed[key] = value;
+      }
+      router.navigateSearch(() => ({ ...parsed, view: view.id }));
+    },
+    [router],
+  );
+
+  const remove = useCallback(
+    (id: string) => persist(views.filter((v) => v.id !== id)),
+    [views, persist],
+  );
+
+  const update = useCallback(
+    (id: string, name: string) => persist(views.map((v) => (v.id === id ? { ...v, name } : v))),
+    [views, persist],
+  );
+
+  return { views, save, apply, remove, update };
+}

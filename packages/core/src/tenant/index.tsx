@@ -179,3 +179,11 @@ export function useTenant(): TenantContextValue {
   }
   return ctx;
 }
+
+/**
+ * 可选读取（无 Provider 时返回 null）：createResource(tenantScoped) 用它取 tenantId，
+ * 保证未包 TenantProvider 的宿主（无租户场景）也能使用资源层。
+ */
+export function useTenantOptional(): TenantContextValue | null {
+  return useContext(TenantContext);
+}

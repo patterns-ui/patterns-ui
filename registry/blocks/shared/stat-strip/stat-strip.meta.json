@@ -1,0 +1,10 @@
+{
+  "name": "stat-strip",
+  "type": "registry:component",
+  "title": "Stat Strip",
+  "description": "统计卡行：微标签 + 30px tabular-nums 大数 + 趋势/子说明，danger 走 --status-danger 令牌。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/stat-strip"
+}

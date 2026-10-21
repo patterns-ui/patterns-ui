@@ -1,0 +1,10 @@
+{
+  "name": "saved-views-menu",
+  "type": "registry:block",
+  "title": "Saved Views Menu",
+  "description": "命名视图下拉：保存当前查询串 / 应用 / 重命名 / 删除（视图库存 localStorage fc:view:<key>）。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/saved-views-menu"
+}

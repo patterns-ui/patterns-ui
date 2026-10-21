@@ -1,0 +1,20 @@
+{
+  "name": "cell-for",
+  "type": "registry:component",
+  "title": "Cell: cellFor Mapper",
+  "description": "type → cell 组件映射器：cellFor('time', {...}) 产出统一 { value } 组件，L4 推断与手写列共用。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [
+    "cell-id",
+    "cell-time",
+    "cell-status",
+    "cell-user",
+    "cell-boolean",
+    "cell-number",
+    "cell-enum-badge",
+    "cell-tags",
+    "cell-progress"
+  ],
+  "targetDir": "components/blocks/cells/cell-for"
+}

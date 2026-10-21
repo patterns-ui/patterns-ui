@@ -1,0 +1,10 @@
+{
+  "name": "pagination-bar",
+  "type": "registry:block",
+  "title": "Pagination Bar",
+  "description": "分页条三形态：offset 页码窗口 / cursor 前后式 / load-more 按钮，附每页条数选择与总数展示。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/pagination-bar"
+}

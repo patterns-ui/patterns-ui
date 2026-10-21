@@ -55,6 +55,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 | `new-items-banner` | "有 N 条新数据"提示条 | `signal(useNewItemsSignal), onRefresh` | ui: button |
 | `notification-inbox` | 通知收件箱页（列表 + 已读/未读 + badge 数据源约定） | `resource(Notification 形状)` | core: /data；block: relative-time, cell-user |
 | `export-button` | 过滤感知 CSV 导出（当前应用的状态取数导出） | `fetch: () => Promise<T[]>, columns, filename` | ui: button/dropdown |
+| `use-resource-mutations` | createResource 消费层 helper：undoable 档 onUndoableToast 接 sonner（倒计时 Undo 按钮，提前关闭视为确认提交）；批量结果汇总（成功 N 失败 M） | `useResourceMutations(resource, { undoDurationMs?, successToast? })` → `{ useDeleteWithUndo, useBulkDeleteWithUndo, useBulkUpdate }` | core: /data,/mutation；npm: sonner |
 
 ## cells/ —— 语义渲染器（列表与详情共用）
 

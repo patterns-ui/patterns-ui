@@ -1,0 +1,10 @@
+{
+  "name": "skeleton",
+  "type": "registry:component",
+  "title": "Skeleton",
+  "description": "骨架体系：table（表头+行严格占位）/detail/form/card 四形态，行高与数据态对齐（architecture.md §8）。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/skeleton"
+}

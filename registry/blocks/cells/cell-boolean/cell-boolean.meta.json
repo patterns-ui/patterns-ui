@@ -1,0 +1,10 @@
+{
+  "name": "cell-boolean",
+  "type": "registry:component",
+  "title": "Cell: Boolean",
+  "description": "布尔单元格：true → 勾（status-success）；false/缺省 → 横线（muted），可选文字标签。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-boolean"
+}

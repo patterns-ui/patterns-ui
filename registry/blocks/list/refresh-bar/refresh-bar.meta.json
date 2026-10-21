@@ -1,0 +1,10 @@
+{
+  "name": "refresh-bar",
+  "type": "registry:block",
+  "title": "Refresh Bar",
+  "description": "刷新条：手动刷新 + 最后更新时间（relative-time 活渲染）+ 自动刷新档位开关（值由页面注入 queryOptions.refetchInterval）。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": ["relative-time"],
+  "targetDir": "components/blocks/list/refresh-bar"
+}

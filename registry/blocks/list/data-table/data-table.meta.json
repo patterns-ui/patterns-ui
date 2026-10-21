@@ -1,0 +1,10 @@
+{
+  "name": "data-table",
+  "type": "registry:block",
+  "title": "Data Table",
+  "description": "TanStack Table v9 封装：sticky 首尾列、列宽拖拽、列显隐/顺序/密度菜单（localStorage 偏好）、行选择（含 indeterminate）、行操作菜单、展开行、Enter 打开行操作；分组/树形/聚合/行内编辑/虚拟化/移动卡片化留 M4 接口。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/data-table"
+}

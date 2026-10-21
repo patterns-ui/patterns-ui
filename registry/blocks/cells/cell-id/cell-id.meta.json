@@ -1,0 +1,10 @@
+{
+  "name": "cell-id",
+  "type": "registry:component",
+  "title": "Cell: ID",
+  "description": "ID 单元格：mono + 截断 + hover 复制（成功 2s 反馈）。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-id"
+}

@@ -1,26 +1,25 @@
 import { useTenant } from "@fleetly/ui-component-core/tenant";
-import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent } from "@/components/ui/card";
-
-interface Stat {
-  label: string;
-  value: string;
-  sub: string;
-}
-
-const STATS: Stat[] = [
-  { label: "Services", value: "12", sub: "2 待处理变更" },
-  { label: "Deployments (24h)", value: "34", sub: "成功率 99.2%" },
-  { label: "Audit Events (24h)", value: "1,204", sub: "3 条告警" },
-  { label: "Active API Keys", value: "3", sub: "1 个 7 天内过期" },
-];
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { StatStrip } from "@/components/blocks/shared/stat-strip/stat-strip";
+import { Button } from "@/components/ui/button";
+import { servicesResource } from "@/resources";
 
 /**
- * 租户概览页：PageHeader + stat-strip（M2 block）未就绪前的占位排版
- * （card + 30px tabular-nums 大数，视觉基线见 architecture.md §8）。
+ * 租户概览页：PageHeader + stat-strip（真实计数来自 services facets / audit 首页）。
  */
 function OverviewPage() {
   const { tenant, tenantId, isLoading } = useTenant();
+  const servicesStats = servicesResource.useList({
+    page: 1,
+    pageSize: 1,
+    facets: ["status", "env"],
+  });
+
+  const total = servicesStats.data?.total ?? 0;
+  const bucket = (field: string, value: string): number =>
+    servicesStats.data?.facets
+      ?.find((f) => f.field === field)
+      ?.buckets.find((b) => b.value === value)?.count ?? 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,25 +35,58 @@ function OverviewPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {STATS.map((stat) => (
-          <Card key={stat.label} className="py-5">
-            <CardContent className="flex flex-col gap-1 px-5">
-              <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                {stat.label}
-              </p>
-              <p className="text-[30px] leading-none font-semibold tabular-nums">{stat.value}</p>
-              <p className="text-muted-foreground text-[13px]">{stat.sub}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <StatStrip
+        stats={[
+          {
+            label: "Services",
+            value: total,
+            sub: `${bucket("env", "prod")} 个生产环境`,
+          },
+          {
+            label: "Running",
+            value: bucket("status", "running"),
+            sub: `${bucket("status", "degraded")} 个降级中`,
+            trend: bucket("status", "running") > bucket("status", "stopped") ? "up" : "down",
+          },
+          {
+            label: "Degraded",
+            value: bucket("status", "degraded"),
+            sub: bucket("status", "degraded") > 0 ? "需要关注" : "一切正常",
+            danger: bucket("status", "degraded") > 0,
+          },
+          {
+            label: "Stopped",
+            value: bucket("status", "stopped"),
+            sub: "已停止的服务",
+          },
+        ]}
+      />
 
-      <Card>
-        <CardContent className="text-muted-foreground px-5 py-8 text-[13px]">
-          列表 / 详情 / 表单资源页自 M2 起接入（defineResource 一份配置出四屏）。
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border px-5 py-4">
+        <p className="text-muted-foreground flex-1 text-[13px]">
+          列表纵切（M2）已就绪：Services 页走 offset 分页 + 全套列表 blocks；Audit 页演示 cursor /
+          load-more 双形态。
+        </p>
+        <Button
+          size="sm"
+          render={<Link to="/t/$tenantId/services" params={{ tenantId: tenantId ?? "" }} />}
+        >
+          打开 Services
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          render={
+            <Link
+              to="/t/$tenantId/audit"
+              params={{ tenantId: tenantId ?? "" }}
+              search={{ mode: "cursor" }}
+            />
+          }
+        >
+          打开 Audit
+        </Button>
+      </div>
     </div>
   );
 }

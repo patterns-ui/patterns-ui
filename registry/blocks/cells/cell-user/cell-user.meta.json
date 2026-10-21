@@ -1,0 +1,10 @@
+{
+  "name": "cell-user",
+  "type": "registry:component",
+  "title": "Cell: User",
+  "description": "用户单元格：头像 + 名（多用户逗号连接，超 2 截断 +N）；支持 id + resolve 异步/本地解析。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": ["user-avatar"],
+  "targetDir": "components/blocks/cells/cell-user"
+}

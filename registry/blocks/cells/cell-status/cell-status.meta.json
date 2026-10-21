@@ -1,0 +1,10 @@
+{
+  "name": "cell-status",
+  "type": "registry:component",
+  "title": "Cell: Status",
+  "description": "状态单元格：StatusBadge 别名映射（可注入 map / pulseFor），状态色全部走 --status-* 令牌。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": ["status-badge"],
+  "targetDir": "components/blocks/cells/cell-status"
+}

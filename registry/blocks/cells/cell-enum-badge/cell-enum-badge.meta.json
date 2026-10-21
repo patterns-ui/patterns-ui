@@ -1,0 +1,10 @@
+{
+  "name": "cell-enum-badge",
+  "type": "registry:component",
+  "title": "Cell: Enum Badge",
+  "description": "枚举单元格：值 → Badge 变体映射（选项表驱动文案与 variant）。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-enum-badge"
+}

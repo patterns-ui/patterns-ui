@@ -1,0 +1,10 @@
+{
+  "name": "export-button",
+  "type": "registry:block",
+  "title": "Export Button",
+  "description": "过滤感知 CSV 导出：fetch 回调按当前应用状态全量取数，列定义序列化 + BOM 头，触发浏览器下载。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/export-button"
+}

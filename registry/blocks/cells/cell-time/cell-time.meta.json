@@ -1,0 +1,10 @@
+{
+  "name": "cell-time",
+  "type": "registry:component",
+  "title": "Cell: Time",
+  "description": "时间单元格：时区感知（core/datetime 单源）；点击切换 相对↔绝对，偏好记忆 localStorage。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-time"
+}

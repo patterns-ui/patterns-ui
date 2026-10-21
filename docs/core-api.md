@@ -95,7 +95,12 @@ export interface Resource<TData, TCreate, TUpdate> {
   readonly client: ResourceClient<TData, TCreate, TUpdate>
   readonly tenantScoped: boolean          // true 时 queryKey 自动含当前租户
 
-  useList(params: ListParams & { enabled?: boolean; placeholderData?: 'keep' }): UseQueryResult<Page<TData>>
+  useList(params: ListParams & {
+    enabled?: boolean
+    placeholderData?: 'keep'
+    staleTime?: number          // M2 增补：逐调用覆盖（缺省回落 cfg.queryOptions）
+    refetchInterval?: number | false
+  }): UseQueryResult<Page<TData>>
   useOne(id: string | undefined, opts?: { enabled?: boolean }): UseQueryResult<TData>
 
   useCreate(opts?: MutationOpts<TCreate>): UseMutationResult<TData, Error, TCreate>
@@ -108,7 +113,9 @@ export interface Resource<TData, TCreate, TUpdate> {
 export interface MutationOpts<TVars> {
   mutationMode?: 'pessimistic' | 'optimistic' | 'undoable'   // 默认 pessimistic
   undoDurationMs?: number                                    // undoable 默认 5000
-  onSuccess?: (data: any, vars: TVars) => void               // 自定义成功回调（替代默认 toast 约定的钩子位）
+  onSuccess?: (data: unknown, vars: TVars) => void           // 自定义成功回调（替代默认 toast 约定的钩子位）
+  // M2 增补：undoable 档 toast 回调位（core 不含 UI；blocks 侧 use-resource-mutations 接 sonner）
+  onUndoableToast?: (ctl: { undo(): void; dismiss(): void; secondsLeft: number }) => void
 }
 
 export function createResource<TData, TCreate, TUpdate>(cfg: {
@@ -223,7 +230,10 @@ export interface ResourceTableResult<TData> {
 1. **URL 即事实源**：`syncWithLocation` 时全部状态经 zod schema 读写当前路由 search params（见 createListSearchSchema）。过滤器/排序变化自动回第 1 页；搜索防抖（默认 250ms）。
 2. **client 模式**：一次 `list({ pageSize: clientFetchSize(默认500) })` 整取（带 search/filters/sort 参数与否由适配器决定，客户端用 applyFilterTree + 排序 + 切片兜底）；页码越界自动钳制。
 3. **server-offset**：params 含 `page/pageSize/sort/filters/search`；翻页 `placeholderData: keepPreviousData`。
-4. **server-cursor**：内存 token 栈；`page`（URL）为序数仅作展示与恢复提示；深链到无栈页码时回退第 1 页（已知限制，文档注明）；前进 = push token，后退 = pop。
+4. **server-cursor**：内存 token 栈；`page`（URL）为序数仅作展示与恢复提示；深链到无栈页码时回退第 1 页（已知限制，文档注明）。
+   M2 实现语义（满足「前进后退无重复请求」验收）：栈在过滤会话内只追加（append-only）——
+   后退不物理弹栈而是指针回移（keyset 页不可变 → 直接缓存命中零请求）；q/filters/sort/pageSize
+   等重置类提交清空栈。load-more 同样适用深链钳制。
 5. **load-more**：累计 rows 拼接；`page` 为已加载页数；`loadMore()` 用 lastCursor。
 6. **refresh**：`query.refetch()`；轮询用 `queryOptions.refetchInterval`；新数据检测见 §9。
 
@@ -232,8 +242,15 @@ export function createListSearchSchema(cfg: {
   search?: boolean; filters?: FilterDef[]; sort?: { multi?: boolean }
   pagination?: { pageSizeOptions?: number[] }
 }): StandardSchema   // 供路由 validateSearch 使用；解析 q/f/<field>…/sort/page/size/view
-// 所有字段 .catch() 兜底坏值不中断导航
+// 所有字段 .catch() 兜底坏值不中断导航（缺省/坏值 → undefined → 序列化时键被丢弃，URL 不带默认值噪音）
 ```
+
+**配套导出（M2 增补）**：`listTableFeatures`（v9 显式注册的共享 features 集：sorting/pagination/
+rowSelection/expanding/columnSizing/columnResizing/columnOrdering/columnVisibility + 对应 row models）、
+`createListColumnHelper<TData>()`、类型 `ListTable<TData>` / `ListColumnDef<TData>`。
+`useResourceTable` 结果额外暴露 `searchDraft`（防抖前的受控输入值）与 `effectiveFilters`
+（含 permanentFilters 合并后的请求树）。`sort.initial` 仅在 `syncWithLocation: false` 时生效；
+URL 模式下排序事实源是 URL（无 sort 参数即未排序）。
 
 **saved views（命名视图）**：
 
@@ -397,8 +414,8 @@ export function useTaskSubmit(getTask: (ref: unknown) => Promise<TaskState>, opt
 export function useTaskPoll(taskId: string | undefined, getTask: (id: string) => Promise<TaskState>, opts?): TaskState | undefined
 //   终态停止轮询；组件卸载清理
 
-export function useNewItemsSignal(query: UseQueryResult<Page<any>>, opts?: {
-  key?: (row: any) => string                // 默认 row.id
+export function useNewItemsSignal<TRow>(query: UseQueryResult<Page<TRow>>, opts?: {
+  key?: (row: TRow) => string               // 默认 row.id
 }): { newCount: number; acknowledge(): void }
 //   轮询刷新发现 rows 首部出现新 key 且未确认 → 计数；acknowledge = refetch + 清零。不自动插行（防跳动）。
 ```

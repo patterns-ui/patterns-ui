@@ -1,0 +1,10 @@
+{
+  "name": "facet-sidebar",
+  "type": "registry:block",
+  "title": "Facet Sidebar",
+  "description": "列表左侧 facet 栏：字段分组多选 + 计数（勾选写入 in 过滤，走 useResourceTable.applyFilters）。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/facet-sidebar"
+}

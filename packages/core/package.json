@@ -80,18 +80,22 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "peerDependencies": {
-    "react": "^19.0.0",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-router": "^1.0.0",
+    "react": "^19.0.0",
     "zod": "^4.0.0"
   },
   "dependencies": {
-    "next-themes": "catalog:"
+    "next-themes": "catalog:",
+    "use-sync-external-store": "^1.7.0"
   },
   "devDependencies": {
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",
+    "@tanstack/react-table": "catalog:",
+    "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
+    "happy-dom": "catalog:",
     "react": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",

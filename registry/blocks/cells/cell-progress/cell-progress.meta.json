@@ -1,0 +1,10 @@
+{
+  "name": "cell-progress",
+  "type": "registry:component",
+  "title": "Cell: Progress",
+  "description": "进度单元格：进度条 + 百分比，支持 0-100 或 {current,total}，状态色走 --status-* 令牌。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-progress"
+}

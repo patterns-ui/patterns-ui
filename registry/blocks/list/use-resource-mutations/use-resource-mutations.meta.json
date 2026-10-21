@@ -1,0 +1,10 @@
+{
+  "name": "use-resource-mutations",
+  "type": "registry:block",
+  "title": "useResourceMutations (toast wiring)",
+  "description": "createResource 消费层 helper：undoable 档 onUndoableToast 接 sonner（倒计时 Undo 按钮，提前关闭视为确认），批量操作结果汇总（成功 N 失败 M）。",
+  "categories": ["list"],
+  "dependencies": ["sonner"],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/use-resource-mutations"
+}

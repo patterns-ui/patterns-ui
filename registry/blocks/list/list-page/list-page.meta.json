@@ -1,0 +1,10 @@
+{
+  "name": "list-page",
+  "type": "registry:block",
+  "title": "List Page (Table)",
+  "description": "列表页模板（table 变体）：PageHeader(title/description/actions) + lead(stat-strip) + filter(filter-bar) + toolbar(selection/banner/refresh) + body(async-state+data-table) + pagination + appendix 槽。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/list-page"
+}

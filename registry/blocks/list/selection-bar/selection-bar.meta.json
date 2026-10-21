@@ -1,0 +1,10 @@
+{
+  "name": "selection-bar",
+  "type": "registry:block",
+  "title": "Selection Bar",
+  "description": "批量操作条：已选 N + 动作组（confirm 动作就地两段式确认，3s 未确认复原）+ 清除选择。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/selection-bar"
+}

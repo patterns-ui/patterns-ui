@@ -1,13 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
+import { auditRoutes } from "./handlers/audit";
 import { authRoutes } from "./handlers/auth";
 import { orgRoutes } from "./handlers/orgs";
+import { serviceRoutes } from "./handlers/services";
 import type { MockResult, MockRoute } from "./types";
 
 /**
  * mock API 路由表（模块化注册：新端点在 handlers/ 下加文件后并入 routes）。
+ * 注意：具体路径（bulk-*）必须排在 :id 参数路径之前。
  */
-const routes: MockRoute[] = [...authRoutes, ...orgRoutes];
+const routes: MockRoute[] = [...authRoutes, ...orgRoutes, ...serviceRoutes, ...auditRoutes];
 
 const MIN_DELAY_MS = 150;
 const MAX_DELAY_MS = 300;

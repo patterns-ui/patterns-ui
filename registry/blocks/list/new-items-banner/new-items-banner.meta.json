@@ -1,0 +1,10 @@
+{
+  "name": "new-items-banner",
+  "type": "registry:block",
+  "title": "New Items Banner",
+  "description": "轮询发现新数据时的提示条：计数来自 core useNewItemsSignal，确认后 refetch（不自动插行防跳动）。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/new-items-banner"
+}

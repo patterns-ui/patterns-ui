@@ -41,6 +41,9 @@ export default defineConfig({
     "react-dom",
     "@tanstack/react-query",
     "@tanstack/react-router",
+    // react-query 的传递依赖（未声明会误内联其 CJS 版本 → 浏览器 ESM 里出现 __require("react")）
+    "use-sync-external-store",
+    "use-sync-external-store/shim/with-selector",
     "zod",
     "next-themes",
   ],

@@ -1,0 +1,10 @@
+{
+  "name": "async-state",
+  "type": "registry:component",
+  "title": "Async State",
+  "description": "四态容器：loading→骨架 / error→error-state+重试 / 空数据→empty-state / 空过滤→清除过滤 CTA。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": ["empty-state", "error-state", "skeleton"],
+  "targetDir": "components/blocks/shared/async-state"
+}

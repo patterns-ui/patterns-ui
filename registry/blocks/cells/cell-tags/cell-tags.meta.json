@@ -1,0 +1,10 @@
+{
+  "name": "cell-tags",
+  "type": "registry:component",
+  "title": "Cell: Tags",
+  "description": "标签单元格：secondary Badge 标签组，超出 max 折叠 +N（title 展示全量）。",
+  "categories": ["cells"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/cells/cell-tags"
+}

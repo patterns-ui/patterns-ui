@@ -1,0 +1,10 @@
+{
+  "name": "filter-bar",
+  "type": "registry:block",
+  "title": "Filter Bar",
+  "description": "过滤工具条：搜索（防抖来自 useResourceTable）+ FilterDef 渲染（select/multi/text/number/date-range）+ 高级 and/or 条件组编辑器 + 已应用 chips 一键移除 + saved-views-menu + 刷新。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": ["saved-views-menu"],
+  "targetDir": "components/blocks/list/filter-bar"
+}
