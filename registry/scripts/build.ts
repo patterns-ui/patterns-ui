@@ -1,0 +1,286 @@
+/**
+ * registry 构建脚本（docs/registry.md §3）。
+ *
+ * 行为：
+ *  1. 扫描 registry/blocks 下所有 <name>.meta.json（registry/themes 的 theme item 支持在 M1 接入）。
+ *  2. 内联 block 目录内 .ts/.tsx/.css 源文件为 files[].content，target 由 meta.targetDir 决定。
+ *  3. 解析源码 import：block 间依赖 → registryDependencies；@fleetly/ui-component-core → npm dependencies
+ *     （版本读 packages/core/package.json）；其余裸 npm 包并入 dependencies（react 系除外）。
+ *  4. 校验：registryDependencies 引用的 block 存在、无循环依赖、无相对路径逃逸出 block 目录、
+ *     不得 import demo 代码（architecture.md §5 之外的 `@/*` 形态一律拒绝）。
+ *  5. 输出 registry/dist/r/<name>.json（shadcn registry-item schema）与仓库根 registry.json
+ *     （GitHub repo-as-registry 索引，items 内联，提交进仓库）。
+ *
+ * 运行：pnpm registry:build（tsx）。validate 由 `pnpm dlx shadcn@latest registry validate` 单独执行（CI 亦跑）。
+ */
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const BLOCKS_DIR = join(ROOT, "registry", "blocks");
+const DIST_DIR = join(ROOT, "registry", "dist", "r");
+const CORE_PACKAGE_JSON = join(ROOT, "packages", "core", "package.json");
+
+const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".css"]);
+const BLOCK_ITEM_TYPES = new Set(["registry:component", "registry:block"]);
+/** npm 依赖白名单外的 react 系运行库：宿主项目自带，不进 item.dependencies */
+const IMPLICIT_NPM_IMPORTS = new Set(["react", "react-dom", "react/jsx-runtime"]);
+const CORE_PACKAGE = "@fleetly/ui-component-core";
+
+interface BlockMeta {
+  name: string;
+  type: string;
+  title?: string;
+  description?: string;
+  categories?: string[];
+  dependencies?: string[];
+  registryDependencies?: string[];
+  targetDir: string;
+}
+
+interface RegistryFile {
+  path: string;
+  type: string;
+  target: string;
+  content: string;
+}
+
+interface RegistryItem {
+  $schema: string;
+  name: string;
+  type: string;
+  title?: string;
+  description?: string;
+  files: RegistryFile[];
+  dependencies: string[];
+  registryDependencies: string[];
+}
+
+/** 收集 block 源码里的静态 import / export-from / 动态 import 说明符 */
+function collectImports(source: string): string[] {
+  const specifiers = new Set<string>();
+  const patterns = [
+    /(?:import|export)\s[^;'"]*?from\s*['"]([^'"]+)['"]/g,
+    /import\s*['"]([^'"]+)['"]/g,
+    /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      const specifier = match[1];
+      if (specifier) specifiers.add(specifier);
+    }
+  }
+  return [...specifiers];
+}
+
+function fileTypeFor(extension: string): string {
+  if (extension === ".tsx") return "registry:component";
+  if (extension === ".ts") return "registry:lib";
+  return "registry:theme";
+}
+
+function listFilesRecursive(dir: string): string[] {
+  const entries = readdirSync(dir, { withFileTypes: true, recursive: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name));
+}
+
+function findMetaFiles(): string[] {
+  return listFilesRecursive(BLOCKS_DIR).filter((file) => file.endsWith(".meta.json"));
+}
+
+function fail(message: string): never {
+  console.error(`registry:build — ${message}`);
+  process.exit(1);
+}
+
+function depName(dep: string): string {
+  return dep.split("@")[0] || dep;
+}
+
+async function main(): Promise<void> {
+  const coreVersion = JSON.parse(readFileSync(CORE_PACKAGE_JSON, "utf8")).version as string;
+  const metaFiles = findMetaFiles();
+  if (metaFiles.length === 0) {
+    fail("no *.meta.json found under registry/blocks");
+  }
+
+  const metas = new Map<string, { meta: BlockMeta; metaPath: string }>();
+  for (const metaPath of metaFiles) {
+    const meta = JSON.parse(readFileSync(metaPath, "utf8")) as BlockMeta;
+    if (!meta.name || !meta.type || !meta.targetDir) {
+      fail(`${relative(ROOT, metaPath)}: name/type/targetDir are required`);
+    }
+    if (!BLOCK_ITEM_TYPES.has(meta.type)) {
+      fail(`${relative(ROOT, metaPath)}: type must be one of ${[...BLOCK_ITEM_TYPES].join(", ")}`);
+    }
+    const key = relative(BLOCKS_DIR, dirname(metaPath));
+    if (metas.has(key)) {
+      fail(`duplicate block directory key: ${key}`);
+    }
+    metas.set(key, { meta, metaPath });
+  }
+  const blockNames = new Set([...metas.values()].map(({ meta }) => meta.name));
+
+  /** block 依赖图（用于存在性校验 + 环检测） */
+  const graph = new Map<string, Set<string>>();
+  const items: RegistryItem[] = [];
+
+  for (const [key, { meta, metaPath }] of metas) {
+    const blockDir = dirname(metaPath);
+    const sourceFiles = listFilesRecursive(blockDir)
+      .filter(
+        (file) =>
+          SOURCE_EXTENSIONS.has(file.slice(file.lastIndexOf("."))) &&
+          !file.endsWith(".meta.json") &&
+          !file.endsWith(".d.ts"),
+      )
+      .sort();
+
+    if (sourceFiles.length === 0) {
+      fail(`${relative(ROOT, metaPath)}: block has no inlineable source files`);
+    }
+
+    const dependencies = new Set<string>(meta.dependencies ?? []);
+    const registryDependencies = new Set<string>();
+
+    // meta 里声明的 registryDependencies：目录内名字 = 我们的 block（校验存在），裸名 = shadcn 内置件
+    for (const dep of meta.registryDependencies ?? []) {
+      if (blockNames.has(dep) && !graph.has(dep)) {
+        graph.set(dep, new Set());
+      }
+      registryDependencies.add(dep);
+    }
+
+    const files: RegistryFile[] = sourceFiles.map((file) => {
+      const relPath = relative(blockDir, file);
+      const extension = file.slice(file.lastIndexOf("."));
+      return {
+        // path 指向仓库内真实源文件（相对 registry.json 所在的仓库根）：
+        // `shadcn registry validate` 与 GitHub raw 拉取都按此路径读取；
+        // content 同时内联，registry/dist/r 静态托管通道可直接使用。
+        path: relative(ROOT, file),
+        type: fileTypeFor(extension),
+        target: `${meta.targetDir}/${relPath}`,
+        content: readFileSync(file, "utf8"),
+      };
+    });
+
+    for (const file of sourceFiles) {
+      const source = readFileSync(file, "utf8");
+      for (const specifier of collectImports(source)) {
+        const relFile = relative(ROOT, file);
+
+        if (specifier.startsWith("@/components/blocks/")) {
+          const targetKey = specifier.slice("@/components/blocks/".length);
+          const match = [...metas.keys()].find(
+            (candidate) => targetKey === candidate || targetKey.startsWith(`${candidate}/`),
+          );
+          if (!match) {
+            fail(
+              `${relFile}: imports unknown block "${specifier}" (known: ${[...metas.keys()].join(", ")})`,
+            );
+          }
+          const targetName = metas.get(match)?.meta.name;
+          if (targetName) registryDependencies.add(targetName);
+          continue;
+        }
+
+        if (
+          specifier.startsWith("@/components/ui/") ||
+          specifier.startsWith("@/lib/") ||
+          specifier.startsWith("@/hooks/")
+        ) {
+          // 宿主项目别名，保留原样（用户 components.json aliases 解析）
+          continue;
+        }
+
+        if (specifier.startsWith("@/")) {
+          fail(
+            `${relFile}: blocks must not import demo code (found "${specifier}"; ` +
+              "allowed: @/components/ui/*, @/components/blocks/*, @/lib/*, @/hooks/*, npm packages)",
+          );
+        }
+
+        if (specifier.startsWith(".")) {
+          const resolved = resolve(dirname(file), specifier);
+          if (!resolved.startsWith(blockDir)) {
+            fail(`${relFile}: relative import "${specifier}" escapes the block directory`);
+          }
+          continue;
+        }
+
+        // 裸 npm 说明符
+        if (specifier === CORE_PACKAGE || specifier.startsWith(`${CORE_PACKAGE}/`)) {
+          const versioned = `${CORE_PACKAGE}@^${coreVersion}`;
+          dependencies.delete(CORE_PACKAGE);
+          dependencies.add(versioned);
+          continue;
+        }
+        if (!IMPLICIT_NPM_IMPORTS.has(specifier) && !specifier.startsWith("react/")) {
+          const bare = specifier.startsWith("@")
+            ? specifier.split("/").slice(0, 2).join("/")
+            : specifier.split("/")[0];
+          if (specifier === bare && ![...dependencies].some((d) => depName(d) === bare)) {
+            dependencies.add(bare);
+          }
+        }
+      }
+    }
+
+    graph.set(meta.name, new Set([...registryDependencies].filter((dep) => blockNames.has(dep))));
+
+    items.push({
+      $schema: "https://ui.shadcn.com/schema/registry-item.json",
+      name: meta.name,
+      type: meta.type,
+      ...(meta.title ? { title: meta.title } : {}),
+      ...(meta.description ? { description: meta.description } : {}),
+      files,
+      dependencies: [...dependencies].sort(),
+      registryDependencies: [...registryDependencies].sort(),
+    });
+    console.log(`  block ${key} → dist/r/${meta.name}.json (${files.length} files)`);
+  }
+
+  // 环检测
+  const state = new Map<string, "visiting" | "done">();
+  const visit = (node: string, trail: string[]): void => {
+    const current = state.get(node);
+    if (current === "visiting") {
+      fail(`circular registryDependencies: ${[...trail, node].join(" → ")}`);
+    }
+    if (current === "done") return;
+    state.set(node, "visiting");
+    for (const next of graph.get(node) ?? []) {
+      visit(next, [...trail, node]);
+    }
+    state.set(node, "done");
+  };
+  for (const node of graph.keys()) {
+    visit(node, []);
+  }
+
+  // 输出
+  rmSync(join(ROOT, "registry", "dist"), { recursive: true, force: true });
+  mkdirSync(DIST_DIR, { recursive: true });
+  for (const item of items) {
+    writeFileSync(join(DIST_DIR, `${item.name}.json`), `${JSON.stringify(item, null, 2)}\n`);
+  }
+
+  const registryIndex = {
+    $schema: "https://ui.shadcn.com/schema/registry.json",
+    name: "@fleetly/ui-components",
+    homepage: "https://github.com/fleetlyrun/ui-components",
+    items,
+  };
+  writeFileSync(join(ROOT, "registry.json"), `${JSON.stringify(registryIndex, null, 2)}\n`);
+
+  console.log(
+    `\nregistry:build done — ${items.length} item(s): registry/dist/r/*.json + registry.json (repo index, committed)`,
+  );
+}
+
+void main();

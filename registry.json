@@ -1,0 +1,26 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry.json",
+  "name": "@fleetly/ui-components",
+  "homepage": "https://github.com/fleetlyrun/ui-components",
+  "items": [
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "status-badge",
+      "type": "registry:component",
+      "title": "Status Badge",
+      "description": "语义状态徽章：success/warning/danger/info/neutral 五组 tone 映射 --status-* 设计令牌（含 -bg 软底变体），可选 pulse 呼吸点，微标签规格（12px 大写加字距）。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/status-badge/status-badge.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/status-badge/status-badge.tsx",
+          "content": "import { cn } from \"cn\";\nimport type { ReactNode } from \"react\";\n\nexport type StatusBadgeTone = \"success\" | \"warning\" | \"danger\" | \"info\" | \"neutral\";\n\nconst toneClasses = {\n  success: \"border-status-success/25 bg-status-success-bg text-status-success\",\n  warning: \"border-status-warning/25 bg-status-warning-bg text-status-warning\",\n  danger: \"border-status-danger/25 bg-status-danger-bg text-status-danger\",\n  info: \"border-status-info/25 bg-status-info-bg text-status-info\",\n  neutral: \"border-border bg-status-neutral-bg text-status-neutral\",\n} as const satisfies Record<StatusBadgeTone, string>;\n\nexport interface StatusBadgeProps {\n  /** 语义 tone，映射到宿主项目的 `--status-*` 设计令牌（见 architecture.md §8） */\n  tone: StatusBadgeTone;\n  /** 状态点呼吸动画（用于 running / reconciling 等活动态） */\n  pulse?: boolean;\n  children: ReactNode;\n}\n\n/**\n * 语义状态徽章：微标签规格（12px 大写 + 字距），前景/软底双令牌，\n * 颜色全部来自 `--status-<tone>` / `--status-<tone>-bg`，无硬编码色值。\n */\nexport function StatusBadge({ tone, pulse = false, children }: StatusBadgeProps) {\n  return (\n    <span\n      className={cn(\n        \"inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5\",\n        \"text-xs font-medium tracking-wider uppercase\",\n        toneClasses[tone],\n      )}\n    >\n      <span\n        aria-hidden=\"true\"\n        className={cn(\"size-1.5 rounded-full bg-current\", pulse && \"animate-pulse\")}\n      />\n      {children}\n    </span>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "cn"
+      ],
+      "registryDependencies": []
+    }
+  ]
+}

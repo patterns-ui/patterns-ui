@@ -1,0 +1,31 @@
+{
+  "name": "ui-components",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.9.1",
+  "description": "@fleetly/ui-components — console/SaaS UI 底座：core 逻辑包 + registry blocks + demo",
+  "scripts": {
+    "dev": "pnpm --filter demo dev",
+    "build": "pnpm --filter @fleetly/ui-component-core build && pnpm registry:build",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "typecheck": "pnpm -r typecheck",
+    "registry:build": "tsx registry/scripts/build.ts"
+  },
+  "devDependencies": {
+    "@base-ui/react": "catalog:",
+    "@biomejs/biome": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "class-variance-authority": "catalog:",
+    "cn": "catalog:",
+    "lucide-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
+  }
+}

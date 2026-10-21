@@ -1,0 +1,10 @@
+{
+  "name": "status-badge",
+  "type": "registry:component",
+  "title": "Status Badge",
+  "description": "语义状态徽章：success/warning/danger/info/neutral 五组 tone 映射 --status-* 设计令牌（含 -bg 软底变体），可选 pulse 呼吸点，微标签规格（12px 大写加字距）。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/status-badge"
+}

@@ -1,7 +1,6 @@
 # @fleetly/ui-components
 
 给我们自己的 console / SaaS 项目用的 CRUD UI 底座：装上即得高完成度骨架，加资源页接近零样板。
-
 - **技术栈**：pnpm monorepo · React 19 · TanStack Router / Query / Table v9 / Form v1 · shadcn/ui（Base UI 方言）· Tailwind v4 · zod v4
 - **分发**：逻辑层 npm 包 `@fleetly/ui-component-core`（语义化版本）+ UI 层 shadcn registry blocks（拷贝进项目、完全拥有、可任意改）
 - **分层**：L0 Tokens → L1 shadcn 基础件 → L2 复合组件 → L3 页面模板 → L4 `defineResource()` 资源声明层。每层可停、可换、可 fork。

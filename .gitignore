@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+*.tsbuildinfo
+
+# registry 构建产物（registry.json 索引提交，单件产物不提交）
+registry/dist/
+
+# TanStack Router 生成文件（dev/build 时由 @tanstack/router-plugin 生成）
+apps/demo/src/routeTree.gen.ts
+
+# test
+coverage/
+
+# env
+.env
+.env.*
+!.env.example
+
+# editor / os
+.DS_Store
+*.local
+
+# agent workspace
+.zcode/
