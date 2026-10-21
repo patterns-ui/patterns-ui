@@ -125,7 +125,11 @@ function AuditPage() {
             size="sm"
             onClick={() => {
               void navigate({
-                search: (prev) => ({ ...prev, mode: "cursor", page: undefined }) as never,
+                search: ((prev: Record<string, unknown>) => ({
+                  ...prev,
+                  mode: "cursor",
+                  page: undefined,
+                })) as never,
               });
             }}
           >
@@ -136,7 +140,11 @@ function AuditPage() {
             size="sm"
             onClick={() => {
               void navigate({
-                search: (prev) => ({ ...prev, mode: "load-more", page: undefined }) as never,
+                search: ((prev: Record<string, unknown>) => ({
+                  ...prev,
+                  mode: "load-more",
+                  page: undefined,
+                })) as never,
               });
             }}
           >

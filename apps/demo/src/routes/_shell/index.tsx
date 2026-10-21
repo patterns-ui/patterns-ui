@@ -8,6 +8,6 @@ import { listTenants } from "@/lib/tenants";
 export const Route = createFileRoute("/_shell/")({
   beforeLoad: async () => {
     const tenants = await listTenants();
-    throw redirect({ to: rootTenantRedirect({ tenants }) });
+    throw redirect({ to: rootTenantRedirect({ tenants }) as never });
   },
 });

@@ -128,7 +128,7 @@ function PreviewPage() {
             key={s}
             size="sm"
             variant={shell === s ? "default" : "ghost"}
-            render={<Link to="." search={{ shell: s, sidebar }} />}
+            render={<Link to="." search={{ shell: s, sidebar } as never} />}
           >
             shell: {s}
           </Button>
@@ -139,7 +139,7 @@ function PreviewPage() {
             key={s}
             size="sm"
             variant={sidebar === s ? "default" : "ghost"}
-            render={<Link to="." search={{ shell, sidebar: s }} />}
+            render={<Link to="." search={{ shell, sidebar: s } as never} />}
           >
             sidebar: {s}
           </Button>

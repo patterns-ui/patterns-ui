@@ -252,6 +252,18 @@ rowSelection/expanding/columnSizing/columnResizing/columnOrdering/columnVisibili
 （含 permanentFilters 合并后的请求树）。`sort.initial` 仅在 `syncWithLocation: false` 时生效；
 URL 模式下排序事实源是 URL（无 sort 参数即未排序）。
 
+**M4 增补（分组/树形）**：
+- `listTableFeatures` 追加 `columnGroupingFeature` + `rowAggregationFeature` +
+  `groupedRowModel: createGroupedRowModel()` + `aggregationFns`（sum/avg[=mean]/count/min/max/…）。
+  v9.3 实测**没有** `rowGroupingFeature` 导出 —— 分组由 columnGroupingFeature 提供。
+- `UseResourceTableOptions` 新增：
+  - `getSubRows?: (row, index) => TData[] | undefined`（树形子行；透传 TanStack 同名 option）
+  - `grouping?: { columns?: GroupingState; onChange?: (next) => void }`（受控分组列；宿主可写 URL）
+  - useTable 侧固定 `groupedColumnMode: false`（分组列不自动前移重排 —— reorder 模式在受控
+    state 组合下会反复写 columnOrder 死循环；分组行渲染由 blocks data-table 横跨整行承担）。
+- 列 meta 约定：`ListColumnMeta = { cell?: string; enumValues?: string[]; … }`（`meta.cell` 是
+  inferColumns 推断出的语义渲染标记，blocks cellFor 消费）。
+
 **saved views（命名视图）**：
 
 ```ts
@@ -510,6 +522,7 @@ export interface ResourceShowDef { sections?: { title: string; items: { label: s
 export interface ResourceDef<TData = any> {
   name: string                                 // 复数 kebab：'services'
   singular?: string                            // 'service'（用于文案）
+  label?: string                               // 列表/导航标题（缺省 name 首字母大写）
   client: ResourceClient<TData, any, any>
   columns: ColumnDef<TData>[]                  // 或经 inferColumns 生成
   filters?: FilterDef[]
@@ -519,6 +532,7 @@ export interface ResourceDef<TData = any> {
   parent?: { resource: string; param: string } // 子资源嵌套：parent.resource='services', parent.param='serviceId'
   nav?: { group: string; icon?: string; order?: number }
   canAccess?: (user: AuthUser) => boolean
+  tenantScoped?: boolean                       // queryKey 是否含租户段（默认 true；与 createResource 一致）
 }
 
 export function defineResource<TData>(def: ResourceDef<TData>): ResourceDef<TData>
@@ -536,10 +550,17 @@ export function resourceDetailRouteOptions(def): { staticData: { title: string }
 
 export function inferColumns(sample: Record<string, unknown>[]): { columns: ColumnDef<any>[]; report: string }
 //   类型推断：ISO 日期→cell-time；uuid/短 hex→cell-id；boolean→cell-boolean；
-//   枚举型 string（distinct ≤ 12）→cell-enum-badge；number→cell-number；含 @ →cell-user
+//   枚举型 string（distinct ≤ 12 且非 name/title 类自由文本、平均长度 ≤24）→cell-enum-badge；
+//   number→cell-number；含 @ →cell-user
+//   推断结果落在列 meta.cell（ListColumnMeta）；渲染由 blocks cellFor 消费（core 不含 UI）
 //   report = 可打印的生成代码（dev-only Guesser：console.info(report)）
 export function inferFormFields(schema: z4 schema | sample[]): { fields: { name; widget; label }[]; report: string }
+//   zod 形状优先（enum→select、boolean→switch、record→kv-pairs、datetime 检查→date、
+//   description 类字段→textarea）；数组形态回落 inferColumns 的类型映射
+export async function printGuess(def: ResourceDef): Promise<void>   // dev-only：拉一页样本 console.info 推断报告
 export function navFromResources(defs: ResourceDef[], user?: AuthUser): { group: string; items: { name; label; to; icon?; order? }[] }[]
+//   to = `/${name}`（相对租户根；宿主拼 /t/:tid 前缀）；组内 order 排序、组间按最小 order；
+//   canAccess fail-closed（user 缺失且有 canAccess → 隐藏）
 ```
 
 ---

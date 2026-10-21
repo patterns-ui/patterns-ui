@@ -1,0 +1,10 @@
+{
+  "name": "audit-log",
+  "type": "registry:block",
+  "title": "Audit Log Preset",
+  "description": "审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/audit-log"
+}

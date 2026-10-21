@@ -12,18 +12,33 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import {
+  aggregationFn_count,
+  aggregationFn_extent,
+  aggregationFn_first,
+  aggregationFn_last,
+  aggregationFn_max,
+  aggregationFn_mean,
+  aggregationFn_median,
+  aggregationFn_min,
+  aggregationFn_sum,
+  aggregationFn_unique,
+  aggregationFn_uniqueCount,
   type ColumnDef,
   type ColumnHelper,
+  columnGroupingFeature,
   columnOrderingFeature,
   columnResizingFeature,
   columnSizingFeature,
   columnVisibilityFeature,
   createColumnHelper,
   createExpandedRowModel,
+  createGroupedRowModel,
   createPaginatedRowModel,
   createSortedRowModel,
+  type GroupingState,
   type ReactTable,
   type RowData,
+  rowAggregationFeature,
   rowExpandingFeature,
   rowPaginationFeature,
   rowSelectionFeature,
@@ -51,6 +66,11 @@ export type { FilterDef, FilterTree, SortDirection, SortSpec } from "../filters"
 // TanStack Table v9：列表场景共享 features 集（显式注册，禁止 v8 兼容层）
 // ---------------------------------------------------------------------------
 
+/**
+ * v9.3 实测：分组能力由 `columnGroupingFeature` + `groupedRowModel: createGroupedRowModel()`
+ * 提供（无 `rowGroupingFeature` 导出）；聚合执行器是 `rowAggregationFeature` +
+ * `aggregationFns` 注册表（分组行聚合单元格与 column.getAggregationValue 共用）。
+ */
 export const listTableFeatures = tableFeatures({
   rowSortingFeature,
   rowPaginationFeature,
@@ -60,12 +80,41 @@ export const listTableFeatures = tableFeatures({
   columnSizingFeature,
   columnResizingFeature,
   columnVisibilityFeature,
+  columnGroupingFeature,
+  rowAggregationFeature,
   sortedRowModel: createSortedRowModel(),
   paginatedRowModel: createPaginatedRowModel(),
   expandedRowModel: createExpandedRowModel(),
+  groupedRowModel: createGroupedRowModel(),
+  aggregationFns: {
+    sum: aggregationFn_sum,
+    avg: aggregationFn_mean, // v9 无独立 avg 实现：别名到 mean
+    mean: aggregationFn_mean,
+    count: aggregationFn_count,
+    min: aggregationFn_min,
+    max: aggregationFn_max,
+    median: aggregationFn_median,
+    extent: aggregationFn_extent,
+    unique: aggregationFn_unique,
+    uniqueCount: aggregationFn_uniqueCount,
+    first: aggregationFn_first,
+    last: aggregationFn_last,
+  },
+  columnMeta: {} as ListColumnMeta,
 });
 
 export type ListTableFeatures = typeof listTableFeatures;
+
+/**
+ * 列 meta 约定：`meta.cell` 是语义渲染标记（inferColumns 推断产出 / 手写声明），
+ * blocks 层 cellFor/meta 消费方读它渲染（core 不含 UI）。其余键透传。
+ */
+export interface ListColumnMeta {
+  cell?: string;
+  enumValues?: string[];
+  [key: string]: unknown;
+}
+
 // biome-ignore lint/suspicious/noExplicitAny: TanStack ColumnDef 的 TValue 在 cell/render 协变位置，官方形态即 any
 export type ListColumnDef<TData extends RowData> = ColumnDef<ListTableFeatures, TData, any>;
 export type ListTable<TData extends RowData> = ReactTable<ListTableFeatures, TData>;
@@ -228,6 +277,13 @@ export interface UseResourceTableOptions<TData extends RowData> {
   queryOptions?: { staleTime?: number; refetchInterval?: number | false };
   /** client 模式一次整取的条数（默认 500） */
   clientFetchSize?: number;
+  /** 树形数据：子行读取（TanStack getSubRows 透传；配合 expandedRowModel 展平） */
+  getSubRows?: (row: TData, index: number) => TData[] | undefined;
+  /**
+   * 分组列（M4）：columns = 分组列 id（受控值优先；缺省内部 state）。
+   * 变化经 onChange 回调（宿主可写进 URL）；DataTable 的分组 UI 走 table.setGrouping。
+   */
+  grouping?: { columns?: GroupingState; onChange?: (next: GroupingState) => void };
 }
 
 export interface ResourceTableState {
@@ -546,6 +602,10 @@ export function useResourceTable<TData extends RowData>(
 
   const [rowSelection, setRowSelection] = useState<Record<string, true>>({});
   const [expanded, setExpanded] = useState<true | Record<string, boolean>>({});
+  const [groupingInternal, setGroupingInternal] = useState<GroupingState>([]);
+  const grouping = options.grouping?.columns ?? groupingInternal;
+  const groupingRef = useRef(grouping);
+  groupingRef.current = grouping;
 
   const table = useTable(
     {
@@ -553,9 +613,13 @@ export function useResourceTable<TData extends RowData>(
       data: tableData,
       columns,
       getRowId: (row) => resource.getId(row),
+      ...(options.getSubRows ? { getSubRows: options.getSubRows } : {}),
       manualSorting: mode !== "client",
       manualPagination: mode !== "client",
       enableMultiSort: multiSort,
+      // 分组列不做自动前移重排：分组行整行横跨渲染（blocks data-table），
+      // reorder 模式在受控 state 组合下会反复写 columnOrder（实测死循环）
+      groupedColumnMode: false,
       pageCount:
         mode === "server-offset"
           ? Math.max(1, Math.ceil((query.data?.total ?? 0) / state.size))
@@ -566,6 +630,12 @@ export function useResourceTable<TData extends RowData>(
         pagination: { pageIndex: state.page - 1, pageSize: state.size },
         rowSelection,
         expanded,
+        grouping,
+      },
+      onGroupingChange: (updater) => {
+        const next = typeof updater === "function" ? updater(groupingRef.current) : updater;
+        if (options.grouping?.onChange) options.grouping.onChange(next);
+        else setGroupingInternal(next);
       },
       onSortingChange: (updater) => {
         const next =
@@ -596,6 +666,7 @@ export function useResourceTable<TData extends RowData>(
       pagination: s.pagination,
       rowSelection: s.rowSelection,
       expanded: s.expanded,
+      grouping: s.grouping,
       columnSizing: s.columnSizing,
       columnOrder: s.columnOrder,
       columnVisibility: s.columnVisibility,

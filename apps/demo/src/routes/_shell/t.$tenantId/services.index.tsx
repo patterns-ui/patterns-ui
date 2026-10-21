@@ -5,10 +5,11 @@ import {
   useResourceTable,
 } from "@fleetly/ui-component-core/list";
 import { useNewItemsSignal } from "@fleetly/ui-component-core/task";
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Columns3, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 import { CellEnumBadge } from "@/components/blocks/cells/cell-enum-badge/cell-enum-badge";
 import { CellId } from "@/components/blocks/cells/cell-id/cell-id";
 import { CellNumber } from "@/components/blocks/cells/cell-number/cell-number";
@@ -70,6 +71,15 @@ const helper = createListColumnHelper<MockService>();
 function ServicesPage() {
   const [autoIntervalMs, setAutoIntervalMs] = useState<number | false>(false);
   const { tenantId } = Route.useParams();
+  const navigate = useNavigate();
+  const search = Route.useSearch() as { group?: string };
+  const groupOn = search.group === "on";
+  const toggleGroup = () => {
+    void navigate({
+      search: ((prev: Record<string, unknown>) =>
+        groupOn ? { ...prev, group: undefined } : { ...prev, group: "on" }) as never,
+    });
+  };
 
   const { useDeleteWithUndo, useBulkDeleteWithUndo } = useResourceMutations(servicesResource);
   const deleteRow = useDeleteWithUndo();
@@ -152,6 +162,8 @@ function ServicesPage() {
     search: { fields: ["name", "id"] },
     sort: { initial: [{ field: "name", direction: "asc" }], multi: true },
     queryOptions: { staleTime: 15_000, refetchInterval: autoIntervalMs },
+    // 分组列受控（group=1 → ['env']）；分组是查询语义 → URL
+    grouping: { columns: groupOn ? ["env"] : [] },
   });
 
   const signal = useNewItemsSignal(list.query, { key: (row) => (row as MockService).id });
@@ -224,6 +236,10 @@ function ServicesPage() {
             ]}
             filename="services"
           />
+          <Button variant={groupOn ? "default" : "outline"} size="sm" onClick={toggleGroup}>
+            <Columns3 data-icon="inline-start" />
+            {groupOn ? "分组：env（开）" : "分组演示"}
+          </Button>
           <Button render={<Link to="/t/$tenantId/services/new" params={{ tenantId }} />}>
             <Plus /> 新建服务
           </Button>
@@ -272,7 +288,18 @@ function ServicesPage() {
           onClearFilters={() => list.reset()}
           empty={{ title: "还没有服务", description: "创建第一个服务后它会出现在这里。" }}
         >
-          <DataTable table={list.table} stickyFirst stickyLast preferencesKey="services" />
+          <DataTable
+            table={list.table}
+            stickyFirst
+            stickyLast
+            preferencesKey="services"
+            mobile="cards"
+            grouping={{
+              columns: groupOn ? ["env"] : [],
+              labelFor: (_colId, value) => `环境：${String(value ?? "—")}`,
+            }}
+            aggregates={groupOn ? [{ field: "replicas", fn: "sum" }] : undefined}
+          />
         </AsyncState>
       }
       pagination={
@@ -293,7 +320,12 @@ function ServicesPage() {
   );
 }
 
-const searchSchema = createListSearchSchema({ filters: FILTER_DEFS });
+const baseSearchSchema = createListSearchSchema({ filters: FILTER_DEFS });
+const searchSchema = z.object({
+  ...baseSearchSchema.shape,
+  /** 分组演示开关（group=on → 按 env 分组 + replicas sum 聚合；避免数字串被 router JSON 化） */
+  group: z.literal("on").optional().catch(undefined),
+});
 
 export const Route = createFileRoute("/_shell/t/$tenantId/services/")({
   staticData: { title: "Services" },

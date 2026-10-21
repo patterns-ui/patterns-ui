@@ -24,7 +24,7 @@ function SignInRoute() {
       description="demo 账号：demo@fleetly.dev / 任意密码"
       onSubmit={async (credentials) => {
         await login(credentials);
-        await navigate({ to: next ?? "/" });
+        await navigate({ to: (next ?? "/") as never });
       }}
       footer={
         <div className="flex items-center gap-4">

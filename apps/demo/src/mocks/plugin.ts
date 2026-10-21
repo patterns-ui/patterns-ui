@@ -6,12 +6,13 @@ import { authRoutes } from "./handlers/auth";
 import { deploymentRoutes } from "./handlers/deployments";
 import { orgRoutes } from "./handlers/orgs";
 import { serviceRoutes } from "./handlers/services";
+import { settingsRoutes, teamRoutes } from "./handlers/team";
 import { userRoutes } from "./handlers/users";
 import type { MockResult, MockRoute } from "./types";
 
 /**
  * mock API 路由表（模块化注册：新端点在 handlers/ 下加文件后并入 routes）。
- * 注意：具体路径（bulk-*）必须排在 :id 参数路径之前。
+ * 注意：具体路径（bulk-*、read-all、accept）必须排在 :id 参数路径之前。
  */
 const routes: MockRoute[] = [
   ...authRoutes,
@@ -21,6 +22,8 @@ const routes: MockRoute[] = [
   ...deploymentRoutes,
   ...apiKeyRoutes,
   ...auditRoutes,
+  ...teamRoutes,
+  ...settingsRoutes,
 ];
 
 const MIN_DELAY_MS = 150;

@@ -75,7 +75,7 @@ export function NavGroupMenu({ group }: { group: NavGroup }) {
                 <SidebarMenuButton
                   isActive={active}
                   tooltip={item.label}
-                  render={<Link to={item.to} />}
+                  render={<Link to={item.to as never} />}
                 >
                   {Icon ? <Icon /> : null}
                   <span>{item.label}</span>

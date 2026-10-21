@@ -1,0 +1,10 @@
+{
+  "name": "notification-inbox",
+  "type": "registry:block",
+  "title": "Notification Inbox",
+  "description": "通知收件箱页：类型图标、已读/未读、单条已读（PATCH）、全部已读、relative-time 活渲染；数据走 ResourceClient 约定；useUnreadCount 供 top-bar badge 共享缓存。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/notification-inbox"
+}

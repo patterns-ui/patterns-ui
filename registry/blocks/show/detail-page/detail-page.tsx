@@ -72,7 +72,7 @@ export function DetailPage({
             variant="ghost"
             size="sm"
             className="-ml-2 text-muted-foreground"
-            render={<Link to={backTo.to} />}
+            render={<Link to={backTo.to as never} />}
           >
             <ArrowLeft /> {backTo.label ?? "返回"}
           </Button>

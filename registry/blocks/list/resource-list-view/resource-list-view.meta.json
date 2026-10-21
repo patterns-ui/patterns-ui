@@ -1,0 +1,10 @@
+{
+  "name": "resource-list-view",
+  "type": "registry:block",
+  "title": "Resource List View (L4)",
+  "description": "L4 视图工厂（列表）：defineResource def → 资源实例（WeakMap 缓存）→ useResourceTable（def.list/filters/parent 永久过滤）→ ListPage+FilterBar+AsyncState+DataTable+PaginationBar 一行装配；列 meta.cell 经 cellFor 渲染；grid 磁贴变体。",
+  "categories": ["list"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/list/resource-list-view"
+}

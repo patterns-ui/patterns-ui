@@ -32,7 +32,9 @@ export function Breadcrumbs({ resolve }: { resolve?: CrumbResolve }) {
                 {last || !crumb.to ? (
                   <BreadcrumbPage className="text-foreground">{crumb.label}</BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink render={<Link to={crumb.to} />}>{crumb.label}</BreadcrumbLink>
+                  <BreadcrumbLink render={<Link to={crumb.to as never} />}>
+                    {crumb.label}
+                  </BreadcrumbLink>
                 )}
               </BreadcrumbItem>
               {!last ? <BreadcrumbSeparator className="hidden sm:block" /> : null}

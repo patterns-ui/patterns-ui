@@ -1,5 +1,7 @@
+import { useInlineEdit } from "@fleetly/ui-component-core/inline";
 import { useTaskSubmit } from "@fleetly/ui-component-core/task";
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { cn } from "cn";
 import { Boxes, Pencil, Rocket } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -14,6 +16,7 @@ import {
   FormMessage,
   useAppForm,
 } from "@/components/blocks/form/typed-form-field/typed-form-field";
+import { InlineBar } from "@/components/blocks/list/data-table/data-table";
 import { ErrorState } from "@/components/blocks/shared/error-state/error-state";
 import { DangerZone } from "@/components/blocks/show/danger-zone/danger-zone";
 import { DetailGrid } from "@/components/blocks/show/detail-grid/detail-grid";
@@ -25,7 +28,7 @@ import { Timeline } from "@/components/blocks/show/timeline/timeline";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTask } from "@/lib/clients";
-import type { MockService } from "@/mocks/db";
+import type { MockDeployment, MockService } from "@/mocks/db";
 import { makeDeploymentsResource, servicesResource, usersResource } from "@/resources";
 
 const STATUS_TONES: Record<string, "success" | "warning" | "danger" | "neutral"> = {
@@ -289,9 +292,23 @@ function DeploymentsTab({
     [tenantId, service.id],
   );
   const query = resource.useList({ pageSize: 10, refetchInterval: 2000 });
-  const update = resource.useUpdate({ onSuccess: () => toast.success("已更新副本数") });
 
   const rows = query.data?.rows ?? [];
+
+  // M4：replicas 行内编辑改接 useInlineEdit changeSet —— 改多行、一次批量提交
+  const inline = useInlineEdit<MockDeployment>({
+    rows,
+    getId: (row) => row.id,
+    commit: async (changes) => {
+      // mock 无批量端点：逐行 PATCH 聚合；全部成功才视为提交成功
+      await Promise.all(
+        changes.map((change) =>
+          resource.client.update?.(change.id, change.patch as Partial<MockDeployment>),
+        ),
+      );
+      await query.refetch();
+    },
+  });
 
   return (
     <section className="bg-card text-card-foreground overflow-hidden rounded-xl border">
@@ -378,21 +395,24 @@ function DeploymentsTab({
                   value={row.progress}
                   state={row.status === "failed" ? "danger" : undefined}
                 />
-                <span className="flex items-center gap-1.5">
-                  副本
-                  <InlineEditField
-                    value={row.replicas}
-                    type="number"
-                    className="w-14"
-                    onSave={async (next) => {
-                      await update.mutateAsync({ id: row.id, replicas: Number(next) });
-                    }}
-                  />
-                </span>
+                <DeploymentReplicasCell row={row} ctl={inline.getCell(row.id, "replicas")} />
                 <CellTime value={row.createdAt} className="ml-auto" />
               </li>
             ))}
           </ul>
+          {inline.dirtyCount > 0 ? (
+            <footer className="border-t px-5 py-3">
+              <InlineBar
+                count={inline.dirtyCount}
+                label="副本变更"
+                pending={false}
+                onCommit={() => {
+                  void inline.commit().then(() => toast.success("已批量提交副本变更"));
+                }}
+                onRevert={inline.revert}
+              />
+            </footer>
+          ) : null}
           {query.data?.nextCursor !== undefined ? (
             <footer className="border-t px-5 py-2.5">
               <span className="text-muted-foreground text-xs">
@@ -639,6 +659,58 @@ function DeploySummary({
         );
       }}
     </form.Subscribe>
+  );
+}
+
+/** 副本 changeSet 单元格：双击进入编辑（Enter 提交到 changeSet / Esc 取消）；脏值高亮 */
+function DeploymentReplicasCell({
+  row,
+  ctl,
+}: {
+  row: MockDeployment;
+  ctl: { value: unknown; isDirty: boolean; set(v: unknown): void };
+}) {
+  const [editing, setEditing] = useState(false);
+  const value = ctl.isDirty ? Number(ctl.value) : row.replicas;
+
+  if (editing) {
+    return (
+      <input
+        ref={(node) => node?.focus()}
+        type="number"
+        defaultValue={value}
+        className="bg-background h-7 w-16 rounded-md border px-1.5 font-mono text-xs tabular-nums outline-none"
+        onBlur={(e) => {
+          ctl.set(Number(e.currentTarget.value));
+          setEditing(false);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            ctl.set(Number(e.currentTarget.value));
+            setEditing(false);
+          }
+          if (e.key === "Escape") setEditing(false);
+        }}
+      />
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5" title="双击编辑（批量提交）">
+      副本
+      <button
+        type="button"
+        onDoubleClick={() => setEditing(true)}
+        className={cn(
+          "rounded-md px-1.5 py-0.5 font-mono text-xs tabular-nums",
+          ctl.isDirty
+            ? "bg-primary/10 text-primary ring-primary/30 ring-1 ring-inset"
+            : "hover:bg-muted text-foreground",
+        )}
+      >
+        {value}
+        {ctl.isDirty ? " *" : ""}
+      </button>
+    </span>
   );
 }
 

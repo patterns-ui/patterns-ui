@@ -58,7 +58,7 @@ export function FormPage({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           {backTo ? (
-            <Button variant="ghost" size="icon-sm" render={<Link to={backTo.to} />}>
+            <Button variant="ghost" size="icon-sm" render={<Link to={backTo.to as never} />}>
               <ArrowLeft />
             </Button>
           ) : null}

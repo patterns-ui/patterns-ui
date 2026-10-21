@@ -31,6 +31,21 @@ pnpm build        # core 构建 + registry JSON 构建
 - [docs/registry.md](docs/registry.md) —— registry 构建发布与升级策略
 - [docs/milestones.md](docs/milestones.md) —— M0–M5 任务分解与验收清单
 
+## L4 采用：defineResource 与手写版对比（M4）
+
+同一份「审计事件列表页」（keyset 分页 + action facet + 时间范围过滤 + 高级 and/or）有两种写法，
+demo 里并存可直接对比：
+
+| 版本      | 路由             | 代码量                  | 说明                                                                                                                                                                     |
+| --------- | ---------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M2 手写   | `/t/:tid/audit`  | ~229 行（单文件）       | 手写列定义 + useResourceTable + FilterBar/FacetSidebar/DataTable/PaginationBar 全套装配 + cursor/load-more 双模式切换                                                    |
+| M4 资源层 | `/t/:tid/audit2` | ~87 行页面 + ~55 行 def | `defineResource`（列由 `inferColumns` 从样本推断、filters/list 一并声明）+ `resourceListRouteOptions`（validateSearch/staticData/权限守卫）+ `ResourceListView` 一行装配 |
+
+资源层版本的收益随资源数量线性放大：def 还同时派生导航（`navFromResources`）、
+详情路由 loader 预取（`resourceDetailRouteOptions`）与表单字段推断（`inferFormFields`）；
+dev 模式打开 `/t/:tid/audit2` 可在控制台看到 Guesser 打印的可粘贴配置。
+手写版保留为 L3 层参考（想完全掌控装配时停在该层即可）。
+
 ## 状态
 
 按里程碑推进中，见 [docs/milestones.md](docs/milestones.md)。

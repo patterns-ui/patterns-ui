@@ -1,0 +1,10 @@
+{
+  "name": "resource-detail-view",
+  "type": "registry:block",
+  "title": "Resource Detail View (L4)",
+  "description": "L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；sections 的 cell 类型与 inferColumns 标记共用。",
+  "categories": ["show"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/show/resource-detail-view"
+}

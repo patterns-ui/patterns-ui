@@ -1,0 +1,10 @@
+{
+  "name": "global-search-page",
+  "type": "registry:block",
+  "title": "Global Search Page",
+  "description": "跨资源搜索结果页：多 section 结果（每资源 top N）+ <mark> 命中段高亮 + 空态 + 输入防抖；?q= 进 URL（⌘K 面板回车进入）。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shell/global-search-page"
+}

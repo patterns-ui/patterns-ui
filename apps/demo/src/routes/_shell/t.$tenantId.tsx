@@ -8,6 +8,7 @@ import { CommandPalette } from "@/components/blocks/shell/command-palette/comman
 import { PresetSwitcher } from "@/components/blocks/shell/preset-switcher/preset-switcher";
 import { TopBar } from "@/components/blocks/shell/top-bar/top-bar";
 import { SideNavInset } from "@/components/blocks/sidebar/side-nav-inset/side-nav-inset";
+import { NotificationBell } from "@/components/notification-bell";
 import { tenantNavGroups } from "@/lib/nav";
 import { listTenants, resolveTenant } from "@/lib/tenants";
 
@@ -54,6 +55,7 @@ function TenantLayout() {
   return (
     <TenantProvider resolveTenant={resolveTenant} listTenants={listTenants}>
       <TenantShellChrome
+        tenantId={tenantId}
         sidebar={sidebar}
         user={user}
         onLogout={() => void handleLogout()}
@@ -67,6 +69,7 @@ function TenantLayout() {
 
 /** 面包屑的租户段反查需要 useTenant 数据（必须在 TenantProvider 内） */
 function TenantShellChrome({
+  tenantId,
   sidebar,
   user,
   onLogout,
@@ -74,6 +77,7 @@ function TenantShellChrome({
   onSearchOpenChange,
   commandGroups,
 }: {
+  tenantId: string;
   sidebar: React.ReactNode;
   user: ReturnType<typeof useAuth>["user"];
   onLogout: () => void;
@@ -82,6 +86,7 @@ function TenantShellChrome({
   commandGroups: Parameters<typeof CommandPalette>[0]["groups"];
 }) {
   const { tenants } = useTenant();
+  const navigate = useNavigate();
   const breadcrumbResolve = useMemo<CrumbResolve>(
     () => ({ tenant: (id) => tenants.find((t) => t.id === id)?.name }),
     [tenants],
@@ -97,13 +102,32 @@ function TenantShellChrome({
             user={user ?? { name: "…", email: "" }}
             onLogout={onLogout}
             breadcrumbResolve={breadcrumbResolve}
-            extra={<PresetSwitcher presets={PRESETS} />}
+            extra={
+              <>
+                <NotificationBell tenantId={tenantId} />
+                <PresetSwitcher presets={PRESETS} />
+              </>
+            }
           />
         }
       >
         <Outlet />
       </AppShellInset>
-      <CommandPalette groups={commandGroups} open={searchOpen} onOpenChange={onSearchOpenChange} />
+      <CommandPalette
+        groups={commandGroups}
+        open={searchOpen}
+        onOpenChange={onSearchOpenChange}
+        searchFallback={{
+          label: (q) => `全站搜索「${q}」`,
+          run: (q) => {
+            void navigate({
+              to: "/t/$tenantId/search",
+              params: { tenantId },
+              search: { q },
+            });
+          },
+        }}
+      />
     </>
   );
 }

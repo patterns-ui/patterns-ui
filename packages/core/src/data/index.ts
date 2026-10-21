@@ -444,7 +444,9 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
             patch: patchForUpdate(vars.id, vars as unknown as Partial<TData>),
             commit: () => {
               if (!client.update) throw new Error("client.update is not implemented");
-              return client.update(vars.id, vars, { version: vars.version });
+              return client.update(vars.id, vars as unknown as TUpdate, {
+                version: vars.version,
+              });
             },
             invalidate: (qc, scope) => {
               invalidateLists(qc, scope);

@@ -189,7 +189,6 @@ export function useResourceForm<TData>(
     }
     const base: Partial<TData> = { ...defaultValues };
     return draftActive ? { ...base, ...draft } : base;
-    // biome-ignore lint/correctness/useExhaustiveDependencies: defaultValues 视为稳定引用（页面级常量）
   }, [mode, record, draft, draftActive, defaultValues]);
 
   const draftRestored = draftActive && (mode === "create" || record !== undefined);

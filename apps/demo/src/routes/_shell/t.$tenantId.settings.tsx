@@ -1,156 +1,101 @@
-import {
-  formatAbsolute,
-  formatRelative,
-  useDateTimePrefs,
-  useNow,
-} from "@fleetly/ui-component-core/datetime";
-import { type ThemeMode, useTheme } from "@fleetly/ui-component-core/theme";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo } from "react";
-import { RelativeTime } from "@/components/blocks/shared/relative-time/relative-time";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useAuth } from "@fleetly/ui-component-core/auth";
+import type { HttpError } from "@fleetly/ui-component-core/data";
+import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { SettingsPage } from "@/components/blocks/settings/settings-page/settings-page";
+import { api } from "@/lib/api";
+import { resolveTenant } from "@/lib/tenants";
 
-const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
-  { value: "light", label: "亮色" },
-  { value: "dark", label: "暗色" },
-  { value: "system", label: "跟随系统" },
+const PRESETS = [
+  { id: "default", label: "Default（近黑中性 + indigo）" },
+  { id: "aurora", label: "Aurora（浅色为主 + teal）" },
 ];
-
-const PRESET_OPTIONS = [
-  { value: "default", label: "Default（近黑中性 + indigo）" },
-  { value: "aurora", label: "Aurora（浅色为主 + teal）" },
-];
-
-/** Intl.supportedValuesOf('timeZone')（ES2022+；类型定义未覆盖，运行时特性检测） */
-function timeZones(): string[] {
-  const intl = Intl as typeof Intl & {
-    supportedValuesOf?: (key: string) => string[];
-  };
-  return intl.supportedValuesOf?.("timeZone") ?? [];
-}
-
-function pickLabel(options: { value: string; label: string }[], value: string | undefined): string {
-  return options.find((o) => o.value === value)?.label ?? value ?? "";
-}
 
 /**
- * 设置页雏形：外观（theme + preset）与时区偏好，即时生效。
+ * 完整设置页（settings-page block）：组织[name/avatar] + 个人[display/email/时区] +
+ * 安全[改密码 + 会话占位] + 外观[theme+preset]。组织/个人数据来自 mock（/api/me、/api/orgs/:id）。
+ * 演示约定：改密码的「当前密码」为 demo1234；新密码 taken 之外的 8 位以上均可。
  */
-function SettingsPage() {
-  const { prefs, setPrefs } = useDateTimePrefs();
-  const { theme, setTheme, preset, setPreset } = useTheme();
-  const zones = useMemo(timeZones, []);
-  const now = useNow(30_000);
+function SettingsDemoPage() {
+  const { tenantId } = Route.useParams();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () =>
+      api<{ id: string; name: string; email: string }>("/api/me").catch(() => ({
+        id: "",
+        name: user?.name ?? "",
+        email: user?.email ?? "",
+      })),
+    initialData: user ? { id: user.id, name: user.name, email: user.email } : undefined,
+  });
+
+  const orgQuery = useQuery({
+    queryKey: ["org", tenantId],
+    queryFn: () => resolveTenant(tenantId),
+  });
+
+  const org = orgQuery.data
+    ? { name: orgQuery.data.name, avatarUrl: orgQuery.data.avatarUrl, plan: orgQuery.data.plan }
+    : undefined;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-[13px]">
-          偏好属 localStorage（不进 URL）；完整三节设置页在 M4 settings-page block 提供。
-        </p>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>外观</CardTitle>
-          <CardDescription>主题与样式预设，刷新后保持。</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-2">
-            <Label>主题</Label>
-            <Select
-              value={theme}
-              onValueChange={(value) => {
-                if (value !== null) setTheme(value as ThemeMode);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{pickLabel(THEME_OPTIONS, theme)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {THEME_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid gap-2">
-            <Label>样式预设</Label>
-            <Select
-              value={preset}
-              onValueChange={(value) => {
-                if (value !== null) setPreset(value);
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>{pickLabel(PRESET_OPTIONS, preset)}</SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {PRESET_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>时间与地区</CardTitle>
-          <CardDescription>时区偏好影响全站时间显示（Intl 时区解析）。</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3">
-          <div className="grid gap-2">
-            <Label>时区</Label>
-            <Select
-              value={prefs.timeZone ?? ""}
-              onValueChange={(value) => {
-                if (value !== null) setPrefs({ timeZone: value || undefined });
-              }}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue>
-                  {(value: string | null) => (value === "" || value === null ? "系统时区" : value)}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="">系统时区</SelectItem>
-                {zones.map((zone) => (
-                  <SelectItem key={zone} value={zone}>
-                    {zone}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <p className="text-muted-foreground text-[13px]">
-            绝对格式示例：<span className="text-foreground">{formatAbsolute(now, prefs)}</span>
-            <br />
-            相对格式示例：
-            <RelativeTime value={now - 5 * 60_000} className="text-foreground" />（
-            {formatRelative(now - 5 * 60_000, now)}）
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <SettingsPage
+      org={org}
+      onSaveOrgName={async (name) => {
+        await api(`/api/orgs/${encodeURIComponent(tenantId)}`, {
+          method: "PATCH",
+          body: JSON.stringify({ name }),
+        });
+        toast.success("组织名称已更新");
+      }}
+      profile={{
+        displayName: meQuery.data?.name ?? "",
+        email: meQuery.data?.email ?? "",
+      }}
+      onSaveProfile={async (input) => {
+        try {
+          await api("/api/me", {
+            method: "PATCH",
+            body: JSON.stringify({
+              displayName: input.displayName,
+              email: input.email,
+              timeZone: input.timeZone,
+            }),
+          });
+          return { ok: true as const };
+        } catch (err) {
+          const http = err as HttpError;
+          const fields = (http?.body as { fields?: Record<string, string> } | undefined)?.fields;
+          return { ok: false as const, fieldErrors: fields, formError: http?.message };
+        }
+      }}
+      onChangePassword={async (input) => {
+        try {
+          await api("/api/me/password", {
+            method: "POST",
+            body: JSON.stringify(input),
+          });
+          return { ok: true as const };
+        } catch (err) {
+          const http = err as HttpError;
+          const fields = (http?.body as { fields?: Record<string, string> } | undefined)?.fields;
+          return { ok: false as const, formError: http?.message, fieldErrors: fields };
+        }
+      }}
+      presets={PRESETS}
+      onSignOutAllSessions={async () => {
+        await logout();
+        await navigate({ to: "/auth/sign-in" });
+      }}
+    />
   );
 }
 
 export const Route = createFileRoute("/_shell/t/$tenantId/settings")({
   staticData: { title: "Settings" },
-  component: SettingsPage,
+  component: SettingsDemoPage,
 });

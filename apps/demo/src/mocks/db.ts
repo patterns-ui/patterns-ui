@@ -353,3 +353,195 @@ export function deploymentState(row: MockDeployment): MockDeployment {
     progress: state.progress,
   };
 }
+
+// ---------------------------------------------------------------------------
+// M4：members / invitations / notifications / regions（树形）/ metrics（大列表）
+// ---------------------------------------------------------------------------
+
+export type MemberRole = "owner" | "admin" | "member" | "viewer";
+
+export interface MockMember {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string;
+  role: MemberRole;
+  twoFactorEnabled: boolean;
+  joinedAt: string;
+}
+
+export interface MockInvitation {
+  id: string;
+  email: string;
+  role: MemberRole;
+  invitedBy: string;
+  createdAt: string;
+  status: "pending" | "accepted" | "revoked";
+}
+
+export interface MockNotification {
+  id: string;
+  type: "deploy" | "alert" | "billing";
+  title: string;
+  body?: string;
+  read: boolean;
+  createdAt: string;
+  actorId?: string;
+}
+
+export interface MockZone {
+  id: string;
+  name: string;
+  services: number;
+  loadPct: number;
+  status: "healthy" | "degraded" | "offline";
+}
+
+export interface MockRegion {
+  id: string;
+  name: string;
+  provider: string;
+  zones: MockZone[];
+}
+
+export interface MockMetricPoint {
+  id: string;
+  ts: string;
+  cpuPct: number;
+  memPct: number;
+  reqPerSec: number;
+  errRate: number;
+}
+
+const tenantMembers = new Map<string, MockMember[]>();
+const tenantInvitations = new Map<string, MockInvitation[]>();
+const tenantNotifications = new Map<string, MockNotification[]>();
+const tenantRegions = new Map<string, MockRegion[]>();
+const tenantMetrics = new Map<string, MockMetricPoint[]>();
+
+export function membersOf(tenantId: string): MockMember[] {
+  let rows = tenantMembers.get(tenantId);
+  if (!rows) {
+    const names = [
+      ["Demo User", "demo@fleetly.dev", "owner", true],
+      ["Lin Wei", "lin@fleetly.dev", "admin", true],
+      ["Aisha Khan", "aisha@fleetly.dev", "member", false],
+      ["Diego Marín", "diego@fleetly.dev", "member", true],
+      ["Yuki Tanaka", "yuki@fleetly.dev", "viewer", false],
+    ] as const;
+    rows = names.map(([name, email, role, twoFactor], i) => ({
+      id: `usr_${i + 1}`,
+      name,
+      email,
+      role: role as MemberRole,
+      twoFactorEnabled: twoFactor,
+      joinedAt: seededIso(120 - i * 12, (i * 5) % 24, (i * 7) % 60),
+    }));
+    tenantMembers.set(tenantId, rows);
+  }
+  return rows;
+}
+
+export function invitationsOf(tenantId: string): MockInvitation[] {
+  let rows = tenantInvitations.get(tenantId);
+  if (!rows) {
+    rows = [
+      {
+        id: "inv_pending_1",
+        email: "new-hire@fleetly.dev",
+        role: "member",
+        invitedBy: "usr_demo",
+        createdAt: seededIso(2, 3, 12),
+        status: "pending",
+      },
+      {
+        id: "inv_pending_2",
+        email: "contractor@fleetly.dev",
+        role: "viewer",
+        invitedBy: "usr_1",
+        createdAt: seededIso(5, 9, 40),
+        status: "pending",
+      },
+      {
+        id: "inv_accepted_1",
+        email: "yuki@fleetly.dev",
+        role: "viewer",
+        invitedBy: "usr_demo",
+        createdAt: seededIso(30, 1, 5),
+        status: "accepted",
+      },
+    ];
+    tenantInvitations.set(tenantId, rows);
+  }
+  return rows;
+}
+
+export function notificationsOf(tenantId: string): MockNotification[] {
+  let rows = tenantNotifications.get(tenantId);
+  if (!rows) {
+    // 种子 24 条：deploy/alert/billing 轮转；前 8 条未读
+    const templates = [
+      { type: "deploy", title: "部署完成", body: "gateway-01 发布 v1.8.2 成功" },
+      { type: "alert", title: "CPU 使用率告警", body: "payments-02 连续 5 分钟超过 85%" },
+      { type: "billing", title: "账单已出账", body: "本月用量费用 $428.60" },
+      { type: "deploy", title: "部署失败", body: "search-03 健康检查未通过" },
+      { type: "alert", title: "副本不足", body: "ingest-01 期望 4 副本，当前 2" },
+      { type: "billing", title: "额度即将耗尽", body: "构建分钟数剩余 12%" },
+    ] as const;
+    rows = Array.from({ length: 24 }, (_, i) => {
+      const t = at(templates, i % templates.length);
+      return {
+        id: `ntf-${String(i + 1).padStart(3, "0")}`,
+        type: t.type,
+        title: t.title,
+        body: t.body,
+        read: i >= 8,
+        createdAt: new Date(Date.UTC(2026, 9, 21, 9) - i * 47 * 60_000).toISOString(),
+        actorId: `usr_${(i % 6) + 1}`,
+      };
+    });
+    tenantNotifications.set(tenantId, rows);
+  }
+  return rows;
+}
+
+export function regionsOf(tenantId: string): MockRegion[] {
+  let rows = tenantRegions.get(tenantId);
+  if (!rows) {
+    const providers = ["aliyun", "tencent", "aws"];
+    const regionNames = ["cn-beijing", "cn-shanghai", "cn-hangzhou", "ap-southeast-1", "us-west-2"];
+    const zoneStatuses = ["healthy", "healthy", "healthy", "degraded", "offline"] as const;
+    rows = regionNames.map((name, r) => ({
+      id: `reg-${r + 1}`,
+      name,
+      provider: at(providers, r % providers.length),
+      zones: Array.from({ length: (r % 3) + 2 }, (_, z) => ({
+        id: `reg-${r + 1}-zone-${String.fromCharCode(97 + z)}`,
+        name: `${name}-${String.fromCharCode(97 + z)}`,
+        services: ((r * 7 + z * 13) % 24) + 3,
+        loadPct: ((r * 17 + z * 29) % 70) + 15,
+        status: at(zoneStatuses, (r + z) % zoneStatuses.length),
+      })),
+    }));
+    tenantRegions.set(tenantId, rows);
+  }
+  return rows;
+}
+
+export function metricsPointsOf(tenantId: string): MockMetricPoint[] {
+  let rows = tenantMetrics.get(tenantId);
+  if (!rows) {
+    // 1000 点确定性种子（虚拟化演示用；不翻页一次全给）
+    const base = Date.UTC(2026, 9, 21, 0, 0, 0);
+    rows = Array.from({ length: 1000 }, (_, i) => ({
+      id: `mp-${String(i + 1).padStart(4, "0")}`,
+      ts: new Date(base - i * 60_000).toISOString(),
+      cpuPct: Math.round((35 + 25 * Math.sin(i / 9) + (i % 13)) % 100),
+      memPct: Math.round((48 + 20 * Math.cos(i / 7) + (i % 17)) % 100),
+      reqPerSec: 900 + ((i * 37) % 700),
+      errRate: Number((((i * 7) % 50) / 1000).toFixed(3)),
+    }));
+    tenantMetrics.set(tenantId, rows);
+  }
+  return rows;
+}

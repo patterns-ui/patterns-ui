@@ -2,7 +2,7 @@
   "name": "data-table",
   "type": "registry:block",
   "title": "Data Table",
-  "description": "TanStack Table v9 封装：sticky 首尾列、列宽拖拽、列显隐/顺序/密度菜单（localStorage 偏好）、行选择（含 indeterminate）、行操作菜单、展开行、Enter 打开行操作；分组/树形/聚合/行内编辑/虚拟化/移动卡片化留 M4 接口。",
+  "description": "TanStack Table v9 封装：sticky 首尾列、列宽拖拽、列显隐/顺序/密度菜单（localStorage 偏好）、行选择、行操作菜单、展开行、Enter 打开行操作；M4 高级模式：分组行（折叠+聚合 chip）、树形展开（getSubRows 注入）、聚合行（sum/avg/count footer）、行内编辑 changeSet（core useInlineEdit + 双击编辑 + 脏高亮 + 批量提交条）、虚拟化（@tanstack/react-virtual，默认 200 行阈值）、移动端卡片化。",
   "categories": ["list"],
   "dependencies": [],
   "registryDependencies": [],

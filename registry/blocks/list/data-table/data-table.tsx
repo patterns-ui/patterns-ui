@@ -1,5 +1,12 @@
-import type { ListColumnDef, ListColumnHelper, ListTable } from "@fleetly/ui-component-core/list";
-import { FlexRender, type RowData } from "@tanstack/react-table";
+import type { UseInlineEditResult } from "@fleetly/ui-component-core/inline";
+import type {
+  ListColumnDef,
+  ListColumnHelper,
+  ListTable,
+  ListTableFeatures,
+} from "@fleetly/ui-component-core/list";
+import { type Cell, FlexRender, type Row, type RowData } from "@tanstack/react-table";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cn";
 import {
   ArrowDown,
@@ -11,7 +18,7 @@ import {
   type LucideIcon,
   MoreHorizontal,
 } from "lucide-react";
-import { Fragment, type ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -23,14 +30,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // ---------------------------------------------------------------------------
 // 列工厂（选择 / 展开 / 行操作）
@@ -194,8 +204,51 @@ function writePrefs(key: string, prefs: ColumnPrefs): void {
 }
 
 // ---------------------------------------------------------------------------
-// DataTable
+// 高级模式 props（M4）
 // ---------------------------------------------------------------------------
+
+/** 分组行控制（分组列事实源在宿主 URL；此处受控渲染 + 折叠交互） */
+export interface DataTableGroupingCtl {
+  /** 分组列 id（受控；来自 useResourceTable 的 grouping.columns / URL） */
+  columns: string[];
+  onChange?: (next: string[]) => void;
+  /** 组头文案（缺省 `列: 值`） */
+  labelFor?: (colId: string, value: unknown) => ReactNode;
+}
+
+/** 树形数据（region→zone 类）：getChildren 注入 table.options.getSubRows（复用 expanding） */
+export interface DataTableTreeCtl<TData> {
+  getChildren: (row: TData, index: number) => TData[] | undefined;
+  getRowId?: (row: TData) => string;
+}
+
+/** 聚合（footer 行 + 分组行 chip 共用） */
+export interface DataTableAggregate {
+  field: string;
+  fn: "sum" | "avg" | "count";
+}
+
+export interface InlineEditorProps<TData> {
+  row: TData;
+  rowId: string;
+  columnId: string;
+  value: unknown;
+  isDirty: boolean;
+  onCommit(value: unknown): void;
+  onCancel(): void;
+}
+
+/** 行内编辑 changeSet（core useInlineEdit 实例由宿主持有；表内只管交互态） */
+export interface DataTableInlineCtl<TData> {
+  /** 可编辑字段（列 id） */
+  fields: string[];
+  /** useInlineEdit 返回值（getCell/commit/revert/dirtyCount） */
+  ctl: UseInlineEditResult<TData>;
+  /** 自定义编辑器（缺省 Input：Enter 提交 / Esc 取消 / blur 提交） */
+  editor?: (props: InlineEditorProps<TData>) => ReactNode;
+  /** 提交条文案 */
+  label?: string;
+}
 
 export interface DataTableProps<TData extends RowData> {
   table: ListTable<TData>;
@@ -210,12 +263,18 @@ export interface DataTableProps<TData extends RowData> {
   /** 表格右上工具区附加内容 */
   toolbarExtra?: ReactNode;
   onRowClick?: (row: TData) => void;
-  /* ---- M4 高级模式接口预留（本阶段不实现） ---- */
-  grouping?: unknown;
-  tree?: { getChildren: (row: TData) => TData[] | undefined };
-  aggregates?: { field: string; fn: "sum" | "avg" | "count" }[];
-  inline?: unknown;
-  virtual?: boolean;
+  /* ---- M4 高级模式 ---- */
+  /** 分组行（grouping by column + 折叠组） */
+  grouping?: DataTableGroupingCtl;
+  /** 树形展开（首列缩进 + 折叠钮；子行经 getSubRows 注入） */
+  tree?: DataTableTreeCtl<TData>;
+  /** 聚合行（footer 渲染；分组行上以 chip 形式附带） */
+  aggregates?: DataTableAggregate[];
+  /** 行内编辑 changeSet（双击单元格进入编辑态、脏高亮、底部提交/取消条） */
+  inline?: DataTableInlineCtl<TData>;
+  /** 虚拟化：true → 行数 ≥200 自动启；{threshold} 自定阈值 */
+  virtual?: boolean | { threshold?: number };
+  /** 移动端（<768px）卡片化：字段来自列定义 */
   mobile?: "cards";
 }
 
@@ -228,6 +287,53 @@ const densityHead: Record<TableDensity, string> = {
   comfortable: "h-12",
   compact: "h-9",
 };
+const densityEstimate: Record<TableDensity, number> = {
+  comfortable: 53,
+  compact: 37,
+};
+
+const DEFAULT_VIRTUAL_THRESHOLD = 200;
+
+function formatAggregate(value: number, fn: DataTableAggregate["fn"]): string {
+  if (fn === "count") return String(value);
+  if (fn === "avg") return value.toFixed(1);
+  return value.toLocaleString();
+}
+
+/**
+ * 对行集合计算聚合：分组/树形行展开到叶子（getLeafRows 非空），
+ * 本身就是叶子的行取自身（getLeafRows 对叶子行返回空数组 —— 实测）。
+ */
+export function computeAggregate<TData extends RowData>(
+  rows: ReadonlyArray<{
+    getLeafRows: () => ReadonlyArray<{ original: TData }>;
+    original: TData;
+  }>,
+  agg: DataTableAggregate,
+): number {
+  const leaves = rows.flatMap((row) => {
+    const sub = row.getLeafRows();
+    return sub.length > 0 ? sub : [row];
+  });
+  const seen = new Set<string>();
+  const values: number[] = [];
+  for (const leaf of leaves) {
+    const id = String((leaf.original as { id?: unknown })?.id ?? `#${values.length}`);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const v = (leaf.original as Record<string, unknown>)[agg.field];
+    if (typeof v === "number" && Number.isFinite(v)) values.push(v);
+  }
+  if (agg.fn === "count") return values.length;
+  if (agg.fn === "avg") {
+    return values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length;
+  }
+  return values.reduce((a, b) => a + b, 0);
+}
+
+// ---------------------------------------------------------------------------
+// DataTable
+// ---------------------------------------------------------------------------
 
 export function DataTable<TData extends RowData>({
   table,
@@ -237,9 +343,29 @@ export function DataTable<TData extends RowData>({
   preferencesKey,
   toolbarExtra,
   onRowClick,
+  grouping,
+  tree,
+  aggregates,
+  inline,
+  virtual,
+  mobile,
 }: DataTableProps<TData>) {
   const [density, setDensity] = useState<TableDensity>("comfortable");
   const applying = useRef(false);
+  const isMobileViewport = useIsMobile();
+
+  // 树形：getSubRows/getRowId 注入 table options（useTable 每渲染合并宿主 options，
+  // 但不覆盖未声明键 —— 注入值存活；行模型 memo 依赖 getSubRows 引用自动重算）
+  useEffect(() => {
+    if (!tree) return;
+    table.setOptions((prev) => ({
+      ...prev,
+      getSubRows: (row: TData, index: number) => tree.getChildren(row, index) ?? undefined,
+      ...(tree.getRowId
+        ? { getRowId: (row: TData) => tree.getRowId?.(row) ?? String((row as { id?: unknown }).id) }
+        : {}),
+    }));
+  }, [table, tree]);
 
   // 列偏好：载入（effect 内，SSR 安全）+ 订阅 atoms 持久化
   useEffect(() => {
@@ -307,6 +433,224 @@ export function DataTable<TData extends RowData>({
     }
   };
 
+  // -------------------------------------------------------------------------
+  // 虚拟化判定（rows ≥ threshold 自动启）
+  // -------------------------------------------------------------------------
+  const rows = table.getRowModel().rows;
+  const threshold =
+    virtual === undefined
+      ? Number.MAX_SAFE_INTEGER
+      : typeof virtual === "object"
+        ? (virtual.threshold ?? DEFAULT_VIRTUAL_THRESHOLD)
+        : DEFAULT_VIRTUAL_THRESHOLD;
+  const virtualOn = rows.length >= threshold && threshold > 0;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: virtualOn ? rows.length : 0,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => densityEstimate[density],
+    overscan: 12,
+  });
+  const virtualItems = virtualOn ? rowVirtualizer.getVirtualItems() : [];
+  const paddingTop = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
+  const paddingBottom = virtualOn
+    ? rowVirtualizer.getTotalSize() - (virtualItems.at(-1)?.end ?? 0)
+    : 0;
+
+  // -------------------------------------------------------------------------
+  // 聚合（footer + 分组行 chip）
+  // -------------------------------------------------------------------------
+  const aggregateByField = useMemo(() => {
+    const map = new Map<string, DataTableAggregate>();
+    for (const agg of aggregates ?? []) map.set(agg.field, agg);
+    return map;
+  }, [aggregates]);
+
+  // -------------------------------------------------------------------------
+  // 行内编辑交互态（正在编辑的单元格 = {rowId, columnId}；一次一格）
+  // -------------------------------------------------------------------------
+  const [editing, setEditing] = useState<{ rowId: string; columnId: string } | null>(null);
+  const [committing, setCommitting] = useState(false);
+  const inlineFields = useMemo(() => new Set(inline?.fields ?? []), [inline?.fields]);
+  const inlineCommit = useCallback(async () => {
+    if (!inline) return;
+    setCommitting(true);
+    try {
+      await inline.ctl.commit();
+    } finally {
+      setCommitting(false);
+      setEditing(null);
+    }
+  }, [inline]);
+
+  const renderCell = (
+    cell: Cell<ListTableFeatures, TData, unknown>,
+    rowIndex: number,
+  ): ReactNode => {
+    const columnId = cell.column.id;
+    const isStickyLeft = stickyFirst && columnId === firstId;
+    const isStickyRight = stickyLast && columnId === lastId;
+    const row = cell.row;
+    const editable = inline !== undefined && inlineFields.has(columnId);
+    const isEditing = editing !== null && editing.rowId === row.id && editing.columnId === columnId;
+    const cellCtl = editable && inline ? inline.ctl.getCell(row.id, columnId) : undefined;
+    const dirty = cellCtl?.isDirty ?? false;
+
+    // 树形首列：折叠钮 + 缩进（rowIndex 即本行内单元格序）
+    const treeCtl =
+      tree && rowIndex === 0 && row.getCanExpand() ? (
+        <button
+          type="button"
+          aria-label={row.getIsExpanded() ? "折叠子行" : "展开子行"}
+          onClick={(e) => {
+            e.stopPropagation();
+            row.toggleExpanded();
+          }}
+          className="text-muted-foreground hover:text-foreground mr-1.5 inline-flex shrink-0 transition-colors"
+        >
+          <ChevronRight
+            className={cn("size-4 transition-transform", row.getIsExpanded() && "rotate-90")}
+          />
+        </button>
+      ) : tree && rowIndex === 0 ? (
+        <span className="mr-5 inline-block shrink-0" aria-hidden />
+      ) : null;
+
+    let content: ReactNode;
+    if (isEditing && cellCtl !== undefined) {
+      content = (
+        <InlineCellEditor
+          row={row.original}
+          rowId={row.id}
+          columnId={columnId}
+          value={cellCtl.value}
+          isDirty={dirty}
+          onCommit={(v) => {
+            cellCtl?.set(v);
+            setEditing(null);
+          }}
+          onCancel={() => setEditing(null)}
+          editor={inline?.editor}
+        />
+      );
+    } else {
+      content = <FlexRender cell={cell} />;
+    }
+
+    return (
+      <TableCell
+        key={cell.id}
+        onDoubleClick={
+          editable
+            ? (e) => {
+                e.stopPropagation();
+                setEditing({ rowId: row.id, columnId });
+              }
+            : undefined
+        }
+        title={editable && !isEditing ? "双击编辑" : undefined}
+        className={cn(
+          densityCell[density],
+          "[&>button]:cursor-default",
+          isStickyLeft && "bg-background group-hover/row:bg-muted/50 sticky left-0 z-10",
+          isStickyRight && "bg-background group-hover/row:bg-muted/50 sticky right-0 z-10",
+          dirty && "bg-primary/10 ring-primary/30 ring-1 ring-inset",
+          editable && !isEditing && "hover:bg-primary/5 cursor-text",
+          rowIndex >= 0 && "align-middle",
+        )}
+      >
+        <div className="flex min-w-0 items-center">
+          {treeCtl}
+          <span className="truncate">{content}</span>
+        </div>
+      </TableCell>
+    );
+  };
+
+  const renderRow = (row: Row<ListTableFeatures, TData>, virtualIndex?: number): ReactNode => {
+    // 分组行：整行横跨（折叠钮 + 组值 + 计数 + 聚合 chip）
+    if (row.getIsGrouped()) {
+      const colId = row.groupingColumnId ?? "";
+      const label =
+        grouping?.labelFor?.(colId, row.groupingValue) ??
+        `${colId}: ${row.groupingValue === undefined ? "" : String(row.groupingValue)}`;
+      const leafCount = row.getLeafRows().length;
+      const chips = [...aggregateByField.values()];
+      return (
+        <TableRow
+          key={row.id}
+          className="bg-muted/50 hover:bg-muted/50 cursor-pointer"
+          onClick={() => row.toggleExpanded()}
+        >
+          <TableCell colSpan={visibleCount} className="py-2.5">
+            <span className="flex flex-wrap items-center gap-2">
+              <ChevronRight
+                className={cn(
+                  "text-muted-foreground size-4 transition-transform",
+                  row.getIsExpanded() && "rotate-90",
+                )}
+              />
+              <span className="text-[13px] font-medium">{label}</span>
+              <span className="text-muted-foreground text-xs tabular-nums">({leafCount} 行)</span>
+              {chips.map((agg) => (
+                <span
+                  key={agg.field}
+                  className="bg-background text-muted-foreground rounded-md border px-1.5 py-0.5 font-mono text-[11px] tabular-nums"
+                >
+                  {agg.fn}({agg.field}) ={" "}
+                  {formatAggregate(computeAggregate(row.getLeafRows(), agg), agg.fn)}
+                </span>
+              ))}
+            </span>
+          </TableCell>
+        </TableRow>
+      );
+    }
+
+    return (
+      <Fragment key={row.id}>
+        <TableRow
+          tabIndex={0}
+          data-state={row.getIsSelected() ? "selected" : undefined}
+          data-index={virtualIndex}
+          ref={virtualIndex !== undefined ? rowVirtualizer.measureElement : undefined}
+          className={cn(
+            "group/row cursor-default",
+            onRowClick && "cursor-pointer",
+            expandable && "cursor-pointer",
+          )}
+          onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+          onKeyDown={(e) => handleRowKeyDown(e, row.id)}
+        >
+          {row.getVisibleCells().map((cell, i) => renderCell(cell, i))}
+        </TableRow>
+        {expandable && row.getIsExpanded() ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell colSpan={visibleCount} className="bg-muted/20 px-10 py-4">
+              {expandable.render(row.original)}
+            </TableCell>
+          </TableRow>
+        ) : null}
+      </Fragment>
+    );
+  };
+
+  // -------------------------------------------------------------------------
+  // 移动端卡片化（mobile === 'cards' 且窄视口）
+  // -------------------------------------------------------------------------
+  if (mobile === "cards" && isMobileViewport) {
+    return (
+      <div className="flex flex-col gap-2" data-slot="data-table">
+        <div className="flex items-center justify-end gap-2">
+          {toolbarExtra}
+          <DensityToggle density={density} onChange={changeDensity} />
+          <ColumnsMenu table={table} />
+        </div>
+        <MobileCards table={table} rows={rows} inline={inline} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-2" data-slot="data-table">
       <div className="flex items-center justify-end gap-2">
@@ -314,7 +658,13 @@ export function DataTable<TData extends RowData>({
         <DensityToggle density={density} onChange={changeDensity} />
         <ColumnsMenu table={table} />
       </div>
-      <div className="w-full overflow-x-auto rounded-lg border">
+      <div
+        ref={scrollRef}
+        className={cn(
+          "w-full overflow-x-auto rounded-lg border",
+          virtualOn && "max-h-[70vh] overflow-y-auto",
+        )}
+      >
         <Table className="table-fixed">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -331,6 +681,7 @@ export function DataTable<TData extends RowData>({
                       className={cn(
                         densityHead[density],
                         "relative",
+                        virtualOn && "sticky top-0 z-20",
                         isStickyLeft && "bg-muted/95 sticky left-0 z-20",
                         isStickyRight && "bg-muted/95 sticky right-0 z-20",
                       )}
@@ -378,60 +729,229 @@ export function DataTable<TData extends RowData>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={visibleCount} className="h-24 text-center">
                   <span className="text-muted-foreground text-[13px]">无数据</span>
                 </TableCell>
               </TableRow>
+            ) : virtualOn ? (
+              <>
+                {paddingTop > 0 ? <SpacerRow height={paddingTop} colSpan={visibleCount} /> : null}
+                {virtualItems.map((vi) => {
+                  const row = rows[vi.index];
+                  return row === undefined ? null : renderRow(row, vi.index);
+                })}
+                {paddingBottom > 0 ? (
+                  <SpacerRow height={paddingBottom} colSpan={visibleCount} />
+                ) : null}
+              </>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <Fragment key={row.id}>
-                  <TableRow
-                    tabIndex={0}
-                    data-state={row.getIsSelected() ? "selected" : undefined}
-                    className={cn(
-                      "group/row cursor-default",
-                      onRowClick && "cursor-pointer",
-                      expandable && "cursor-pointer",
-                    )}
-                    onClick={onRowClick ? () => onRowClick(row.original) : undefined}
-                    onKeyDown={(e) => handleRowKeyDown(e, row.id)}
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const isStickyLeft = stickyFirst && cell.column.id === firstId;
-                      const isStickyRight = stickyLast && cell.column.id === lastId;
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className={cn(
-                            densityCell[density],
-                            "[&>button]:cursor-default",
-                            isStickyLeft &&
-                              "bg-background group-hover/row:bg-muted/50 sticky left-0 z-10",
-                            isStickyRight &&
-                              "bg-background group-hover/row:bg-muted/50 sticky right-0 z-10",
-                          )}
-                        >
-                          <FlexRender cell={cell} />
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                  {expandable && row.getIsExpanded() ? (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={visibleCount} className="bg-muted/20 px-10 py-4">
-                        {expandable.render(row.original)}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
-                </Fragment>
-              ))
+              rows.map((row) => renderRow(row))
             )}
           </TableBody>
+          {aggregateByField.size > 0 ? (
+            <TableFooter>
+              <TableRow className="bg-muted/30 hover:bg-muted/30">
+                {columns.map((column, i) => {
+                  const agg = aggregateByField.get(column.id);
+                  return (
+                    <TableCell
+                      key={column.id}
+                      className={cn(
+                        densityCell.compact,
+                        "text-[13px]",
+                        agg ? "font-mono tabular-nums" : "text-muted-foreground",
+                      )}
+                    >
+                      {i === 0
+                        ? `合计 · ${rows.length} 行`
+                        : agg
+                          ? formatAggregate(computeAggregate(rows, agg), agg.fn)
+                          : ""}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableFooter>
+          ) : null}
         </Table>
       </div>
+      {inline && inline.ctl.dirtyCount > 0 ? (
+        <InlineBar
+          count={inline.ctl.dirtyCount}
+          label={inline.label}
+          pending={committing}
+          onCommit={() => void inlineCommit()}
+          onRevert={() => {
+            setEditing(null);
+            inline.ctl.revert();
+          }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 子组件
+// ---------------------------------------------------------------------------
+
+function SpacerRow({ height, colSpan }: { height: number; colSpan: number }) {
+  return (
+    <tr aria-hidden style={{ height }}>
+      <td colSpan={colSpan} style={{ height, padding: 0, borderWidth: 0 }} />
+    </tr>
+  );
+}
+
+function InlineCellEditor<TData extends RowData>({
+  row,
+  rowId,
+  columnId,
+  value,
+  isDirty,
+  onCommit,
+  onCancel,
+  editor,
+}: InlineEditorProps<TData> & {
+  editor?: (props: InlineEditorProps<TData>) => ReactNode;
+}) {
+  if (editor) {
+    return <>{editor({ row, rowId, columnId, value, isDirty, onCommit, onCancel })}</>;
+  }
+  const commitText = (text: string): void => {
+    const num = Number(text);
+    // 数字值（原值为 number）走数字转换，其余按字符串
+    onCommit(typeof value === "number" && text !== "" && !Number.isNaN(num) ? num : text);
+  };
+  return (
+    <Input
+      autoFocus
+      defaultValue={value === undefined || value === null ? "" : String(value)}
+      className="h-7 w-full max-w-[10rem] font-mono text-xs"
+      onClick={(e) => e.stopPropagation()}
+      onBlur={(e) => commitText(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        e.stopPropagation();
+        if (e.key === "Enter") commitText(e.currentTarget.value);
+        if (e.key === "Escape") onCancel();
+      }}
+    />
+  );
+}
+
+/** 行内编辑提交/取消条（SelectionBar 式）；导出供自建行内编辑 UI 复用 */
+export function InlineBar({
+  count,
+  label,
+  pending,
+  onCommit,
+  onRevert,
+}: {
+  count: number;
+  label?: string;
+  pending: boolean;
+  onCommit(): void;
+  onRevert(): void;
+}) {
+  return (
+    <div
+      role="toolbar"
+      aria-label="行内编辑"
+      data-slot="inline-bar"
+      className="bg-primary/5 border-primary/20 sticky bottom-4 z-30 mx-auto flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 shadow-lg backdrop-blur"
+    >
+      <span className="text-primary text-[13px] font-medium tabular-nums">
+        {label ?? "已修改"} {count} 处
+      </span>
+      <span className="bg-border h-4 w-px" aria-hidden />
+      <Button size="sm" className="h-7" disabled={pending} onClick={onCommit}>
+        {pending ? "提交中…" : "批量提交"}
+      </Button>
+      <Button size="sm" variant="ghost" className="h-7" disabled={pending} onClick={onRevert}>
+        取消
+      </Button>
+    </div>
+  );
+}
+
+/** 移动端卡片：每行一卡（label:value 来自可见列；跳过 __ 前缀 display 列） */
+function MobileCards<TData extends RowData>({
+  table,
+  rows,
+  inline,
+}: {
+  table: ListTable<TData>;
+  rows: Row<ListTableFeatures, TData>[];
+  inline?: DataTableInlineCtl<TData>;
+}) {
+  const visibleColumns = table.getVisibleLeafColumns();
+  const dataColumns = visibleColumns.filter((c) => !c.id.startsWith("__"));
+  const [editing, setEditing] = useState<{ rowId: string; columnId: string } | null>(null);
+
+  if (rows.length === 0) {
+    return <p className="text-muted-foreground py-10 text-center text-sm">无数据</p>;
+  }
+
+  return (
+    <ul className="flex flex-col gap-2">
+      {rows.map((row) => (
+        <li key={row.id} className="bg-card rounded-xl border p-3.5">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2">
+            {row.getVisibleCells().map((cell) => {
+              const columnId = cell.column.id;
+              if (columnId.startsWith("__")) {
+                return (
+                  <div key={cell.id} className="col-span-2 self-start">
+                    <FlexRender cell={cell} />
+                  </div>
+                );
+              }
+              const header = dataColumns.find((c) => c.id === columnId)?.id ?? columnId;
+              const editable = inline?.fields.includes(columnId);
+              const isEditing =
+                editing !== null && editing.rowId === row.id && editing.columnId === columnId;
+              const cellCtl = editable && inline ? inline.ctl.getCell(row.id, columnId) : undefined;
+              return (
+                <Fragment key={cell.id}>
+                  <dt className="text-muted-foreground self-center text-xs font-medium tracking-wider uppercase">
+                    {header}
+                  </dt>
+                  <dd
+                    onDoubleClick={
+                      editable ? () => setEditing({ rowId: row.id, columnId }) : undefined
+                    }
+                    className={cn(
+                      "text-foreground text-sm",
+                      cellCtl?.isDirty && "text-primary font-medium",
+                    )}
+                  >
+                    {isEditing && cellCtl ? (
+                      <InlineCellEditor
+                        row={row.original}
+                        rowId={row.id}
+                        columnId={columnId}
+                        value={cellCtl.value}
+                        isDirty={cellCtl.isDirty ?? false}
+                        onCommit={(v) => {
+                          cellCtl?.set(v);
+                          setEditing(null);
+                        }}
+                        onCancel={() => setEditing(null)}
+                        editor={inline?.editor}
+                      />
+                    ) : (
+                      <FlexRender cell={cell} />
+                    )}
+                  </dd>
+                </Fragment>
+              );
+            })}
+          </dl>
+        </li>
+      ))}
+    </ul>
   );
 }
 

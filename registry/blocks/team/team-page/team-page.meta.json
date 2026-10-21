@@ -1,0 +1,10 @@
+{
+  "name": "team-page",
+  "type": "registry:block",
+  "title": "Team Page",
+  "description": "SaaS 模板页：成员表（角色 Select 行内改、2FA badge、移除 confirm）+ 待处理邀请区（撤销）+ 新邀请 form-dialog（邮箱+角色，zod 校验 + 422 回填）。",
+  "categories": ["team"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/team/team-page"
+}
