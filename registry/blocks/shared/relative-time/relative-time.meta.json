@@ -1,0 +1,10 @@
+{
+  "name": "relative-time",
+  "type": "registry:component",
+  "title": "Relative Time",
+  "description": "相对时间：core useNow 活渲染；title 携带时区感知的绝对格式。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/relative-time"
+}

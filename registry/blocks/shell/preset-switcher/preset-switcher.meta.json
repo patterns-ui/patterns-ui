@@ -1,0 +1,10 @@
+{
+  "name": "preset-switcher",
+  "type": "registry:component",
+  "title": "Preset Switcher",
+  "description": "主题 preset 切换下拉（core useTheme.setPreset，预设列表由宿主传入）。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["button", "dropdown-menu"],
+  "targetDir": "components/blocks/shell/preset-switcher"
+}

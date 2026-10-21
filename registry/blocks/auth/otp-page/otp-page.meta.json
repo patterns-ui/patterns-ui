@@ -1,0 +1,10 @@
+{
+  "name": "otp-page",
+  "type": "registry:block",
+  "title": "OTP Page",
+  "description": "MFA/验证码页：6 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。",
+  "categories": ["auth"],
+  "dependencies": [],
+  "registryDependencies": ["button", "card", "input"],
+  "targetDir": "components/blocks/auth/otp-page"
+}

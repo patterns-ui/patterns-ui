@@ -1,0 +1,10 @@
+{
+  "name": "side-nav-floating",
+  "type": "registry:block",
+  "title": "Side Nav (Floating)",
+  "description": "floating 形态侧栏：悬空浮起（ring + shadow），可折叠至图标列。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "nav-group", "nav-user", "tenant-switcher"],
+  "targetDir": "components/blocks/sidebar/side-nav-floating"
+}

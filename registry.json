@@ -5,6 +5,243 @@
   "items": [
     {
       "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "forgot-password-page",
+      "type": "registry:block",
+      "title": "Forgot Password Page",
+      "description": "忘记密码页：提交邮箱 → 「发送成功」终态（不暴露邮箱是否存在）。",
+      "files": [
+        {
+          "path": "registry/blocks/auth/forgot-password-page/forgot-password-page.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/auth/forgot-password-page/forgot-password-page.tsx",
+          "content": "import { CircleCheck, LoaderCircle, Mail } from \"lucide-react\";\nimport { type ReactNode, useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardFooter,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { Input } from \"@/components/ui/input\";\nimport { Label } from \"@/components/ui/label\";\n\nexport interface ForgotPasswordPageProps {\n  onSubmit: (email: string) => Promise<void>;\n  title?: string;\n  description?: string;\n  brand?: ReactNode;\n  footer?: ReactNode;\n}\n\n/**\n * 忘记密码页：提交邮箱后进入「发送成功」终态（不暴露邮箱是否存在）。\n */\nexport function ForgotPasswordPage({\n  onSubmit,\n  title = \"重置密码\",\n  description = \"输入注册邮箱，我们会发送重置链接\",\n  brand,\n  footer,\n}: ForgotPasswordPageProps) {\n  const [email, setEmail] = useState(\"\");\n  const [pending, setPending] = useState(false);\n  const [sent, setSent] = useState(false);\n  const [error, setError] = useState<string | null>(null);\n\n  async function handleSubmit(event: React.FormEvent) {\n    event.preventDefault();\n    setError(null);\n    setPending(true);\n    try {\n      await onSubmit(email);\n      setSent(true);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \"发送失败，请重试\");\n    } finally {\n      setPending(false);\n    }\n  }\n\n  return (\n    <main className=\"bg-background flex min-h-svh items-center justify-center p-6\">\n      <Card className=\"w-full max-w-sm\">\n        <CardHeader className=\"items-center text-center\">\n          {brand}\n          <CardTitle className=\"text-[22px] font-semibold tracking-tight\">{title}</CardTitle>\n          {description ? <CardDescription>{description}</CardDescription> : null}\n        </CardHeader>\n        <CardContent>\n          {sent ? (\n            <div className=\"flex flex-col items-center gap-3 py-4 text-center\">\n              <span className=\"bg-status-info-bg text-status-info flex size-10 items-center justify-center rounded-full\">\n                <Mail className=\"size-5\" />\n              </span>\n              <CircleCheck className=\"text-status-success size-5\" />\n              <p className=\"text-sm text-muted-foreground\">\n                如果该邮箱已注册，重置链接已发送至 <span className=\"text-foreground\">{email}</span>\n                。\n              </p>\n            </div>\n          ) : (\n            <form onSubmit={handleSubmit} className=\"flex flex-col gap-4\">\n              <div className=\"grid gap-2\">\n                <Label htmlFor=\"forgot-email\">邮箱</Label>\n                <Input\n                  id=\"forgot-email\"\n                  type=\"email\"\n                  autoComplete=\"email\"\n                  required\n                  value={email}\n                  onChange={(e) => setEmail(e.target.value)}\n                />\n              </div>\n              {error ? (\n                <p role=\"alert\" className=\"text-destructive text-sm\">\n                  {error}\n                </p>\n              ) : null}\n              <Button type=\"submit\" disabled={pending} className=\"w-full\">\n                {pending ? (\n                  <LoaderCircle className=\"animate-spin\" data-icon=\"inline-start\" />\n                ) : null}\n                {pending ? \"发送中…\" : \"发送重置链接\"}\n              </Button>\n            </form>\n          )}\n        </CardContent>\n        {footer ? <CardFooter className=\"justify-center text-sm\">{footer}</CardFooter> : null}\n      </Card>\n    </main>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "card",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "otp-page",
+      "type": "registry:block",
+      "title": "OTP Page",
+      "description": "MFA/验证码页：6 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。",
+      "files": [
+        {
+          "path": "registry/blocks/auth/otp-page/otp-page.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/auth/otp-page/otp-page.tsx",
+          "content": "import { cn } from \"cn\";\nimport { LoaderCircle } from \"lucide-react\";\nimport { type ReactNode, useRef, useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardFooter,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { Input } from \"@/components/ui/input\";\n\nexport interface OtpPageProps {\n  /** 校验码长度（分格数），默认 6 */\n  length?: number;\n  /** 全部填满时自动提交；也可点击按钮提交 */\n  onSubmit: (code: string) => Promise<void>;\n  title?: string;\n  description?: string;\n  brand?: ReactNode;\n  footer?: ReactNode;\n}\n\n/**\n * 验证码 / MFA 页：N 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。\n */\nexport function OtpPage({\n  length = 6,\n  onSubmit,\n  title = \"输入验证码\",\n  description = \"验证码已发送至你的邮箱或手机\",\n  brand,\n  footer,\n}: OtpPageProps) {\n  const [digits, setDigits] = useState<string[]>(() => Array.from({ length }, () => \"\"));\n  const [error, setError] = useState<string | null>(null);\n  const [pending, setPending] = useState(false);\n  const inputsRef = useRef<Array<HTMLInputElement | null>>([]);\n\n  const code = digits.join(\"\");\n\n  async function submit(value: string) {\n    setError(null);\n    setPending(true);\n    try {\n      await onSubmit(value);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \"验证失败，请重试\");\n      setDigits(Array.from({ length }, () => \"\"));\n      inputsRef.current[0]?.focus();\n    } finally {\n      setPending(false);\n    }\n  }\n\n  function setDigit(index: number, raw: string) {\n    const value = raw.replace(/\\D/g, \"\");\n    if (value === \"\") {\n      return;\n    }\n    setDigits((prev) => {\n      const next = [...prev];\n      // 支持一次输入/粘贴多位：从当前格起依次填充\n      for (let offset = 0; offset < value.length && index + offset < length; offset++) {\n        next[index + offset] = value[offset] ?? \"\";\n      }\n      const filled = next.join(\"\");\n      if (filled.length === length && !next.includes(\"\")) {\n        queueMicrotask(() => {\n          const target = inputsRef.current[Math.min(index + value.length, length - 1)];\n          target?.blur();\n          void submit(filled);\n        });\n      }\n      return next;\n    });\n    const focusIndex = Math.min(index + value.length, length - 1);\n    inputsRef.current[focusIndex]?.focus();\n  }\n\n  function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {\n    if (event.key === \"Backspace\") {\n      event.preventDefault();\n      setDigits((prev) => {\n        const next = [...prev];\n        if (next[index]) {\n          next[index] = \"\";\n        } else if (index > 0) {\n          next[index - 1] = \"\";\n          inputsRef.current[index - 1]?.focus();\n        }\n        return next;\n      });\n    }\n    if (event.key === \"ArrowLeft\" && index > 0) {\n      inputsRef.current[index - 1]?.focus();\n    }\n    if (event.key === \"ArrowRight\" && index < length - 1) {\n      inputsRef.current[index + 1]?.focus();\n    }\n  }\n\n  return (\n    <main className=\"bg-background flex min-h-svh items-center justify-center p-6\">\n      <Card className=\"w-full max-w-sm\">\n        <CardHeader className=\"items-center text-center\">\n          {brand}\n          <CardTitle className=\"text-[22px] font-semibold tracking-tight\">{title}</CardTitle>\n          {description ? <CardDescription>{description}</CardDescription> : null}\n        </CardHeader>\n        <CardContent>\n          <form\n            onSubmit={(e) => {\n              e.preventDefault();\n              if (code.length === length && !code.includes(\"\")) {\n                void submit(code);\n              }\n            }}\n            className=\"flex flex-col items-center gap-4\"\n          >\n            <fieldset className=\"flex gap-2\" aria-label={`${length} 位验证码`}>\n              {digits.map((digit, index) => (\n                <Input\n                  key={index}\n                  ref={(el) => {\n                    inputsRef.current[index] = el;\n                  }}\n                  inputMode=\"numeric\"\n                  autoComplete={index === 0 ? \"one-time-code\" : \"off\"}\n                  maxLength={length}\n                  value={digit}\n                  autoFocus={index === 0}\n                  disabled={pending}\n                  className={cn(\n                    \"size-11 text-center text-base font-medium tabular-nums\",\n                    error && \"aria-invalid:border-destructive\",\n                  )}\n                  onChange={(e) => setDigit(index, e.target.value)}\n                  onKeyDown={(e) => handleKeyDown(index, e)}\n                />\n              ))}\n            </fieldset>\n            {error ? (\n              <p role=\"alert\" className=\"text-destructive text-sm\">\n                {error}\n              </p>\n            ) : null}\n            <Button type=\"submit\" className=\"w-full\" disabled={pending || code.includes(\"\")}>\n              {pending ? <LoaderCircle className=\"animate-spin\" data-icon=\"inline-start\" /> : null}\n              {pending ? \"验证中…\" : \"验证\"}\n            </Button>\n          </form>\n        </CardContent>\n        {footer ? <CardFooter className=\"justify-center text-sm\">{footer}</CardFooter> : null}\n      </Card>\n    </main>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "cn",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "card",
+        "input"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "sign-in-page",
+      "type": "registry:block",
+      "title": "Sign In Page",
+      "description": "登录页：品牌位 + 邮箱密码表单 + 内联错误展示 + pending 态；onSubmit 抛错展示（如 401 文案）；next 回跳由宿主处理。",
+      "files": [
+        {
+          "path": "registry/blocks/auth/sign-in-page/sign-in-page.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/auth/sign-in-page/sign-in-page.tsx",
+          "content": "import { LoaderCircle } from \"lucide-react\";\nimport { type ReactNode, useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardFooter,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { Input } from \"@/components/ui/input\";\nimport { Label } from \"@/components/ui/label\";\n\nexport interface SignInPageProps {\n  onSubmit: (credentials: { email: string; password: string }) => Promise<void>;\n  title?: string;\n  description?: string;\n  /** 品牌位（logo + 产品名），渲染在表单上方 */\n  brand?: ReactNode;\n  /** 表单下方区域（注册 / 忘记密码链接等） */\n  footer?: ReactNode;\n  submitLabel?: string;\n}\n\n/**\n * 登录页：品牌位 + 邮箱密码表单 + 错误展示。\n * onSubmit 抛错 → 表单内联展示（如 HttpError(401) 的「邮箱或密码错误」）；next 回跳由宿主处理。\n */\nexport function SignInPage({\n  onSubmit,\n  title = \"欢迎回来\",\n  description = \"登录你的账号以继续\",\n  brand,\n  footer,\n  submitLabel = \"登录\",\n}: SignInPageProps) {\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [error, setError] = useState<string | null>(null);\n  const [pending, setPending] = useState(false);\n\n  async function handleSubmit(event: React.FormEvent) {\n    event.preventDefault();\n    setError(null);\n    setPending(true);\n    try {\n      await onSubmit({ email, password });\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \"登录失败，请重试\");\n    } finally {\n      setPending(false);\n    }\n  }\n\n  return (\n    <main className=\"bg-background flex min-h-svh items-center justify-center p-6\">\n      <Card className=\"w-full max-w-sm\">\n        <CardHeader className=\"items-center text-center\">\n          {brand}\n          <CardTitle className=\"text-[22px] font-semibold tracking-tight\">{title}</CardTitle>\n          {description ? <CardDescription>{description}</CardDescription> : null}\n        </CardHeader>\n        <CardContent>\n          <form onSubmit={handleSubmit} className=\"flex flex-col gap-4\">\n            <div className=\"grid gap-2\">\n              <Label htmlFor=\"signin-email\">邮箱</Label>\n              <Input\n                id=\"signin-email\"\n                type=\"email\"\n                autoComplete=\"email\"\n                required\n                placeholder=\"you@example.com\"\n                value={email}\n                onChange={(e) => setEmail(e.target.value)}\n              />\n            </div>\n            <div className=\"grid gap-2\">\n              <Label htmlFor=\"signin-password\">密码</Label>\n              <Input\n                id=\"signin-password\"\n                type=\"password\"\n                autoComplete=\"current-password\"\n                required\n                value={password}\n                onChange={(e) => setPassword(e.target.value)}\n              />\n            </div>\n            {error ? (\n              <p role=\"alert\" className=\"text-destructive text-sm\">\n                {error}\n              </p>\n            ) : null}\n            <Button type=\"submit\" disabled={pending} className=\"w-full\">\n              {pending ? <LoaderCircle className=\"animate-spin\" data-icon=\"inline-start\" /> : null}\n              {pending ? \"登录中…\" : submitLabel}\n            </Button>\n          </form>\n        </CardContent>\n        {footer ? <CardFooter className=\"justify-center text-sm\">{footer}</CardFooter> : null}\n      </Card>\n    </main>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "card",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "sign-up-page",
+      "type": "registry:block",
+      "title": "Sign Up Page",
+      "description": "注册页：姓名/邮箱/密码/确认密码（一致性校验）+ 提交成功态。",
+      "files": [
+        {
+          "path": "registry/blocks/auth/sign-up-page/sign-up-page.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/auth/sign-up-page/sign-up-page.tsx",
+          "content": "import { CircleCheck, LoaderCircle } from \"lucide-react\";\nimport { type ReactNode, useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  Card,\n  CardContent,\n  CardDescription,\n  CardFooter,\n  CardHeader,\n  CardTitle,\n} from \"@/components/ui/card\";\nimport { Input } from \"@/components/ui/input\";\nimport { Label } from \"@/components/ui/label\";\n\nexport interface SignUpPageProps {\n  onSubmit: (values: { name: string; email: string; password: string }) => Promise<void>;\n  title?: string;\n  description?: string;\n  brand?: ReactNode;\n  footer?: ReactNode;\n}\n\n/**\n * 注册页：姓名 + 邮箱 + 密码 + 确认密码（客户端一致性校验）。\n * 提交成功后由宿主切换 success 视图或直接登录。\n */\nexport function SignUpPage({\n  onSubmit,\n  title = \"创建账号\",\n  description = \"几秒钟完成注册\",\n  brand,\n  footer,\n}: SignUpPageProps) {\n  const [name, setName] = useState(\"\");\n  const [email, setEmail] = useState(\"\");\n  const [password, setPassword] = useState(\"\");\n  const [confirm, setConfirm] = useState(\"\");\n  const [error, setError] = useState<string | null>(null);\n  const [pending, setPending] = useState(false);\n  const [done, setDone] = useState(false);\n\n  async function handleSubmit(event: React.FormEvent) {\n    event.preventDefault();\n    setError(null);\n    if (password !== confirm) {\n      setError(\"两次输入的密码不一致\");\n      return;\n    }\n    setPending(true);\n    try {\n      await onSubmit({ name, email, password });\n      setDone(true);\n    } catch (err) {\n      setError(err instanceof Error ? err.message : \"注册失败，请重试\");\n    } finally {\n      setPending(false);\n    }\n  }\n\n  return (\n    <main className=\"bg-background flex min-h-svh items-center justify-center p-6\">\n      <Card className=\"w-full max-w-sm\">\n        <CardHeader className=\"items-center text-center\">\n          {brand}\n          <CardTitle className=\"text-[22px] font-semibold tracking-tight\">{title}</CardTitle>\n          {description ? <CardDescription>{description}</CardDescription> : null}\n        </CardHeader>\n        <CardContent>\n          {done ? (\n            <div className=\"flex flex-col items-center gap-2 py-4 text-center\">\n              <CircleCheck className=\"text-status-success size-8\" />\n              <p className=\"text-sm text-muted-foreground\">注册成功，请查收验证邮件完成激活。</p>\n            </div>\n          ) : (\n            <form onSubmit={handleSubmit} className=\"flex flex-col gap-4\">\n              <div className=\"grid gap-2\">\n                <Label htmlFor=\"signup-name\">姓名</Label>\n                <Input\n                  id=\"signup-name\"\n                  autoComplete=\"name\"\n                  required\n                  value={name}\n                  onChange={(e) => setName(e.target.value)}\n                />\n              </div>\n              <div className=\"grid gap-2\">\n                <Label htmlFor=\"signup-email\">邮箱</Label>\n                <Input\n                  id=\"signup-email\"\n                  type=\"email\"\n                  autoComplete=\"email\"\n                  required\n                  value={email}\n                  onChange={(e) => setEmail(e.target.value)}\n                />\n              </div>\n              <div className=\"grid gap-2\">\n                <Label htmlFor=\"signup-password\">密码</Label>\n                <Input\n                  id=\"signup-password\"\n                  type=\"password\"\n                  autoComplete=\"new-password\"\n                  required\n                  minLength={8}\n                  value={password}\n                  onChange={(e) => setPassword(e.target.value)}\n                />\n              </div>\n              <div className=\"grid gap-2\">\n                <Label htmlFor=\"signup-confirm\">确认密码</Label>\n                <Input\n                  id=\"signup-confirm\"\n                  type=\"password\"\n                  autoComplete=\"new-password\"\n                  required\n                  value={confirm}\n                  onChange={(e) => setConfirm(e.target.value)}\n                />\n              </div>\n              {error ? (\n                <p role=\"alert\" className=\"text-destructive text-sm\">\n                  {error}\n                </p>\n              ) : null}\n              <Button type=\"submit\" disabled={pending} className=\"w-full\">\n                {pending ? (\n                  <LoaderCircle className=\"animate-spin\" data-icon=\"inline-start\" />\n                ) : null}\n                {pending ? \"提交中…\" : \"创建账号\"}\n              </Button>\n            </form>\n          )}\n        </CardContent>\n        {footer ? <CardFooter className=\"justify-center text-sm\">{footer}</CardFooter> : null}\n      </Card>\n    </main>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "card",
+        "input",
+        "label"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "copy-button",
+      "type": "registry:component",
+      "title": "Copy Button",
+      "description": "复制按钮：写剪贴板 + 成功反馈 2s（Copy → Check）。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/copy-button/copy-button.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/copy-button/copy-button.tsx",
+          "content": "import { Check, Copy } from \"lucide-react\";\nimport { useState } from \"react\";\nimport { Button } from \"@/components/ui/button\";\n\nexport interface CopyButtonProps {\n  value: string;\n  label?: string;\n  /** 成功反馈展示时长，默认 2000ms */\n  feedbackMs?: number;\n  className?: string;\n}\n\n/** 复制按钮：点击写剪贴板，成功反馈 2s（Copy → Check） */\nexport function CopyButton({ value, label, feedbackMs = 2000, className }: CopyButtonProps) {\n  const [copied, setCopied] = useState(false);\n\n  async function handleCopy() {\n    try {\n      await navigator.clipboard.writeText(value);\n    } catch {\n      // 剪贴板权限不可用时退化尝试已废弃的 execCommand\n      try {\n        document.execCommand(\"copy\");\n      } catch {\n        return;\n      }\n    }\n    setCopied(true);\n    window.setTimeout(() => setCopied(false), feedbackMs);\n  }\n\n  return (\n    <Button\n      type=\"button\"\n      variant=\"ghost\"\n      size={label ? \"icon-sm\" : \"icon-xs\"}\n      aria-label={copied ? \"已复制\" : \"复制\"}\n      className={className}\n      onClick={handleCopy}\n    >\n      {copied ? <Check className=\"text-status-success\" /> : <Copy />}\n      {label ? <span>{copied ? \"已复制\" : label}</span> : null}\n    </Button>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "empty-state",
+      "type": "registry:component",
+      "title": "Empty State",
+      "description": "空态：图标 + 标题 + 描述 + 可选 CTA。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/empty-state/empty-state.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/empty-state/empty-state.tsx",
+          "content": "import { Inbox, type LucideIcon } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\n\nexport interface EmptyStateProps {\n  /** 默认 Inbox 图标 */\n  icon?: LucideIcon;\n  title: string;\n  description?: string;\n  /** CTA（按钮等） */\n  action?: ReactNode;\n  className?: string;\n}\n\n/** 空态：图标 + 标题 + 描述 + 可选 CTA */\nexport function EmptyState({\n  icon: Icon = Inbox,\n  title,\n  description,\n  action,\n  className,\n}: EmptyStateProps) {\n  return (\n    <div\n      data-slot=\"empty-state\"\n      className={`flex flex-col items-center justify-center gap-3 px-6 py-16 text-center ${className ?? \"\"}`}\n    >\n      <div className=\"bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full\">\n        <Icon className=\"size-5\" />\n      </div>\n      <div className=\"flex flex-col gap-1\">\n        <p className=\"text-sm font-medium\">{title}</p>\n        {description ? (\n          <p className=\"text-muted-foreground max-w-sm text-[13px] whitespace-pre-line\">\n            {description}\n          </p>\n        ) : null}\n      </div>\n      {action ? <div className=\"mt-2\">{action}</div> : null}\n    </div>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": []
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "error-pages",
+      "type": "registry:block",
+      "title": "Error Pages",
+      "description": "错误页四件套：Error403 / Error404 / Error500 / RouteErrorBoundary（HttpError 分档 + reset 重试 + 返回首页）。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/error-pages/error-403.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/error-pages/error-403.tsx",
+          "content": "import { Lock } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\n\nexport interface ErrorPageProps {\n  message?: ReactNode;\n  /** 覆盖默认动作区（默认为空，由宿主传返回链接/按钮） */\n  action?: ReactNode;\n}\n\n/** 403 页：已登录但无权限 */\nexport function Error403({\n  message = \"你的账号没有访问此页面的权限。如需开通请联系管理员。\",\n  action,\n}: ErrorPageProps) {\n  return (\n    <main className=\"bg-background flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center\">\n      <p className=\"text-primary text-[64px] leading-none font-semibold tabular-nums\">403</p>\n      <div className=\"bg-status-warning-bg text-status-warning flex size-11 items-center justify-center rounded-full\">\n        <Lock className=\"size-5\" />\n      </div>\n      <div className=\"flex flex-col gap-1\">\n        <h1 className=\"text-[22px] font-semibold tracking-tight\">没有权限</h1>\n        <p className=\"text-muted-foreground max-w-md text-[13px]\">{message}</p>\n      </div>\n      {action ? <div className=\"mt-2\">{action}</div> : null}\n    </main>\n  );\n}\n"
+        },
+        {
+          "path": "registry/blocks/shared/error-pages/error-404.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/error-pages/error-404.tsx",
+          "content": "import { SearchX } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\n\nexport interface ErrorPageProps {\n  message?: ReactNode;\n  action?: ReactNode;\n}\n\n/** 404 页：页面不存在（也用作 router notFoundComponent） */\nexport function Error404({\n  message = \"页面不存在或已被移动。检查地址是否输入正确。\",\n  action,\n}: ErrorPageProps) {\n  return (\n    <main className=\"bg-background flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center\">\n      <p className=\"text-primary text-[64px] leading-none font-semibold tabular-nums\">404</p>\n      <div className=\"bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full\">\n        <SearchX className=\"size-5\" />\n      </div>\n      <div className=\"flex flex-col gap-1\">\n        <h1 className=\"text-[22px] font-semibold tracking-tight\">找不到页面</h1>\n        <p className=\"text-muted-foreground max-w-md text-[13px]\">{message}</p>\n      </div>\n      {action ? <div className=\"mt-2\">{action}</div> : null}\n    </main>\n  );\n}\n"
+        },
+        {
+          "path": "registry/blocks/shared/error-pages/error-500.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/error-pages/error-500.tsx",
+          "content": "import { ServerCrash } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\n\nexport interface ErrorPageProps {\n  message?: ReactNode;\n  action?: ReactNode;\n}\n\n/** 500 页：服务端错误 */\nexport function Error500({ message = \"服务器开小差了，请稍后重试。\", action }: ErrorPageProps) {\n  return (\n    <main className=\"bg-background flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center\">\n      <p className=\"text-primary text-[64px] leading-none font-semibold tabular-nums\">500</p>\n      <div className=\"bg-status-danger-bg text-status-danger flex size-11 items-center justify-center rounded-full\">\n        <ServerCrash className=\"size-5\" />\n      </div>\n      <div className=\"flex flex-col gap-1\">\n        <h1 className=\"text-[22px] font-semibold tracking-tight\">服务端错误</h1>\n        <p className=\"text-muted-foreground max-w-md text-[13px]\">{message}</p>\n      </div>\n      {action ? <div className=\"mt-2\">{action}</div> : null}\n    </main>\n  );\n}\n"
+        },
+        {
+          "path": "registry/blocks/shared/error-pages/route-error-boundary.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/error-pages/route-error-boundary.tsx",
+          "content": "import { HttpError } from \"@fleetly/ui-component-core/data\";\nimport { Link } from \"@tanstack/react-router\";\nimport { ArrowLeft, RefreshCw } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\nimport { Button } from \"@/components/ui/button\";\nimport { Error403 } from \"./error-403\";\nimport { Error404 } from \"./error-404\";\nimport { Error500 } from \"./error-500\";\n\nexport interface RouteErrorBoundaryProps {\n  error: unknown;\n  /** router 的 reset（重试当前路由） */\n  reset?: () => void;\n}\n\nfunction errorStatus(error: unknown): number | undefined {\n  if (error instanceof HttpError) {\n    return error.status;\n  }\n  if (typeof error === \"object\" && error !== null && \"status\" in error) {\n    const status = Number((error as { status: unknown }).status);\n    return Number.isNaN(status) ? undefined : status;\n  }\n  return undefined;\n}\n\nfunction defaultMessage(error: unknown): ReactNode {\n  if (error instanceof Error && error.message) {\n    return error.message;\n  }\n  return undefined;\n}\n\n/**\n * 路由级错误边界（TanStack Router errorComponent / defaultErrorComponent 适配）：\n * HttpError 403/404 分档渲染对应页面，其余（含 5xx 与未知）渲染 500 + 错误信息 + 重试。\n */\nexport function RouteErrorBoundary({ error, reset }: RouteErrorBoundaryProps) {\n  const status = errorStatus(error);\n  const actions = (\n    <div className=\"flex items-center gap-2\">\n      {reset ? (\n        <Button variant=\"outline\" size=\"sm\" onClick={reset}>\n          <RefreshCw data-icon=\"inline-start\" />\n          重试\n        </Button>\n      ) : null}\n      <Button size=\"sm\" render={<Link to=\"/\" />}>\n        <ArrowLeft data-icon=\"inline-start\" />\n        返回首页\n      </Button>\n    </div>\n  );\n\n  if (status === 403) {\n    return <Error403 message={defaultMessage(error)} action={actions} />;\n  }\n  if (status === 404) {\n    return <Error404 message={defaultMessage(error)} action={actions} />;\n  }\n  return <Error500 message={defaultMessage(error) ?? undefined} action={actions} />;\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "error-state",
+      "type": "registry:component",
+      "title": "Error State",
+      "description": "错误态：HttpError 分档文案（401/403/404/409/5xx/网络/未知）+ 状态码展示 + 重试。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/error-state/error-state.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/error-state/error-state.tsx",
+          "content": "import { HttpError, type HttpErrorKind } from \"@fleetly/ui-component-core/data\";\nimport {\n  Ban,\n  KeyRound,\n  Lock,\n  type LucideIcon,\n  RefreshCw,\n  SearchX,\n  ServerCrash,\n  TriangleAlert,\n  WifiOff,\n} from \"lucide-react\";\nimport type { ReactNode } from \"react\";\nimport { Button } from \"@/components/ui/button\";\n\nexport interface ErrorStateCopy {\n  kind: HttpErrorKind | \"network\" | \"unknown\";\n  title: string;\n  description: string;\n}\n\nconst copyTable: Record<\n  ErrorStateCopy[\"kind\"],\n  { title: string; description: string; icon: LucideIcon }\n> = {\n  unauthorized: { title: \"未登录或登录已过期\", description: \"请重新登录后继续。\", icon: KeyRound },\n  forbidden: {\n    title: \"没有权限访问\",\n    description: \"你的账号没有执行此操作的权限，请联系管理员。\",\n    icon: Lock,\n  },\n  \"not-found\": { title: \"内容不存在\", description: \"请求的资源不存在或已被删除。\", icon: SearchX },\n  conflict: {\n    title: \"数据冲突\",\n    description: \"记录已被他人修改，请刷新后重试。\",\n    icon: TriangleAlert,\n  },\n  server: { title: \"服务端错误\", description: \"服务器开小差了，请稍后重试。\", icon: ServerCrash },\n  network: {\n    title: \"网络错误\",\n    description: \"无法连接到服务器，请检查网络后重试。\",\n    icon: WifiOff,\n  },\n  unknown: { title: \"出错了\", description: \"发生意外错误，请重试。\", icon: TriangleAlert },\n  other: { title: \"请求失败\", description: \"请求未能完成，请重试。\", icon: Ban },\n};\n\nfunction copyEntry(kind: ErrorStateCopy[\"kind\"]) {\n  return (\n    copyTable[kind] ??\n    copyTable.unknown ?? {\n      title: \"出错了\",\n      description: \"发生意外错误，请重试。\",\n      icon: TriangleAlert,\n    }\n  );\n}\n\n/** HttpError 分档文案（401/403/404/409/5xx/网络/未知） */\nexport function errorStateCopy(error: unknown): ErrorStateCopy {\n  let kind: ErrorStateCopy[\"kind\"];\n  if (error instanceof HttpError) {\n    kind = error.kind;\n  } else if (typeof error === \"object\" && error !== null && \"status\" in error) {\n    // duck-typing：宿主可能用结构兼容的错误对象\n    const status = Number((error as { status: unknown }).status);\n    const asHttp = new HttpError(Number.isNaN(status) ? 0 : status, \"\");\n    kind = status >= 500 ? \"server\" : asHttp.kind;\n  } else if (error instanceof TypeError) {\n    // fetch 网络失败在浏览器中抛 TypeError\n    kind = \"network\";\n  } else {\n    kind = \"unknown\";\n  }\n  const entry = copyEntry(kind);\n  return { kind, title: entry.title, description: entry.description };\n}\n\nexport interface ErrorStateProps {\n  error?: unknown;\n  onRetry?: () => void;\n  retryLabel?: string;\n  /** 额外动作（如「返回首页」） */\n  action?: ReactNode;\n  className?: string;\n}\n\n/** 错误态：按 HttpError 分档文案 + 重试 */\nexport function ErrorState({\n  error,\n  onRetry,\n  retryLabel = \"重试\",\n  action,\n  className,\n}: ErrorStateProps) {\n  const copy = errorStateCopy(error);\n  const Icon = copyEntry(copy.kind).icon;\n\n  return (\n    <div\n      role=\"alert\"\n      data-slot=\"error-state\"\n      className={`flex flex-col items-center justify-center gap-3 px-6 py-16 text-center ${className ?? \"\"}`}\n    >\n      <div className=\"bg-status-danger-bg text-status-danger flex size-11 items-center justify-center rounded-full\">\n        <Icon className=\"size-5\" />\n      </div>\n      <div className=\"flex flex-col gap-1\">\n        <p className=\"text-sm font-medium\">{copy.title}</p>\n        <p className=\"text-muted-foreground max-w-sm text-[13px]\">{copy.description}</p>\n      </div>\n      {error instanceof HttpError && error.status > 0 ? (\n        <p className=\"text-muted-foreground/70 font-mono text-xs\">HTTP {error.status}</p>\n      ) : null}\n      {onRetry || action ? (\n        <div className=\"mt-2 flex items-center gap-2\">\n          {onRetry ? (\n            <Button variant=\"outline\" size=\"sm\" onClick={onRetry}>\n              <RefreshCw data-icon=\"inline-start\" />\n              {retryLabel}\n            </Button>\n          ) : null}\n          {action}\n        </div>\n      ) : null}\n    </div>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "relative-time",
+      "type": "registry:component",
+      "title": "Relative Time",
+      "description": "相对时间：core useNow 活渲染；title 携带时区感知的绝对格式。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/relative-time/relative-time.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/relative-time/relative-time.tsx",
+          "content": "import {\n  type DateTimePrefs,\n  formatAbsolute,\n  formatRelative,\n  useDateTimePrefs,\n  useNow,\n} from \"@fleetly/ui-component-core/datetime\";\nimport { cn } from \"cn\";\n\nfunction toIsoString(value: string | number | Date): string | undefined {\n  const date = value instanceof Date ? value : new Date(value);\n  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();\n}\n\nexport interface RelativeTimeProps {\n  value: string | number | Date;\n  /** 活渲染间隔，默认 30s；传 0 关闭（渲染一次） */\n  intervalMs?: number;\n  className?: string;\n}\n\n/**\n * 相对时间（useNow 活渲染）：正文相对格式，title/dateTime 携带时区感知的绝对格式。\n */\nexport function RelativeTime({ value, intervalMs = 30_000, className }: RelativeTimeProps) {\n  const { prefs } = useDateTimePrefs();\n  const now = useNow(intervalMs);\n  const absolutePrefs: DateTimePrefs = {\n    ...prefs,\n    absolutePattern: prefs.absolutePattern ?? \"full\",\n  };\n\n  const relative = formatRelative(value, now);\n  const absolute = formatAbsolute(value, absolutePrefs);\n  const iso = toIsoString(value);\n\n  return (\n    <time\n      dateTime={iso}\n      title={absolute}\n      className={cn(\"text-muted-foreground text-[13px] tabular-nums\", className)}\n    >\n      {relative}\n    </time>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "cn"
+      ],
+      "registryDependencies": []
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "resource-icon",
+      "type": "registry:component",
+      "title": "Resource Icon",
+      "description": "资源类型 → 图标映射（service/deployment/audit/api-key/team/org/…），映射表可经 icons prop 注入覆盖。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/resource-icon/resource-icon.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/resource-icon/resource-icon.tsx",
+          "content": "import {\n  Box,\n  Building,\n  Circle,\n  Gauge,\n  KeyRound,\n  type LucideIcon,\n  Rocket,\n  ScrollText,\n  Search,\n  Settings,\n  User,\n  Users,\n} from \"lucide-react\";\n\n/** 内置资源类型 → 图标映射（可用 icons prop 注入/覆盖） */\nexport const defaultResourceIcons: Record<string, LucideIcon> = {\n  service: Box,\n  services: Box,\n  deployment: Rocket,\n  deployments: Rocket,\n  audit: ScrollText,\n  \"audit-event\": ScrollText,\n  \"api-key\": KeyRound,\n  \"api-keys\": KeyRound,\n  team: Users,\n  member: User,\n  org: Building,\n  tenant: Building,\n  settings: Settings,\n  search: Search,\n  metric: Gauge,\n};\n\nexport interface ResourceIconProps {\n  kind: string;\n  /** 注入/覆盖映射表（与内置表合并，注入优先） */\n  icons?: Record<string, LucideIcon>;\n  className?: string;\n}\n\n/** 资源类型 → 图标（未知类型回落 Circle） */\nexport function ResourceIcon({ kind, icons, className }: ResourceIconProps) {\n  const table = icons ? { ...defaultResourceIcons, ...icons } : defaultResourceIcons;\n  const Icon = table[kind] ?? Circle;\n  return <Icon className={className ?? \"size-4\"} aria-hidden=\"true\" />;\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": []
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
       "name": "status-badge",
       "type": "registry:component",
       "title": "Status Badge",
@@ -20,6 +257,584 @@
       "dependencies": [
         "cn"
       ],
+      "registryDependencies": []
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "user-avatar",
+      "type": "registry:component",
+      "title": "User Avatar",
+      "description": "头像（图片/名字首字母回落）三档尺寸 + AvatarStack 堆叠（超出 +N）。",
+      "files": [
+        {
+          "path": "registry/blocks/shared/user-avatar/user-avatar.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shared/user-avatar/user-avatar.tsx",
+          "content": "import { cn } from \"cn\";\nimport { Avatar, AvatarFallback, AvatarImage } from \"@/components/ui/avatar\";\n\nexport interface AvatarUser {\n  name: string;\n  avatarUrl?: string;\n}\n\nconst sizeClasses = {\n  sm: \"size-6 text-[10px]\",\n  default: \"size-8 text-xs\",\n  lg: \"size-10 text-sm\",\n} as const;\n\nexport type UserAvatarSize = keyof typeof sizeClasses;\n\n/** 名字首字母（最多两段取首字符，如 \"Qiulin Li\" → \"QL\"；单段取前两字符） */\nexport function avatarInitials(name: string): string {\n  const parts = name.trim().split(/\\s+/).filter(Boolean);\n  if (parts.length === 0) {\n    return \"?\";\n  }\n  if (parts.length === 1) {\n    return parts[0]?.slice(0, 2).toUpperCase() ?? \"?\";\n  }\n  return `${parts[0]?.[0] ?? \"\"}${parts[parts.length - 1]?.[0] ?? \"\"}`.toUpperCase();\n}\n\nexport function UserAvatar({\n  user,\n  size = \"default\",\n  className,\n}: {\n  user: AvatarUser;\n  size?: UserAvatarSize;\n  className?: string;\n}) {\n  return (\n    <Avatar className={cn(sizeClasses[size], className)} data-slot=\"user-avatar\">\n      {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}\n      <AvatarFallback className=\"bg-muted text-muted-foreground font-medium\">\n        {avatarInitials(user.name)}\n      </AvatarFallback>\n    </Avatar>\n  );\n}\n\n/** 头像堆叠：超出 max 的部分折叠为 +N */\nexport function AvatarStack({\n  users,\n  max = 3,\n  size = \"default\",\n  className,\n}: {\n  users: AvatarUser[];\n  max?: number;\n  size?: UserAvatarSize;\n  className?: string;\n}) {\n  const visible = users.slice(0, max);\n  const overflow = users.length - visible.length;\n  return (\n    <div className={cn(\"flex items-center -space-x-2\", className)} data-slot=\"avatar-stack\">\n      {visible.map((user, index) => (\n        <UserAvatar\n          key={`${user.name}-${index}`}\n          user={user}\n          size={size}\n          className=\"ring-2 ring-background\"\n        />\n      ))}\n      {overflow > 0 ? (\n        <div\n          className={cn(\n            sizeClasses[size],\n            \"flex items-center justify-center rounded-full border bg-muted font-medium text-muted-foreground ring-2 ring-background\",\n          )}\n        >\n          +{overflow}\n        </div>\n      ) : null}\n    </div>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "cn"
+      ],
+      "registryDependencies": [
+        "avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "app-shell-floating",
+      "type": "registry:block",
+      "title": "App Shell (Floating)",
+      "description": "floating 应用壳：侧栏悬空浮起、内容区通栏。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/app-shell-floating/app-shell-floating.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/app-shell-floating/app-shell-floating.tsx",
+          "content": "import { cn } from \"cn\";\nimport type { ReactNode } from \"react\";\nimport { SidebarInset, SidebarProvider } from \"@/components/ui/sidebar\";\n\nexport interface AppShellProps {\n  /** 侧栏（SideNavFloating 等，渲染 <Sidebar> 及其内容） */\n  sidebar: ReactNode;\n  /** 顶栏（TopBar） */\n  topbar?: ReactNode;\n  children: ReactNode;\n  /** true 时内容区不加 padding（页面自管满幅布局） */\n  fullBleed?: boolean;\n}\n\n/**\n * floating 应用壳：侧栏悬空浮起（配合 SideNavFloating），内容区通栏。\n */\nexport function AppShellFloating({ sidebar, topbar, children, fullBleed }: AppShellProps) {\n  return (\n    <SidebarProvider>\n      {sidebar}\n      <SidebarInset className=\"md:peer-data-[variant=floating]:m-2\">\n        {topbar}\n        <main className={cn(\"flex min-h-0 flex-1 flex-col\", fullBleed ? \"\" : \"gap-4 p-4\")}>\n          {children}\n        </main>\n      </SidebarInset>\n    </SidebarProvider>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "cn"
+      ],
+      "registryDependencies": [
+        "side-nav-floating",
+        "sidebar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "app-shell-fullbleed",
+      "type": "registry:block",
+      "title": "App Shell (Fullbleed)",
+      "description": "满幅工作台壳（日志/终端类页面）：内容区无卡面无 padding。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/app-shell-fullbleed/app-shell-fullbleed.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/app-shell-fullbleed/app-shell-fullbleed.tsx",
+          "content": "import type { ReactNode } from \"react\";\nimport { SidebarInset, SidebarProvider } from \"@/components/ui/sidebar\";\n\nexport interface AppShellProps {\n  /** 侧栏（SideNavInset 等，渲染 <Sidebar> 及其内容） */\n  sidebar: ReactNode;\n  /** 顶栏（TopBar） */\n  topbar?: ReactNode;\n  children: ReactNode;\n}\n\n/**\n * 满幅工作台壳（日志 / 终端类页面）：内容区无卡面、无 padding，页面自管密度。\n */\nexport function AppShellFullbleed({ sidebar, topbar, children }: AppShellProps) {\n  return (\n    <SidebarProvider>\n      {sidebar}\n      <SidebarInset>\n        {topbar}\n        <main className=\"flex min-h-0 flex-1 flex-col\">{children}</main>\n      </SidebarInset>\n    </SidebarProvider>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "side-nav-inset",
+        "sidebar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "app-shell-inset",
+      "type": "registry:block",
+      "title": "App Shell (Inset)",
+      "description": "inset 应用壳：侧栏独立卡面、内容区带边框圆角；折叠态 cookie 持久化。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/app-shell-inset/app-shell-inset.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/app-shell-inset/app-shell-inset.tsx",
+          "content": "import { cn } from \"cn\";\nimport type { ReactNode } from \"react\";\nimport { SidebarInset, SidebarProvider } from \"@/components/ui/sidebar\";\n\nexport interface AppShellProps {\n  /** 侧栏（SideNavInset 等，渲染 <Sidebar> 及其内容） */\n  sidebar: ReactNode;\n  /** 顶栏（TopBar） */\n  topbar?: ReactNode;\n  children: ReactNode;\n  /** true 时内容区不加 padding（页面自管满幅布局） */\n  fullBleed?: boolean;\n}\n\n/**\n * inset 应用壳：侧栏为独立卡面、内容区带边框圆角（默认形态）。\n * 侧栏折叠状态经 SidebarProvider 的 cookie 持久化。\n */\nexport function AppShellInset({ sidebar, topbar, children, fullBleed }: AppShellProps) {\n  return (\n    <SidebarProvider>\n      {sidebar}\n      <SidebarInset>\n        {topbar}\n        <main className={cn(\"flex min-h-0 flex-1 flex-col\", fullBleed ? \"\" : \"gap-4 p-4\")}>\n          {children}\n        </main>\n      </SidebarInset>\n    </SidebarProvider>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "cn"
+      ],
+      "registryDependencies": [
+        "side-nav-inset",
+        "sidebar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "breadcrumbs",
+      "type": "registry:component",
+      "title": "Breadcrumbs",
+      "description": "面包屑（core useCrumbs 派生）：staticData.title 优先、租户段经 resolve.tenant 反查、长段截断；末段为当前页。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/breadcrumbs/breadcrumbs.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/breadcrumbs/breadcrumbs.tsx",
+          "content": "import type { CrumbResolve } from \"@fleetly/ui-component-core/router\";\nimport { useCrumbs } from \"@fleetly/ui-component-core/router\";\nimport { Link } from \"@tanstack/react-router\";\nimport { Fragment } from \"react\";\nimport {\n  Breadcrumb,\n  BreadcrumbItem,\n  BreadcrumbLink,\n  BreadcrumbList,\n  BreadcrumbPage,\n  BreadcrumbSeparator,\n} from \"@/components/ui/breadcrumb\";\n\n/**\n * 面包屑（core useCrumbs 派生）：staticData.title 优先，租户段经 resolve.tenant 反查名称。\n * 末段渲染为当前页；移动端只显示末段。\n */\nexport function Breadcrumbs({ resolve }: { resolve?: CrumbResolve }) {\n  const crumbs = useCrumbs(resolve);\n  if (crumbs.length === 0) {\n    return null;\n  }\n\n  return (\n    <Breadcrumb>\n      <BreadcrumbList>\n        {crumbs.map((crumb, index) => {\n          const last = index === crumbs.length - 1;\n          return (\n            <Fragment key={`${crumb.to ?? crumb.label}-${index}`}>\n              <BreadcrumbItem className={last ? \"\" : \"hidden sm:inline-flex\"}>\n                {last || !crumb.to ? (\n                  <BreadcrumbPage className=\"text-foreground\">{crumb.label}</BreadcrumbPage>\n                ) : (\n                  <BreadcrumbLink render={<Link to={crumb.to} />}>{crumb.label}</BreadcrumbLink>\n                )}\n              </BreadcrumbItem>\n              {!last ? <BreadcrumbSeparator className=\"hidden sm:block\" /> : null}\n            </Fragment>\n          );\n        })}\n      </BreadcrumbList>\n    </Breadcrumb>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0"
+      ],
+      "registryDependencies": [
+        "breadcrumb"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "command-palette",
+      "type": "registry:component",
+      "title": "Command Palette",
+      "description": "⌘K 全局命令面板：groups 导航跳转（Link）或自定义动作；宿主持有 open 状态。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/command-palette/command-palette.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/command-palette/command-palette.tsx",
+          "content": "import { useNavigate } from \"@tanstack/react-router\";\nimport type { LucideIcon } from \"lucide-react\";\nimport { useEffect } from \"react\";\nimport {\n  Command,\n  CommandEmpty,\n  CommandGroup as CommandGroupUI,\n  CommandInput,\n  CommandItem,\n  CommandList,\n  CommandShortcut,\n} from \"@/components/ui/command\";\nimport { Dialog, DialogContent, DialogDescription, DialogTitle } from \"@/components/ui/dialog\";\n\nexport interface CommandItemDef {\n  id: string;\n  label: string;\n  icon?: LucideIcon;\n  /** 搜索匹配关键词 */\n  keywords?: string[];\n  /** 导航目标（优先）；与 run 二选一 */\n  to?: string;\n  /** 自定义动作 */\n  run?: () => void;\n}\n\nexport interface CommandGroupDef {\n  label: string;\n  items: CommandItemDef[];\n}\n\nexport interface CommandPaletteProps {\n  groups: CommandGroupDef[];\n  open: boolean;\n  onOpenChange: (open: boolean) => void;\n  /** 触发快捷键（默认 ⌘K / Ctrl+K 全局监听） */\n  shortcutEnabled?: boolean;\n}\n\n/**\n * ⌘K 全局命令面板：groups 内 item.to 走路由导航，item.run 执行自定义动作。\n * 由宿主持有 open 状态（TopBar 的搜索按钮与快捷键都会触发）。\n */\nexport function CommandPalette({\n  groups,\n  open,\n  onOpenChange,\n  shortcutEnabled = true,\n}: CommandPaletteProps) {\n  const navigate = useNavigate();\n\n  useEffect(() => {\n    if (!shortcutEnabled) {\n      return;\n    }\n    const onKeyDown = (event: KeyboardEvent) => {\n      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === \"k\") {\n        event.preventDefault();\n        onOpenChange(!open);\n      }\n    };\n    window.addEventListener(\"keydown\", onKeyDown);\n    return () => window.removeEventListener(\"keydown\", onKeyDown);\n  }, [open, onOpenChange, shortcutEnabled]);\n\n  const handleSelect = (item: CommandItemDef) => {\n    onOpenChange(false);\n    if (item.to !== undefined) {\n      navigate({ to: item.to });\n    } else {\n      item.run?.();\n    }\n  };\n\n  return (\n    <Dialog open={open} onOpenChange={onOpenChange}>\n      <DialogContent className=\"top-20 translate-y-0 overflow-hidden p-0 sm:max-w-lg\">\n        <DialogTitle className=\"sr-only\">命令面板</DialogTitle>\n        <DialogDescription className=\"sr-only\">搜索页面或执行动作</DialogDescription>\n        <Command>\n          <CommandInput placeholder=\"输入命令或搜索…\" />\n          <CommandList>\n            <CommandEmpty>没有匹配的结果</CommandEmpty>\n            {groups.map((group) => (\n              <CommandGroupUI key={group.label} heading={group.label}>\n                {group.items.map((item) => {\n                  const Icon = item.icon;\n                  return (\n                    <CommandItem\n                      key={item.id}\n                      value={[item.label, ...(item.keywords ?? [])].join(\" \")}\n                      onSelect={() => handleSelect(item)}\n                    >\n                      {Icon ? <Icon /> : null}\n                      <span>{item.label}</span>\n                      {item.to !== undefined ? <CommandShortcut>跳转</CommandShortcut> : null}\n                    </CommandItem>\n                  );\n                })}\n              </CommandGroupUI>\n            ))}\n          </CommandList>\n        </Command>\n      </DialogContent>\n    </Dialog>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "command",
+        "dialog"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "preset-switcher",
+      "type": "registry:component",
+      "title": "Preset Switcher",
+      "description": "主题 preset 切换下拉（core useTheme.setPreset，预设列表由宿主传入）。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/preset-switcher/preset-switcher.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/preset-switcher/preset-switcher.tsx",
+          "content": "import { useTheme } from \"@fleetly/ui-component-core/theme\";\nimport { Check, Palette } from \"lucide-react\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  DropdownMenu,\n  DropdownMenuContent,\n  DropdownMenuGroup,\n  DropdownMenuItem,\n  DropdownMenuLabel,\n  DropdownMenuTrigger,\n} from \"@/components/ui/dropdown-menu\";\n\nexport interface PresetOption {\n  id: string;\n  label: string;\n}\n\n/** 主题 preset 切换下拉（default / aurora / …由宿主传入） */\nexport function PresetSwitcher({ presets }: { presets: PresetOption[] }) {\n  const { preset, setPreset } = useTheme();\n  const current = presets.find((p) => p.id === preset);\n\n  return (\n    <DropdownMenu>\n      <DropdownMenuTrigger\n        render={<Button variant=\"ghost\" size=\"sm\" aria-label=\"切换主题样式\" title=\"主题样式\" />}\n      >\n        <Palette data-icon=\"inline-start\" />\n        <span className=\"hidden md:inline\">{current?.label ?? preset}</span>\n      </DropdownMenuTrigger>\n      <DropdownMenuContent align=\"end\">\n        <DropdownMenuGroup>\n          <DropdownMenuLabel>主题样式</DropdownMenuLabel>\n          {presets.map((option) => (\n            <DropdownMenuItem key={option.id} onClick={() => setPreset(option.id)}>\n              {option.label}\n              {option.id === preset ? <Check className=\"ml-auto\" /> : null}\n            </DropdownMenuItem>\n          ))}\n        </DropdownMenuGroup>\n      </DropdownMenuContent>\n    </DropdownMenu>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "dropdown-menu"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "theme-toggle",
+      "type": "registry:component",
+      "title": "Theme Toggle",
+      "description": "明暗切换按钮：light → dark → system 循环（core useTheme）。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/theme-toggle/theme-toggle.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/theme-toggle/theme-toggle.tsx",
+          "content": "import { type ThemeMode, useTheme } from \"@fleetly/ui-component-core/theme\";\nimport { Monitor, Moon, Sun } from \"lucide-react\";\nimport { Button } from \"@/components/ui/button\";\n\nconst cycle: ThemeMode[] = [\"light\", \"dark\", \"system\"];\n\nconst icons: Record<ThemeMode, typeof Sun> = {\n  light: Sun,\n  dark: Moon,\n  system: Monitor,\n};\n\nconst labels: Record<ThemeMode, string> = {\n  light: \"亮色\",\n  dark: \"暗色\",\n  system: \"跟随系统\",\n};\n\n/** 明暗切换按钮：light → dark → system 循环 */\nexport function ThemeToggle() {\n  const { theme, setTheme } = useTheme();\n  const next = cycle[(cycle.indexOf(theme) + 1) % cycle.length] ?? \"dark\";\n  const Icon = icons[theme] ?? Moon;\n\n  return (\n    <Button\n      variant=\"ghost\"\n      size=\"icon-sm\"\n      aria-label={`切换主题（当前：${labels[theme]}）`}\n      title={`主题：${labels[theme]}`}\n      onClick={() => setTheme(next)}\n    >\n      <Icon />\n    </Button>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "top-bar",
+      "type": "registry:component",
+      "title": "Top Bar",
+      "description": "顶栏：SidebarTrigger + 面包屑 + 搜索入口(⌘K) + ThemeToggle + extra 扩展位 + UserMenu。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/top-bar/top-bar.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/top-bar/top-bar.tsx",
+          "content": "import type { CrumbResolve } from \"@fleetly/ui-component-core/router\";\nimport { Search } from \"lucide-react\";\nimport type { ReactNode } from \"react\";\nimport type { AvatarUser } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport { Breadcrumbs } from \"@/components/blocks/shell/breadcrumbs/breadcrumbs\";\nimport { ThemeToggle } from \"@/components/blocks/shell/theme-toggle/theme-toggle\";\nimport { UserMenu } from \"@/components/blocks/shell/user-menu/user-menu\";\nimport { Button } from \"@/components/ui/button\";\nimport { Separator } from \"@/components/ui/separator\";\nimport { SidebarTrigger } from \"@/components/ui/sidebar\";\n\nexport interface TopBarProps {\n  /** 打开 ⌘K 命令面板 */\n  onOpenSearch: () => void;\n  user: AvatarUser & { email?: string };\n  onLogout: () => void;\n  /** 右侧扩展位（如 PresetSwitcher） */\n  extra?: ReactNode;\n  /** 面包屑与搜索位之间的扩展位 */\n  center?: ReactNode;\n  /** 面包屑租户段反查（配合 useTenant 数据） */\n  breadcrumbResolve?: CrumbResolve;\n}\n\n/**\n * 顶栏：SidebarTrigger + 面包屑 + 搜索入口（⌘K）+ ThemeToggle + extra + UserMenu。\n */\nexport function TopBar({\n  onOpenSearch,\n  user,\n  onLogout,\n  extra,\n  center,\n  breadcrumbResolve,\n}: TopBarProps) {\n  return (\n    <header\n      data-slot=\"top-bar\"\n      className=\"flex h-14 shrink-0 items-center gap-2 border-b bg-background px-4\"\n    >\n      <SidebarTrigger />\n      <Separator orientation=\"vertical\" className=\"mr-1 h-4\" />\n      <div className=\"min-w-0 flex-1\">\n        <Breadcrumbs resolve={breadcrumbResolve} />\n      </div>\n      {center}\n      <div className=\"ml-auto flex items-center gap-1\">\n        <Button\n          variant=\"ghost\"\n          size=\"sm\"\n          className=\"gap-2 text-muted-foreground\"\n          onClick={onOpenSearch}\n        >\n          <Search data-icon=\"inline-start\" />\n          <span className=\"hidden md:inline\">搜索…</span>\n          <kbd className=\"pointer-events-none hidden items-center gap-0.5 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:flex\">\n            ⌘K\n          </kbd>\n        </Button>\n        <ThemeToggle />\n        {extra}\n        <UserMenu user={user} onLogout={onLogout} />\n      </div>\n    </header>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "breadcrumbs",
+        "button",
+        "separator",
+        "sidebar",
+        "theme-toggle",
+        "user-avatar",
+        "user-menu"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "user-menu",
+      "type": "registry:component",
+      "title": "User Menu",
+      "description": "顶栏用户菜单：头像触发 + 姓名/邮箱头部 + 自定义项 + 登出。",
+      "files": [
+        {
+          "path": "registry/blocks/shell/user-menu/user-menu.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/shell/user-menu/user-menu.tsx",
+          "content": "import type { LucideIcon } from \"lucide-react\";\nimport { LogOut } from \"lucide-react\";\nimport { type AvatarUser, UserAvatar } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport { Button } from \"@/components/ui/button\";\nimport {\n  DropdownMenu,\n  DropdownMenuContent,\n  DropdownMenuGroup,\n  DropdownMenuItem,\n  DropdownMenuLabel,\n  DropdownMenuSeparator,\n  DropdownMenuTrigger,\n} from \"@/components/ui/dropdown-menu\";\n\nexport interface UserMenuItem {\n  label: string;\n  icon?: LucideIcon;\n  onClick?: () => void;\n}\n\nexport interface UserMenuProps {\n  user: AvatarUser & { email?: string };\n  onLogout: () => void;\n  /** 自定义菜单项（显示在登出之前） */\n  items?: UserMenuItem[];\n}\n\n/** 顶栏用户菜单：头像按钮 + 姓名/邮箱 + 自定义项 + 登出 */\nexport function UserMenu({ user, onLogout, items }: UserMenuProps) {\n  return (\n    <DropdownMenu>\n      <DropdownMenuTrigger render={<Button variant=\"ghost\" size=\"icon-sm\" aria-label=\"用户菜单\" />}>\n        <UserAvatar user={user} size=\"sm\" />\n      </DropdownMenuTrigger>\n      <DropdownMenuContent align=\"end\" className=\"min-w-56\">\n        <DropdownMenuGroup>\n          <DropdownMenuLabel className=\"flex items-center gap-2 p-2\">\n            <UserAvatar user={user} />\n            <div className=\"grid leading-tight\">\n              <span className=\"truncate font-medium\">{user.name}</span>\n              {user.email ? (\n                <span className=\"text-xs text-muted-foreground truncate\">{user.email}</span>\n              ) : null}\n            </div>\n          </DropdownMenuLabel>\n          {items && items.length > 0 ? (\n            <>\n              <DropdownMenuSeparator />\n              {items.map((item) => (\n                <DropdownMenuItem key={item.label} onClick={item.onClick}>\n                  {item.icon ? <item.icon /> : null}\n                  {item.label}\n                </DropdownMenuItem>\n              ))}\n            </>\n          ) : null}\n        </DropdownMenuGroup>\n        <DropdownMenuSeparator />\n        <DropdownMenuItem onClick={onLogout}>\n          <LogOut />\n          登出\n        </DropdownMenuItem>\n      </DropdownMenuContent>\n    </DropdownMenu>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "button",
+        "dropdown-menu",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "nav-group",
+      "type": "registry:component",
+      "title": "Nav Group",
+      "description": "侧栏分组导航：组标题 + 项 + badge 计数 + canAccess 权限过滤（fail-closed）+ 可折叠组 + active 前缀匹配（pathname === to || startsWith(to + '/')）。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/nav-group/nav-group.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/nav-group/nav-group.tsx",
+          "content": "import type { CanFn } from \"@fleetly/ui-component-core/auth\";\nimport { filterByCanFn, useCan } from \"@fleetly/ui-component-core/auth\";\nimport { Link, useRouterState } from \"@tanstack/react-router\";\nimport { cn } from \"cn\";\nimport { ChevronDown, type LucideIcon } from \"lucide-react\";\nimport { useMemo, useState } from \"react\";\nimport {\n  SidebarGroup,\n  SidebarGroupContent,\n  SidebarGroupLabel,\n  SidebarMenu,\n  SidebarMenuBadge,\n  SidebarMenuButton,\n  SidebarMenuItem,\n} from \"@/components/ui/sidebar\";\n\nexport interface NavItem {\n  to: string;\n  label: string;\n  icon?: LucideIcon;\n  /** 角标计数；hot=true 用 danger 色强调 */\n  badge?: { count: number; hot?: boolean };\n  /** 权限过滤（fail-closed；缺省 = 对所有人可见）。例：canAccess: (can) => can(\"read\", \"services\") */\n  canAccess?: (can: CanFn) => boolean;\n}\n\nexport interface NavGroup {\n  label?: string;\n  items: NavItem[];\n  /** 组内折叠（点击组标题展开/收起） */\n  collapsible?: boolean;\n  /** collapsible 组的初始状态，默认展开 */\n  defaultCollapsed?: boolean;\n}\n\n/** active 判定：pathname === to || startsWith(to + '/')（docs/blocks.md sidebar 约定） */\nexport function isNavItemActive(pathname: string, to: string): boolean {\n  return pathname === to || pathname.startsWith(`${to}/`);\n}\n\nexport function NavGroupMenu({ group }: { group: NavGroup }) {\n  const can = useCan();\n  const pathname = useRouterState({ select: (s) => s.location.pathname });\n  const [collapsed, setCollapsed] = useState(group.defaultCollapsed ?? false);\n\n  const items = useMemo(() => filterByCanFn(group.items, can), [group.items, can]);\n  if (items.length === 0) {\n    return null;\n  }\n\n  const collapsible = group.collapsible ?? false;\n\n  return (\n    <SidebarGroup>\n      {group.label ? (\n        collapsible ? (\n          <SidebarGroupLabel\n            className=\"cursor-pointer hover:text-sidebar-foreground select-none\"\n            onClick={() => setCollapsed((v) => !v)}\n          >\n            <ChevronDown className={cn(\"size-4 transition-transform\", collapsed && \"-rotate-90\")} />\n            {group.label}\n          </SidebarGroupLabel>\n        ) : (\n          <SidebarGroupLabel>{group.label}</SidebarGroupLabel>\n        )\n      ) : null}\n      <SidebarGroupContent className={cn(collapsible && collapsed && \"hidden\")}>\n        <SidebarMenu>\n          {items.map((item) => {\n            const active = isNavItemActive(pathname, item.to);\n            const Icon = item.icon;\n            return (\n              <SidebarMenuItem key={item.to}>\n                <SidebarMenuButton\n                  isActive={active}\n                  tooltip={item.label}\n                  render={<Link to={item.to} />}\n                >\n                  {Icon ? <Icon /> : null}\n                  <span>{item.label}</span>\n                </SidebarMenuButton>\n                {item.badge ? (\n                  <SidebarMenuBadge\n                    className={cn(\n                      item.badge.hot\n                        ? \"bg-status-danger-bg text-status-danger\"\n                        : \"text-sidebar-foreground/70\",\n                    )}\n                  >\n                    {item.badge.count > 99 ? \"99+\" : item.badge.count}\n                  </SidebarMenuBadge>\n                ) : null}\n              </SidebarMenuItem>\n            );\n          })}\n        </SidebarMenu>\n      </SidebarGroupContent>\n    </SidebarGroup>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "cn",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "sidebar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "nav-user",
+      "type": "registry:component",
+      "title": "Nav User",
+      "description": "侧栏底部用户卡：头像+姓名+邮箱，展开菜单（自定义项 + 登出）；加载态骨架。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/nav-user/nav-user.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/nav-user/nav-user.tsx",
+          "content": "import { Ellipsis, LogOut, type LucideIcon } from \"lucide-react\";\nimport { type AvatarUser, UserAvatar } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport {\n  DropdownMenu,\n  DropdownMenuContent,\n  DropdownMenuGroup,\n  DropdownMenuItem,\n  DropdownMenuLabel,\n  DropdownMenuSeparator,\n  DropdownMenuTrigger,\n} from \"@/components/ui/dropdown-menu\";\nimport {\n  SidebarFooter,\n  SidebarMenu,\n  SidebarMenuButton,\n  SidebarMenuItem,\n  SidebarMenuSkeleton,\n  useSidebar,\n} from \"@/components/ui/sidebar\";\n\nexport interface NavUserItem {\n  label: string;\n  icon?: LucideIcon;\n  onClick?: () => void;\n}\n\nexport interface NavUserProps {\n  user?: AvatarUser & { email?: string };\n  onLogout: () => void;\n  /** 自定义菜单项（显示在登出之前） */\n  items?: NavUserItem[];\n  isLoading?: boolean;\n}\n\n/** 侧栏底部用户卡：头像+姓名，展开菜单（自定义项 + 登出） */\nexport function NavUser({ user, onLogout, items, isLoading }: NavUserProps) {\n  const { isMobile } = useSidebar();\n\n  if (isLoading || !user) {\n    return (\n      <SidebarFooter>\n        <SidebarMenu>\n          <SidebarMenuItem>\n            <SidebarMenuSkeleton showIcon />\n          </SidebarMenuItem>\n        </SidebarMenu>\n      </SidebarFooter>\n    );\n  }\n\n  return (\n    <SidebarFooter>\n      <SidebarMenu>\n        <SidebarMenuItem>\n          <DropdownMenu>\n            <DropdownMenuTrigger\n              render={<SidebarMenuButton size=\"lg\" className=\"data-open:bg-sidebar-accent\" />}\n            >\n              <UserAvatar user={user} />\n              <div className=\"grid flex-1 text-left leading-tight\">\n                <span className=\"truncate font-medium\">{user.name}</span>\n                <span className=\"text-xs text-sidebar-foreground/70 truncate\">{user.email}</span>\n              </div>\n              <Ellipsis className=\"ml-auto size-4 text-sidebar-foreground/50\" />\n            </DropdownMenuTrigger>\n            <DropdownMenuContent\n              side={isMobile ? \"bottom\" : \"right\"}\n              align=\"end\"\n              className=\"min-w-56\"\n            >\n              <DropdownMenuGroup>\n                <DropdownMenuLabel className=\"flex items-center gap-2 p-2\">\n                  <UserAvatar user={user} />\n                  <div className=\"grid leading-tight\">\n                    <span className=\"truncate font-medium\">{user.name}</span>\n                    {user.email ? (\n                      <span className=\"text-xs text-muted-foreground truncate\">{user.email}</span>\n                    ) : null}\n                  </div>\n                </DropdownMenuLabel>\n                {items && items.length > 0 ? (\n                  <>\n                    <DropdownMenuSeparator />\n                    {items.map((item) => (\n                      <DropdownMenuItem key={item.label} onClick={item.onClick}>\n                        {item.icon ? <item.icon /> : null}\n                        {item.label}\n                      </DropdownMenuItem>\n                    ))}\n                  </>\n                ) : null}\n              </DropdownMenuGroup>\n              <DropdownMenuSeparator />\n              <DropdownMenuItem onClick={onLogout}>\n                <LogOut />\n                登出\n              </DropdownMenuItem>\n            </DropdownMenuContent>\n          </DropdownMenu>\n        </SidebarMenuItem>\n      </SidebarMenu>\n    </SidebarFooter>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "dropdown-menu",
+        "sidebar",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "side-nav-floating",
+      "type": "registry:block",
+      "title": "Side Nav (Floating)",
+      "description": "floating 形态侧栏：悬空浮起（ring + shadow），可折叠至图标列。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/side-nav-floating/side-nav-floating.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/side-nav-floating/side-nav-floating.tsx",
+          "content": "import type { ReactNode } from \"react\";\nimport type { AvatarUser } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport { type NavGroup, NavGroupMenu } from \"@/components/blocks/sidebar/nav-group/nav-group\";\nimport { NavUser, type NavUserItem } from \"@/components/blocks/sidebar/nav-user/nav-user\";\nimport { TenantSwitcher } from \"@/components/blocks/sidebar/tenant-switcher/tenant-switcher\";\nimport { Sidebar, SidebarContent } from \"@/components/ui/sidebar\";\n\nexport interface SideNavProps {\n  groups: NavGroup[];\n  /** sidebar header 位插槽，默认渲染 TenantSwitcher（需 TenantProvider） */\n  tenantSlot?: ReactNode;\n  /** sidebar footer 位插槽，默认渲染 NavUser */\n  footerSlot?: ReactNode;\n  user?: (AvatarUser & { email?: string }) | undefined;\n  onLogout?: () => void;\n  navUserItems?: NavUserItem[];\n}\n\n/**\n * floating 形态侧栏：悬空浮起（ring + shadow + 圆角），可折叠至图标列。\n */\nexport function SideNavFloating({\n  groups,\n  tenantSlot,\n  footerSlot,\n  user,\n  onLogout,\n  navUserItems,\n}: SideNavProps) {\n  return (\n    <Sidebar variant=\"floating\" collapsible=\"icon\">\n      {tenantSlot ?? <TenantSwitcher />}\n      <SidebarContent>\n        {groups.map((group) => (\n          <NavGroupMenu key={group.label ?? group.items[0]?.to} group={group} />\n        ))}\n      </SidebarContent>\n      {footerSlot ?? <NavUser user={user} onLogout={onLogout ?? (() => {})} items={navUserItems} />}\n    </Sidebar>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "nav-group",
+        "nav-user",
+        "sidebar",
+        "tenant-switcher",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "side-nav-icon",
+      "type": "registry:block",
+      "title": "Side Nav (Icon)",
+      "description": "可折叠至图标形态的侧栏：折叠后只剩图标列（折叠态 tooltip）。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/side-nav-icon/side-nav-icon.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/side-nav-icon/side-nav-icon.tsx",
+          "content": "import type { ReactNode } from \"react\";\nimport type { AvatarUser } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport { type NavGroup, NavGroupMenu } from \"@/components/blocks/sidebar/nav-group/nav-group\";\nimport { NavUser, type NavUserItem } from \"@/components/blocks/sidebar/nav-user/nav-user\";\nimport { TenantSwitcher } from \"@/components/blocks/sidebar/tenant-switcher/tenant-switcher\";\nimport { Sidebar, SidebarContent } from \"@/components/ui/sidebar\";\n\nexport interface SideNavProps {\n  groups: NavGroup[];\n  /** sidebar header 位插槽，默认渲染 TenantSwitcher（需 TenantProvider） */\n  tenantSlot?: ReactNode;\n  /** sidebar footer 位插槽，默认渲染 NavUser */\n  footerSlot?: ReactNode;\n  user?: (AvatarUser & { email?: string }) | undefined;\n  onLogout?: () => void;\n  navUserItems?: NavUserItem[];\n}\n\n/**\n * 可折叠至图标形态的侧栏：折叠后只剩图标列（hover 出 tooltip），可腾出最大内容宽度。\n */\nexport function SideNavIcon({\n  groups,\n  tenantSlot,\n  footerSlot,\n  user,\n  onLogout,\n  navUserItems,\n}: SideNavProps) {\n  return (\n    <Sidebar variant=\"sidebar\" collapsible=\"icon\">\n      {tenantSlot ?? <TenantSwitcher />}\n      <SidebarContent>\n        {groups.map((group) => (\n          <NavGroupMenu key={group.label ?? group.items[0]?.to} group={group} />\n        ))}\n      </SidebarContent>\n      {footerSlot ?? <NavUser user={user} onLogout={onLogout ?? (() => {})} items={navUserItems} />}\n    </Sidebar>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "nav-group",
+        "nav-user",
+        "sidebar",
+        "tenant-switcher",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "side-nav-inset",
+      "type": "registry:block",
+      "title": "Side Nav (Inset)",
+      "description": "inset 形态侧栏：独立卡面与内容区分层，offcanvas 折叠；header 默认 TenantSwitcher、footer 默认 NavUser（可用 tenantSlot/footerSlot 覆盖）。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/side-nav-inset/side-nav-inset.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/side-nav-inset/side-nav-inset.tsx",
+          "content": "import type { ReactNode } from \"react\";\nimport type { AvatarUser } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport { type NavGroup, NavGroupMenu } from \"@/components/blocks/sidebar/nav-group/nav-group\";\nimport { NavUser, type NavUserItem } from \"@/components/blocks/sidebar/nav-user/nav-user\";\nimport { TenantSwitcher } from \"@/components/blocks/sidebar/tenant-switcher/tenant-switcher\";\nimport { Sidebar, SidebarContent } from \"@/components/ui/sidebar\";\n\nexport interface SideNavProps {\n  groups: NavGroup[];\n  /** sidebar header 位插槽，默认渲染 TenantSwitcher（需 TenantProvider） */\n  tenantSlot?: ReactNode;\n  /** sidebar footer 位插槽，默认渲染 NavUser */\n  footerSlot?: ReactNode;\n  user?: (AvatarUser & { email?: string }) | undefined;\n  onLogout?: () => void;\n  navUserItems?: NavUserItem[];\n}\n\n/**\n * inset 形态侧栏：侧栏为独立卡面、与内容区分层（内容区带边框圆角）。\n * 折叠方式 offcanvas（收起后完全移出让位内容）。\n */\nexport function SideNavInset({\n  groups,\n  tenantSlot,\n  footerSlot,\n  user,\n  onLogout,\n  navUserItems,\n}: SideNavProps) {\n  return (\n    <Sidebar variant=\"inset\" collapsible=\"offcanvas\">\n      {tenantSlot ?? <TenantSwitcher />}\n      <SidebarContent>\n        {groups.map((group) => (\n          <NavGroupMenu key={group.label ?? group.items[0]?.to} group={group} />\n        ))}\n      </SidebarContent>\n      {footerSlot ?? <NavUser user={user} onLogout={onLogout ?? (() => {})} items={navUserItems} />}\n    </Sidebar>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [],
+      "registryDependencies": [
+        "nav-group",
+        "nav-user",
+        "sidebar",
+        "tenant-switcher",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "tenant-switcher",
+      "type": "registry:component",
+      "title": "Tenant Switcher",
+      "description": "租户切换器（sidebar header 位）：core useTenant 驱动；下拉列出可用租户、勾选当前租户；URL 租户失效时陈旧回落提示到第一个可用租户。",
+      "files": [
+        {
+          "path": "registry/blocks/sidebar/tenant-switcher/tenant-switcher.tsx",
+          "type": "registry:component",
+          "target": "components/blocks/sidebar/tenant-switcher/tenant-switcher.tsx",
+          "content": "import { useTenant } from \"@fleetly/ui-component-core/tenant\";\nimport { cn } from \"cn\";\nimport { Check, ChevronsUpDown } from \"lucide-react\";\nimport { UserAvatar } from \"@/components/blocks/shared/user-avatar/user-avatar\";\nimport {\n  DropdownMenu,\n  DropdownMenuContent,\n  DropdownMenuGroup,\n  DropdownMenuItem,\n  DropdownMenuLabel,\n  DropdownMenuSeparator,\n  DropdownMenuTrigger,\n} from \"@/components/ui/dropdown-menu\";\nimport {\n  SidebarHeader,\n  SidebarMenu,\n  SidebarMenuButton,\n  SidebarMenuItem,\n  SidebarMenuSkeleton,\n} from \"@/components/ui/sidebar\";\n\n/**\n * 租户切换器（sidebar header 位）：下拉列出可用租户、显示当前租户；\n * URL 租户已失效（不在列表）时显示回落提示并引导切换到第一个可用租户。\n */\nexport function TenantSwitcher() {\n  const { tenant, tenantId, tenants, isLoading, setTenant } = useTenant();\n\n  const stale = !isLoading && tenantId != null && !tenants.some((t) => t.id === tenantId);\n  const current = tenant ?? (tenantId ? { id: tenantId, name: tenantId } : undefined);\n  const fallback = tenants[0];\n\n  return (\n    <SidebarHeader>\n      <SidebarMenu>\n        <SidebarMenuItem>\n          {isLoading && !current ? (\n            <SidebarMenuSkeleton showIcon />\n          ) : (\n            <DropdownMenu>\n              <DropdownMenuTrigger\n                render={\n                  <SidebarMenuButton\n                    size=\"lg\"\n                    className={cn(\"data-open:bg-sidebar-accent\", stale && \"text-status-warning\")}\n                  />\n                }\n              >\n                {current ? (\n                  <>\n                    <UserAvatar user={current} />\n                    <div className=\"grid flex-1 text-left leading-tight\">\n                      <span className=\"truncate font-medium\">{current.name}</span>\n                      <span className=\"text-xs text-sidebar-foreground/70 truncate\">\n                        {current.plan ?? \"org\"}\n                      </span>\n                    </div>\n                    <ChevronsUpDown className=\"ml-auto size-4 text-sidebar-foreground/50\" />\n                  </>\n                ) : null}\n              </DropdownMenuTrigger>\n              <DropdownMenuContent align=\"start\" className=\"w-56 min-w-56\">\n                <DropdownMenuGroup>\n                  <DropdownMenuLabel>租户</DropdownMenuLabel>\n                  {stale ? (\n                    <div className=\"px-2 py-1.5 text-xs text-status-warning\">\n                      当前租户 {tenantId} 已不可用，请切换：\n                    </div>\n                  ) : null}\n                  {tenants.map((t) => (\n                    <DropdownMenuItem key={t.id} onClick={() => setTenant(t.id)} className=\"gap-2\">\n                      <UserAvatar user={t} size=\"sm\" />\n                      <span className=\"flex-1 truncate\">{t.name}</span>\n                      {t.id === tenantId ? <Check className=\"size-4\" /> : null}\n                    </DropdownMenuItem>\n                  ))}\n                </DropdownMenuGroup>\n                {stale && fallback ? (\n                  <>\n                    <DropdownMenuSeparator />\n                    <DropdownMenuItem onClick={() => setTenant(fallback.id)}>\n                      回落到 {fallback.name}\n                    </DropdownMenuItem>\n                  </>\n                ) : null}\n              </DropdownMenuContent>\n            </DropdownMenu>\n          )}\n        </SidebarMenuItem>\n      </SidebarMenu>\n    </SidebarHeader>\n  );\n}\n"
+        }
+      ],
+      "dependencies": [
+        "@fleetly/ui-component-core@^0.0.0",
+        "cn",
+        "lucide-react"
+      ],
+      "registryDependencies": [
+        "dropdown-menu",
+        "sidebar",
+        "user-avatar"
+      ]
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "theme-aurora",
+      "type": "registry:theme",
+      "title": "Aurora Theme",
+      "description": "浅色为主：冷白画布 + teal 单强调；dark 模式带微青调的近黑画布。",
+      "cssVars": {
+        "light": {
+          "--background": "oklch(0.984 0.004 200)",
+          "--foreground": "oklch(0.185 0.012 210)",
+          "--card": "oklch(1 0 0)",
+          "--card-foreground": "oklch(0.185 0.012 210)",
+          "--popover": "oklch(1 0 0)",
+          "--popover-foreground": "oklch(0.185 0.012 210)",
+          "--primary": "oklch(0.6 0.104 180.72)",
+          "--primary-foreground": "oklch(0.985 0 0)",
+          "--secondary": "oklch(0.958 0.008 195)",
+          "--secondary-foreground": "oklch(0.235 0.014 210)",
+          "--muted": "oklch(0.958 0.008 195)",
+          "--muted-foreground": "oklch(0.53 0.02 205)",
+          "--accent": "oklch(0.95 0.016 190)",
+          "--accent-foreground": "oklch(0.235 0.014 210)",
+          "--destructive": "oklch(0.577 0.245 27.325)",
+          "--border": "oklch(0.912 0.01 200)",
+          "--input": "oklch(0.912 0.01 200)",
+          "--ring": "oklch(0.6 0.104 180.72)",
+          "--chart-1": "oklch(0.6 0.104 180.72)",
+          "--chart-2": "oklch(0.55 0.02 205)",
+          "--chart-3": "oklch(0.43 0.025 210)",
+          "--chart-4": "oklch(0.36 0.02 210)",
+          "--chart-5": "oklch(0.27 0.015 210)",
+          "--radius": "0.625rem",
+          "--sidebar": "oklch(0.976 0.006 198)",
+          "--sidebar-foreground": "oklch(0.185 0.012 210)",
+          "--sidebar-primary": "oklch(0.6 0.104 180.72)",
+          "--sidebar-primary-foreground": "oklch(0.985 0 0)",
+          "--sidebar-accent": "oklch(0.94 0.016 190)",
+          "--sidebar-accent-foreground": "oklch(0.235 0.014 210)",
+          "--sidebar-border": "oklch(0.9 0.012 200)",
+          "--sidebar-ring": "oklch(0.6 0.104 180.72)",
+          "--status-success": "oklch(0.627 0.233 149.2)",
+          "--status-success-bg": "oklch(0.627 0.233 149.2 / 10%)",
+          "--status-warning": "oklch(0.666 0.179 58.318)",
+          "--status-warning-bg": "oklch(0.666 0.179 58.318 / 10%)",
+          "--status-danger": "oklch(0.577 0.245 27.325)",
+          "--status-danger-bg": "oklch(0.577 0.245 27.325 / 10%)",
+          "--status-info": "oklch(0.546 0.245 262.881)",
+          "--status-info-bg": "oklch(0.546 0.245 262.881 / 10%)",
+          "--status-neutral": "oklch(0.53 0.02 205)",
+          "--status-neutral-bg": "oklch(0.53 0.02 205 / 8%)"
+        },
+        "dark": {
+          "--background": "oklch(0.145 0.012 220)",
+          "--foreground": "oklch(0.98 0.005 190)",
+          "--card": "oklch(0.183 0.015 220)",
+          "--card-foreground": "oklch(0.98 0.005 190)",
+          "--popover": "oklch(0.202 0.016 220)",
+          "--popover-foreground": "oklch(0.98 0.005 190)",
+          "--primary": "oklch(0.77 0.098 180.72)",
+          "--primary-foreground": "oklch(0.16 0.03 185)",
+          "--secondary": "oklch(0.238 0.016 218)",
+          "--secondary-foreground": "oklch(0.98 0.005 190)",
+          "--muted": "oklch(0.238 0.016 218)",
+          "--muted-foreground": "oklch(0.71 0.015 200)",
+          "--accent": "oklch(0.268 0.018 216)",
+          "--accent-foreground": "oklch(0.98 0.005 190)",
+          "--destructive": "oklch(0.704 0.191 22.216)",
+          "--border": "oklch(0.98 0.005 190 / 11%)",
+          "--input": "oklch(0.98 0.005 190 / 16%)",
+          "--ring": "oklch(0.77 0.098 180.72)",
+          "--chart-1": "oklch(0.77 0.098 180.72)",
+          "--chart-2": "oklch(0.87 0.008 190)",
+          "--chart-3": "oklch(0.556 0.02 200)",
+          "--chart-4": "oklch(0.44 0.025 210)",
+          "--chart-5": "oklch(0.27 0.015 210)",
+          "--radius": "0.625rem",
+          "--sidebar": "oklch(0.173 0.014 220)",
+          "--sidebar-foreground": "oklch(0.98 0.005 190)",
+          "--sidebar-primary": "oklch(0.77 0.098 180.72)",
+          "--sidebar-primary-foreground": "oklch(0.16 0.03 185)",
+          "--sidebar-accent": "oklch(0.268 0.018 216)",
+          "--sidebar-accent-foreground": "oklch(0.98 0.005 190)",
+          "--sidebar-border": "oklch(0.98 0.005 190 / 11%)",
+          "--sidebar-ring": "oklch(0.77 0.098 180.72)",
+          "--status-success": "oklch(0.723 0.219 149.579)",
+          "--status-success-bg": "oklch(0.723 0.219 149.579 / 15%)",
+          "--status-warning": "oklch(0.828 0.189 84.429)",
+          "--status-warning-bg": "oklch(0.828 0.189 84.429 / 15%)",
+          "--status-danger": "oklch(0.704 0.191 22.216)",
+          "--status-danger-bg": "oklch(0.704 0.191 22.216 / 15%)",
+          "--status-info": "oklch(0.685 0.169 237.323)",
+          "--status-info-bg": "oklch(0.685 0.169 237.323 / 15%)",
+          "--status-neutral": "oklch(0.708 0.015 200)",
+          "--status-neutral-bg": "oklch(0.708 0.015 200 / 10%)"
+        }
+      },
+      "files": [
+        {
+          "path": "registry/themes/aurora.css",
+          "type": "registry:theme",
+          "target": "theme/aurora.css",
+          "content": "/* Generated by registry:build — preset \"aurora\" (Aurora). Do not edit. */\n:root[data-preset=\"aurora\"] {\n  --background: oklch(0.984 0.004 200);\n  --foreground: oklch(0.185 0.012 210);\n  --card: oklch(1 0 0);\n  --card-foreground: oklch(0.185 0.012 210);\n  --popover: oklch(1 0 0);\n  --popover-foreground: oklch(0.185 0.012 210);\n  --primary: oklch(0.6 0.104 180.72);\n  --primary-foreground: oklch(0.985 0 0);\n  --secondary: oklch(0.958 0.008 195);\n  --secondary-foreground: oklch(0.235 0.014 210);\n  --muted: oklch(0.958 0.008 195);\n  --muted-foreground: oklch(0.53 0.02 205);\n  --accent: oklch(0.95 0.016 190);\n  --accent-foreground: oklch(0.235 0.014 210);\n  --destructive: oklch(0.577 0.245 27.325);\n  --border: oklch(0.912 0.01 200);\n  --input: oklch(0.912 0.01 200);\n  --ring: oklch(0.6 0.104 180.72);\n  --chart-1: oklch(0.6 0.104 180.72);\n  --chart-2: oklch(0.55 0.02 205);\n  --chart-3: oklch(0.43 0.025 210);\n  --chart-4: oklch(0.36 0.02 210);\n  --chart-5: oklch(0.27 0.015 210);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.976 0.006 198);\n  --sidebar-foreground: oklch(0.185 0.012 210);\n  --sidebar-primary: oklch(0.6 0.104 180.72);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  --sidebar-accent: oklch(0.94 0.016 190);\n  --sidebar-accent-foreground: oklch(0.235 0.014 210);\n  --sidebar-border: oklch(0.9 0.012 200);\n  --sidebar-ring: oklch(0.6 0.104 180.72);\n  --status-success: oklch(0.627 0.233 149.2);\n  --status-success-bg: oklch(0.627 0.233 149.2 / 10%);\n  --status-warning: oklch(0.666 0.179 58.318);\n  --status-warning-bg: oklch(0.666 0.179 58.318 / 10%);\n  --status-danger: oklch(0.577 0.245 27.325);\n  --status-danger-bg: oklch(0.577 0.245 27.325 / 10%);\n  --status-info: oklch(0.546 0.245 262.881);\n  --status-info-bg: oklch(0.546 0.245 262.881 / 10%);\n  --status-neutral: oklch(0.53 0.02 205);\n  --status-neutral-bg: oklch(0.53 0.02 205 / 8%);\n}\n\n:root[data-preset=\"aurora\"][data-theme=\"dark\"] {\n  --background: oklch(0.145 0.012 220);\n  --foreground: oklch(0.98 0.005 190);\n  --card: oklch(0.183 0.015 220);\n  --card-foreground: oklch(0.98 0.005 190);\n  --popover: oklch(0.202 0.016 220);\n  --popover-foreground: oklch(0.98 0.005 190);\n  --primary: oklch(0.77 0.098 180.72);\n  --primary-foreground: oklch(0.16 0.03 185);\n  --secondary: oklch(0.238 0.016 218);\n  --secondary-foreground: oklch(0.98 0.005 190);\n  --muted: oklch(0.238 0.016 218);\n  --muted-foreground: oklch(0.71 0.015 200);\n  --accent: oklch(0.268 0.018 216);\n  --accent-foreground: oklch(0.98 0.005 190);\n  --destructive: oklch(0.704 0.191 22.216);\n  --border: oklch(0.98 0.005 190 / 11%);\n  --input: oklch(0.98 0.005 190 / 16%);\n  --ring: oklch(0.77 0.098 180.72);\n  --chart-1: oklch(0.77 0.098 180.72);\n  --chart-2: oklch(0.87 0.008 190);\n  --chart-3: oklch(0.556 0.02 200);\n  --chart-4: oklch(0.44 0.025 210);\n  --chart-5: oklch(0.27 0.015 210);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.173 0.014 220);\n  --sidebar-foreground: oklch(0.98 0.005 190);\n  --sidebar-primary: oklch(0.77 0.098 180.72);\n  --sidebar-primary-foreground: oklch(0.16 0.03 185);\n  --sidebar-accent: oklch(0.268 0.018 216);\n  --sidebar-accent-foreground: oklch(0.98 0.005 190);\n  --sidebar-border: oklch(0.98 0.005 190 / 11%);\n  --sidebar-ring: oklch(0.77 0.098 180.72);\n  --status-success: oklch(0.723 0.219 149.579);\n  --status-success-bg: oklch(0.723 0.219 149.579 / 15%);\n  --status-warning: oklch(0.828 0.189 84.429);\n  --status-warning-bg: oklch(0.828 0.189 84.429 / 15%);\n  --status-danger: oklch(0.704 0.191 22.216);\n  --status-danger-bg: oklch(0.704 0.191 22.216 / 15%);\n  --status-info: oklch(0.685 0.169 237.323);\n  --status-info-bg: oklch(0.685 0.169 237.323 / 15%);\n  --status-neutral: oklch(0.708 0.015 200);\n  --status-neutral-bg: oklch(0.708 0.015 200 / 10%);\n}\n"
+        }
+      ],
+      "dependencies": [],
+      "registryDependencies": []
+    },
+    {
+      "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+      "name": "theme-default",
+      "type": "registry:theme",
+      "title": "Default Theme",
+      "description": "近黑中性画布 + 发丝线边框 + indigo 单强调；暗色优先，light 完整支持（architecture.md §8 视觉基线）。",
+      "cssVars": {
+        "light": {
+          "--background": "oklch(0.985 0 0)",
+          "--foreground": "oklch(0.145 0 0)",
+          "--card": "oklch(1 0 0)",
+          "--card-foreground": "oklch(0.145 0 0)",
+          "--popover": "oklch(1 0 0)",
+          "--popover-foreground": "oklch(0.145 0 0)",
+          "--primary": "oklch(0.511 0.262 276.966)",
+          "--primary-foreground": "oklch(0.985 0 0)",
+          "--secondary": "oklch(0.96 0 0)",
+          "--secondary-foreground": "oklch(0.205 0 0)",
+          "--muted": "oklch(0.96 0 0)",
+          "--muted-foreground": "oklch(0.556 0 0)",
+          "--accent": "oklch(0.96 0 0)",
+          "--accent-foreground": "oklch(0.205 0 0)",
+          "--destructive": "oklch(0.577 0.245 27.325)",
+          "--border": "oklch(0.922 0 0)",
+          "--input": "oklch(0.922 0 0)",
+          "--ring": "oklch(0.511 0.262 276.966)",
+          "--chart-1": "oklch(0.511 0.262 276.966)",
+          "--chart-2": "oklch(0.556 0 0)",
+          "--chart-3": "oklch(0.439 0 0)",
+          "--chart-4": "oklch(0.371 0 0)",
+          "--chart-5": "oklch(0.269 0 0)",
+          "--radius": "0.625rem",
+          "--sidebar": "oklch(0.982 0 0)",
+          "--sidebar-foreground": "oklch(0.145 0 0)",
+          "--sidebar-primary": "oklch(0.511 0.262 276.966)",
+          "--sidebar-primary-foreground": "oklch(0.985 0 0)",
+          "--sidebar-accent": "oklch(0.955 0.005 276)",
+          "--sidebar-accent-foreground": "oklch(0.205 0 0)",
+          "--sidebar-border": "oklch(0.912 0 0)",
+          "--sidebar-ring": "oklch(0.511 0.262 276.966)",
+          "--status-success": "oklch(0.627 0.233 149.2)",
+          "--status-success-bg": "oklch(0.627 0.233 149.2 / 10%)",
+          "--status-warning": "oklch(0.666 0.179 58.318)",
+          "--status-warning-bg": "oklch(0.666 0.179 58.318 / 10%)",
+          "--status-danger": "oklch(0.577 0.245 27.325)",
+          "--status-danger-bg": "oklch(0.577 0.245 27.325 / 10%)",
+          "--status-info": "oklch(0.546 0.245 262.881)",
+          "--status-info-bg": "oklch(0.546 0.245 262.881 / 10%)",
+          "--status-neutral": "oklch(0.556 0 0)",
+          "--status-neutral-bg": "oklch(0.556 0 0 / 8%)"
+        },
+        "dark": {
+          "--background": "oklch(0.145 0 0)",
+          "--foreground": "oklch(0.985 0 0)",
+          "--card": "oklch(0.185 0 0)",
+          "--card-foreground": "oklch(0.985 0 0)",
+          "--popover": "oklch(0.205 0 0)",
+          "--popover-foreground": "oklch(0.985 0 0)",
+          "--primary": "oklch(0.673 0.182 276.935)",
+          "--primary-foreground": "oklch(0.13 0.028 276.9)",
+          "--secondary": "oklch(0.24 0 0)",
+          "--secondary-foreground": "oklch(0.985 0 0)",
+          "--muted": "oklch(0.24 0 0)",
+          "--muted-foreground": "oklch(0.708 0 0)",
+          "--accent": "oklch(0.269 0 0)",
+          "--accent-foreground": "oklch(0.985 0 0)",
+          "--destructive": "oklch(0.704 0.191 22.216)",
+          "--border": "oklch(1 0 0 / 10%)",
+          "--input": "oklch(1 0 0 / 15%)",
+          "--ring": "oklch(0.673 0.182 276.935)",
+          "--chart-1": "oklch(0.673 0.182 276.935)",
+          "--chart-2": "oklch(0.87 0 0)",
+          "--chart-3": "oklch(0.556 0 0)",
+          "--chart-4": "oklch(0.439 0 0)",
+          "--chart-5": "oklch(0.269 0 0)",
+          "--radius": "0.625rem",
+          "--sidebar": "oklch(0.175 0 0)",
+          "--sidebar-foreground": "oklch(0.985 0 0)",
+          "--sidebar-primary": "oklch(0.673 0.182 276.935)",
+          "--sidebar-primary-foreground": "oklch(0.13 0.028 276.9)",
+          "--sidebar-accent": "oklch(0.269 0 0)",
+          "--sidebar-accent-foreground": "oklch(0.985 0 0)",
+          "--sidebar-border": "oklch(1 0 0 / 10%)",
+          "--sidebar-ring": "oklch(0.673 0.182 276.935)",
+          "--status-success": "oklch(0.723 0.219 149.579)",
+          "--status-success-bg": "oklch(0.723 0.219 149.579 / 15%)",
+          "--status-warning": "oklch(0.828 0.189 84.429)",
+          "--status-warning-bg": "oklch(0.828 0.189 84.429 / 15%)",
+          "--status-danger": "oklch(0.704 0.191 22.216)",
+          "--status-danger-bg": "oklch(0.704 0.191 22.216 / 15%)",
+          "--status-info": "oklch(0.685 0.169 237.323)",
+          "--status-info-bg": "oklch(0.685 0.169 237.323 / 15%)",
+          "--status-neutral": "oklch(0.708 0 0)",
+          "--status-neutral-bg": "oklch(0.708 0 0 / 10%)"
+        }
+      },
+      "files": [
+        {
+          "path": "registry/themes/default.css",
+          "type": "registry:theme",
+          "target": "theme/default.css",
+          "content": "/* Generated by registry:build — preset \"default\" (Default). Do not edit. */\n:root[data-preset=\"default\"] {\n  --background: oklch(0.985 0 0);\n  --foreground: oklch(0.145 0 0);\n  --card: oklch(1 0 0);\n  --card-foreground: oklch(0.145 0 0);\n  --popover: oklch(1 0 0);\n  --popover-foreground: oklch(0.145 0 0);\n  --primary: oklch(0.511 0.262 276.966);\n  --primary-foreground: oklch(0.985 0 0);\n  --secondary: oklch(0.96 0 0);\n  --secondary-foreground: oklch(0.205 0 0);\n  --muted: oklch(0.96 0 0);\n  --muted-foreground: oklch(0.556 0 0);\n  --accent: oklch(0.96 0 0);\n  --accent-foreground: oklch(0.205 0 0);\n  --destructive: oklch(0.577 0.245 27.325);\n  --border: oklch(0.922 0 0);\n  --input: oklch(0.922 0 0);\n  --ring: oklch(0.511 0.262 276.966);\n  --chart-1: oklch(0.511 0.262 276.966);\n  --chart-2: oklch(0.556 0 0);\n  --chart-3: oklch(0.439 0 0);\n  --chart-4: oklch(0.371 0 0);\n  --chart-5: oklch(0.269 0 0);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.982 0 0);\n  --sidebar-foreground: oklch(0.145 0 0);\n  --sidebar-primary: oklch(0.511 0.262 276.966);\n  --sidebar-primary-foreground: oklch(0.985 0 0);\n  --sidebar-accent: oklch(0.955 0.005 276);\n  --sidebar-accent-foreground: oklch(0.205 0 0);\n  --sidebar-border: oklch(0.912 0 0);\n  --sidebar-ring: oklch(0.511 0.262 276.966);\n  --status-success: oklch(0.627 0.233 149.2);\n  --status-success-bg: oklch(0.627 0.233 149.2 / 10%);\n  --status-warning: oklch(0.666 0.179 58.318);\n  --status-warning-bg: oklch(0.666 0.179 58.318 / 10%);\n  --status-danger: oklch(0.577 0.245 27.325);\n  --status-danger-bg: oklch(0.577 0.245 27.325 / 10%);\n  --status-info: oklch(0.546 0.245 262.881);\n  --status-info-bg: oklch(0.546 0.245 262.881 / 10%);\n  --status-neutral: oklch(0.556 0 0);\n  --status-neutral-bg: oklch(0.556 0 0 / 8%);\n}\n\n:root[data-preset=\"default\"][data-theme=\"dark\"] {\n  --background: oklch(0.145 0 0);\n  --foreground: oklch(0.985 0 0);\n  --card: oklch(0.185 0 0);\n  --card-foreground: oklch(0.985 0 0);\n  --popover: oklch(0.205 0 0);\n  --popover-foreground: oklch(0.985 0 0);\n  --primary: oklch(0.673 0.182 276.935);\n  --primary-foreground: oklch(0.13 0.028 276.9);\n  --secondary: oklch(0.24 0 0);\n  --secondary-foreground: oklch(0.985 0 0);\n  --muted: oklch(0.24 0 0);\n  --muted-foreground: oklch(0.708 0 0);\n  --accent: oklch(0.269 0 0);\n  --accent-foreground: oklch(0.985 0 0);\n  --destructive: oklch(0.704 0.191 22.216);\n  --border: oklch(1 0 0 / 10%);\n  --input: oklch(1 0 0 / 15%);\n  --ring: oklch(0.673 0.182 276.935);\n  --chart-1: oklch(0.673 0.182 276.935);\n  --chart-2: oklch(0.87 0 0);\n  --chart-3: oklch(0.556 0 0);\n  --chart-4: oklch(0.439 0 0);\n  --chart-5: oklch(0.269 0 0);\n  --radius: 0.625rem;\n  --sidebar: oklch(0.175 0 0);\n  --sidebar-foreground: oklch(0.985 0 0);\n  --sidebar-primary: oklch(0.673 0.182 276.935);\n  --sidebar-primary-foreground: oklch(0.13 0.028 276.9);\n  --sidebar-accent: oklch(0.269 0 0);\n  --sidebar-accent-foreground: oklch(0.985 0 0);\n  --sidebar-border: oklch(1 0 0 / 10%);\n  --sidebar-ring: oklch(0.673 0.182 276.935);\n  --status-success: oklch(0.723 0.219 149.579);\n  --status-success-bg: oklch(0.723 0.219 149.579 / 15%);\n  --status-warning: oklch(0.828 0.189 84.429);\n  --status-warning-bg: oklch(0.828 0.189 84.429 / 15%);\n  --status-danger: oklch(0.704 0.191 22.216);\n  --status-danger-bg: oklch(0.704 0.191 22.216 / 15%);\n  --status-info: oklch(0.685 0.169 237.323);\n  --status-info-bg: oklch(0.685 0.169 237.323 / 15%);\n  --status-neutral: oklch(0.708 0 0);\n  --status-neutral-bg: oklch(0.708 0 0 / 10%);\n}\n"
+        }
+      ],
+      "dependencies": [],
       "registryDependencies": []
     }
   ]

@@ -1,0 +1,10 @@
+{
+  "name": "side-nav-icon",
+  "type": "registry:block",
+  "title": "Side Nav (Icon)",
+  "description": "可折叠至图标形态的侧栏：折叠后只剩图标列（折叠态 tooltip）。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "nav-group", "nav-user", "tenant-switcher"],
+  "targetDir": "components/blocks/sidebar/side-nav-icon"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "theme-toggle",
+  "type": "registry:component",
+  "title": "Theme Toggle",
+  "description": "明暗切换按钮：light → dark → system 循环（core useTheme）。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["button"],
+  "targetDir": "components/blocks/shell/theme-toggle"
+}

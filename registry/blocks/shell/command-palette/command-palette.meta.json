@@ -1,0 +1,10 @@
+{
+  "name": "command-palette",
+  "type": "registry:component",
+  "title": "Command Palette",
+  "description": "⌘K 全局命令面板：groups 导航跳转（Link）或自定义动作；宿主持有 open 状态。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["command", "dialog"],
+  "targetDir": "components/blocks/shell/command-palette"
+}

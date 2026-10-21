@@ -1,0 +1,10 @@
+{
+  "name": "app-shell-floating",
+  "type": "registry:block",
+  "title": "App Shell (Floating)",
+  "description": "floating 应用壳：侧栏悬空浮起、内容区通栏。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "side-nav-floating"],
+  "targetDir": "components/blocks/shell/app-shell-floating"
+}

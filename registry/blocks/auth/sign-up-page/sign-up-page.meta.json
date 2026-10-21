@@ -1,0 +1,10 @@
+{
+  "name": "sign-up-page",
+  "type": "registry:block",
+  "title": "Sign Up Page",
+  "description": "注册页：姓名/邮箱/密码/确认密码（一致性校验）+ 提交成功态。",
+  "categories": ["auth"],
+  "dependencies": [],
+  "registryDependencies": ["button", "card", "input", "label"],
+  "targetDir": "components/blocks/auth/sign-up-page"
+}

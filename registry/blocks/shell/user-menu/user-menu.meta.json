@@ -1,0 +1,10 @@
+{
+  "name": "user-menu",
+  "type": "registry:component",
+  "title": "User Menu",
+  "description": "顶栏用户菜单：头像触发 + 姓名/邮箱头部 + 自定义项 + 登出。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["button", "dropdown-menu", "user-avatar"],
+  "targetDir": "components/blocks/shell/user-menu"
+}

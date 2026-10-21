@@ -1,0 +1,10 @@
+{
+  "name": "user-avatar",
+  "type": "registry:component",
+  "title": "User Avatar",
+  "description": "头像（图片/名字首字母回落）三档尺寸 + AvatarStack 堆叠（超出 +N）。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": ["avatar"],
+  "targetDir": "components/blocks/shared/user-avatar"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "nav-user",
+  "type": "registry:component",
+  "title": "Nav User",
+  "description": "侧栏底部用户卡：头像+姓名+邮箱，展开菜单（自定义项 + 登出）；加载态骨架。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["dropdown-menu", "sidebar", "user-avatar"],
+  "targetDir": "components/blocks/sidebar/nav-user"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "side-nav-inset",
+  "type": "registry:block",
+  "title": "Side Nav (Inset)",
+  "description": "inset 形态侧栏：独立卡面与内容区分层，offcanvas 折叠；header 默认 TenantSwitcher、footer 默认 NavUser（可用 tenantSlot/footerSlot 覆盖）。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "nav-group", "nav-user", "tenant-switcher"],
+  "targetDir": "components/blocks/sidebar/side-nav-inset"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "copy-button",
+  "type": "registry:component",
+  "title": "Copy Button",
+  "description": "复制按钮：写剪贴板 + 成功反馈 2s（Copy → Check）。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": ["button"],
+  "targetDir": "components/blocks/shared/copy-button"
+}

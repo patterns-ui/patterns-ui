@@ -1,0 +1,10 @@
+{
+  "name": "sign-in-page",
+  "type": "registry:block",
+  "title": "Sign In Page",
+  "description": "登录页：品牌位 + 邮箱密码表单 + 内联错误展示 + pending 态；onSubmit 抛错展示（如 401 文案）；next 回跳由宿主处理。",
+  "categories": ["auth"],
+  "dependencies": [],
+  "registryDependencies": ["button", "card", "input", "label"],
+  "targetDir": "components/blocks/auth/sign-in-page"
+}

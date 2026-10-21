@@ -1,0 +1,10 @@
+{
+  "name": "app-shell-inset",
+  "type": "registry:block",
+  "title": "App Shell (Inset)",
+  "description": "inset 应用壳：侧栏独立卡面、内容区带边框圆角；折叠态 cookie 持久化。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "side-nav-inset"],
+  "targetDir": "components/blocks/shell/app-shell-inset"
+}

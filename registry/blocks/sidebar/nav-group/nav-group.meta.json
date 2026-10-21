@@ -1,0 +1,10 @@
+{
+  "name": "nav-group",
+  "type": "registry:component",
+  "title": "Nav Group",
+  "description": "侧栏分组导航：组标题 + 项 + badge 计数 + canAccess 权限过滤（fail-closed）+ 可折叠组 + active 前缀匹配（pathname === to || startsWith(to + '/')）。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar"],
+  "targetDir": "components/blocks/sidebar/nav-group"
+}

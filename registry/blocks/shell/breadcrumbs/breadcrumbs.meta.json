@@ -1,0 +1,10 @@
+{
+  "name": "breadcrumbs",
+  "type": "registry:component",
+  "title": "Breadcrumbs",
+  "description": "面包屑（core useCrumbs 派生）：staticData.title 优先、租户段经 resolve.tenant 反查、长段截断；末段为当前页。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["breadcrumb"],
+  "targetDir": "components/blocks/shell/breadcrumbs"
+}

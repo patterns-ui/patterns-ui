@@ -1,0 +1,17 @@
+{
+  "name": "top-bar",
+  "type": "registry:component",
+  "title": "Top Bar",
+  "description": "顶栏：SidebarTrigger + 面包屑 + 搜索入口(⌘K) + ThemeToggle + extra 扩展位 + UserMenu。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": [
+    "button",
+    "separator",
+    "sidebar",
+    "breadcrumbs",
+    "theme-toggle",
+    "user-menu"
+  ],
+  "targetDir": "components/blocks/shell/top-bar"
+}

@@ -1,0 +1,10 @@
+{
+  "name": "tenant-switcher",
+  "type": "registry:component",
+  "title": "Tenant Switcher",
+  "description": "租户切换器（sidebar header 位）：core useTenant 驱动；下拉列出可用租户、勾选当前租户；URL 租户失效时陈旧回落提示到第一个可用租户。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["dropdown-menu", "sidebar", "user-avatar"],
+  "targetDir": "components/blocks/sidebar/tenant-switcher"
+}

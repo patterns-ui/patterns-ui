@@ -1,9 +1,26 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>demo — @fleetly/ui-components</title>
+    <!-- 防闪（FOUC）阻塞脚本：与 core theme 的 themeBlockingScript() 输出保持一致
+         （localStorage 'fc:theme'/'fc:preset' → data-theme/data-preset + color-scheme） -->
+    <script>
+      (() => {
+        try {
+          var t = localStorage.getItem("fc:theme") || "dark";
+          if (t === "system") {
+            t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          var p = localStorage.getItem("fc:preset") || "default";
+          var d = document.documentElement;
+          d.setAttribute("data-theme", t);
+          d.setAttribute("data-preset", p);
+          d.style.colorScheme = t;
+        } catch (_e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

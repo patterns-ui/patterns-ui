@@ -1,0 +1,10 @@
+{
+  "name": "resource-icon",
+  "type": "registry:component",
+  "title": "Resource Icon",
+  "description": "资源类型 → 图标映射（service/deployment/audit/api-key/team/org/…），映射表可经 icons prop 注入覆盖。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/resource-icon"
+}

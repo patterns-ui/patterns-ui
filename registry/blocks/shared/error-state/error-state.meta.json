@@ -1,0 +1,10 @@
+{
+  "name": "error-state",
+  "type": "registry:component",
+  "title": "Error State",
+  "description": "错误态：HttpError 分档文案（401/403/404/409/5xx/网络/未知）+ 状态码展示 + 重试。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": ["button"],
+  "targetDir": "components/blocks/shared/error-state"
+}

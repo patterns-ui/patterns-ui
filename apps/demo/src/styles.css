@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+/* 主题 preset（registry:build 生成；:root[data-preset] 特异度压过下方基线令牌） */
+@import "../../../registry/themes/default.css";
+@import "../../../registry/themes/aurora.css";
 
 /* blocks 源码经 alias 位于 demo 根目录之外，需显式纳入 Tailwind 扫描范围
    （路径相对本文件：apps/demo/src → 仓库根/registry/blocks） */
@@ -59,7 +62,8 @@
   --status-neutral-bg: oklch(0.556 0 0 / 8%);
 }
 
-.dark {
+/* core ThemeProvider 用 attribute="data-theme"（next-themes），暗色选择器与之对齐 */
+[data-theme="dark"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
