@@ -6,6 +6,7 @@
 - **产物**（`pnpm registry:build`，脚本 `registry/scripts/build.ts`）：
   - `registry/dist/r/<name>.json` —— 单个 registry-item JSON（shadcn registry-item schema）
   - `registry.json`（仓库根）—— 索引：`{ "$schema": ..., "name": "@patterns-ui", "homepage": ..., "items": [...] }`，**提交进仓库**（GitHub repo-as-registry 入口）
+  - `packages/core/src/vocab/blocks.generated.ts` —— 词表生成物（`pnpm vocab:generate`，见 §3），**提交进仓库**
 
 ## 2. meta.json 格式
 
@@ -22,7 +23,15 @@
 }
 ```
 
+原型宿主/预设 block（如 `list-page`）额外带可选字段，位置紧跟 `categories`：
+
+```json
+"categories": ["list"],
+"archetype": "resource-list",
+```
+
 - `dependencies`：npm 依赖（带 semver）。`@patterns-ui/core` 版本读 `packages/core/package.json` 自动填充；源码 import 的裸 npm 包（如 `@tanstack/react-query`）自动并入——只有 react 系（react/react-dom/react/jsx-runtime、`react/*`）视为宿主自带不声明。
+- `archetype`（可选）：页面原型归属，合法值 7 个（`resource-list` / `resource-detail` / `resource-form` / `settings` / `overview` / `auth-flow` / `wizard`，paradigm.md §3.2）。语义 = 该 block 是哪个原型的**宿主/预设**（如 list-page → resource-list、form-dialog/form-sheet/form-page → resource-form）；仅原型宿主/预设声明，其余 block 不写。构建校验非法值失败；`vocab:generate` 据此产 `BLOCKS_BY_ARCHETYPE`；M7-B1 消费做同原型 slot 结构一致性校验。
 - `registryDependencies` 的三种写法与构建期改写（**产物中永不出现裸名**——裸名永远解析到官方 shadcn）：
   - 裸名命中我方 block 名 → 改写为 GitHub 完整引用 `patterns-ui/patterns-ui/<name>`（§4 主通道）；
   - 其余裸名（button/table/dropdown-menu…官方件）→ 改写为 `https://ui.shadcn.com/r/styles/base-nova/<name>.json` 完整 URL（**方言钉扎点** `OFFICIAL_BASE_REGISTRY`，见 build.ts——消费端 components.json 的 style 不再影响我们 item 的方言）；
@@ -39,9 +48,10 @@
    - `@/components/ui/<name>` → 钉扎为官方 base-nova 完整 URL 并入 registryDependencies（ui 别名永远指官方，即使存在同名我方 block）；barrel import `@/components/ui`（无具体名）构建直接 fail。
    - `@patterns-ui/core` → npm dependencies。
    - `@/lib/*`、`@/hooks/*` → 保留原样（用户项目别名解析）。
-4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码。
+4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码；`meta.archetype`（可选）∈ 7 原型，非法值构建失败，合法值透传到 registry item 顶层（schema 顶层 additionalProperties 开放，validate 不拒）。
 5. 主题：生成 `registry:theme` item（**仅 css 文件，不带 cssVars 字段**）。每个 preset css 文件自含 `@theme inline` 段（全部令牌 → `--color-*` 一对一映射 + radius 派生四档，口径与 apps/demo/src/styles.css 一致）——消费端只 add 一个 theme item、`@import` 落盘 css 即可用全部语义色/radius utility。不带 cssVars 的原因：CLI 对 registry:theme 的 cssVars 物化会向消费端 index.css 追加自生成的 `@theme inline`，其 var 引用双写前导横线（`var(----x)`，shadcn@4.21/4.22 实测，官方标准 token 一并损坏），且 `:root`/`.dark` 平铺物化与我们的 `data-preset` 多 preset 切换语义冲突——theme 的唯一交付面是自含 css 文件。
-6. 输出 `registry.json` + `dist/r/*.json`；CI 以 `git diff --exit-code` 校验产物新鲜度，`pnpm dlx shadcn@latest registry validate` 校验 schema；`registry-consumer` job 跑消费端冒烟（`pnpm registry:smoke`）。
+6. 输出 `registry.json` + `dist/r/*.json`；CI 以 `git diff --exit-code` 校验产物新鲜度（词表生成物同入校验，见下），`pnpm dlx shadcn@latest registry validate` 校验 schema；`registry-consumer` job 跑消费端冒烟（`pnpm registry:smoke`）。
+7. **词表生成器**（`registry/scripts/generate-blocks.ts`，`pnpm vocab:generate`）：读全部 meta.json + themes/*.json，产出 `packages/core/src/vocab/blocks.generated.ts`（`ARCHETYPES`/`CELL_NAMES`/`BLOCK_NAMES`/`BLOCKS_BY_ARCHETYPE`/`THEME_PRESET_NAMES` 及派生类型与 `*_DOCS`，形态见 paradigm.md §3.3 (2)）。确定性：名字码位排序、格式经 biome canonicalize，连跑两次零 diff。**生成物提交进 git**；根 `build` 先 `vocab:generate` 再构建 core（词表先于 core 构建）；CI 在 build 后重跑并纳入 freshness diff（改 meta 不重新生成 = 红）；core 侧 `blocks.test.ts` 另有单源与新鲜度单测兜底。
 
 ## 4. 发布通道
 

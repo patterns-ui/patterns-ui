@@ -10,7 +10,8 @@
  *     其余裸 npm 包并入 dependencies（react 系除外）。
  *  4. 校验：registryDependencies 引用的 block 存在、无循环依赖、无相对路径逃逸出 block 目录、
  *     不得 import demo 代码（architecture.md §5 之外的 `@/*` 形态一律拒绝）、
- *     不得 barrel import `@/components/ui`（无法解析出具体官方组件名）。
+ *     不得 barrel import `@/components/ui`（无法解析出具体官方组件名）、
+ *     meta.archetype（可选）∈ 7 页面原型（docs/paradigm.md §3.2）并透传到 item 顶层。
  *  5. 输出 registry/dist/r/<name>.json（shadcn registry-item schema）与仓库根 registry.json
  *     （GitHub repo-as-registry 索引，items 内联，提交进仓库）。
  *
@@ -38,6 +39,16 @@ const GITHUB_REGISTRY_REF = "patterns-ui/patterns-ui";
 
 const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".css"]);
 const BLOCK_ITEM_TYPES = new Set(["registry:component", "registry:block"]);
+/** 页面原型封闭集（docs/paradigm.md §3.2；与 registry/scripts/generate-blocks.ts 的 ARCHETYPES 同源） */
+const ARCHETYPES = new Set([
+  "resource-list",
+  "resource-detail",
+  "resource-form",
+  "settings",
+  "overview",
+  "auth-flow",
+  "wizard",
+]);
 /** npm 依赖白名单外的运行库：宿主项目自带（React 系），不进 item.dependencies。TanStack 框架层照常声明 */
 const IMPLICIT_NPM_IMPORTS = new Set(["react", "react-dom", "react/jsx-runtime"]);
 const CORE_PACKAGE = "@patterns-ui/core";
@@ -53,6 +64,8 @@ interface BlockMeta {
   title?: string;
   description?: string;
   categories?: string[];
+  /** 页面原型（7 合法值，见 ARCHETYPES）；仅原型的宿主/预设 block 声明，透传到 registry item 顶层 */
+  archetype?: string;
   dependencies?: string[];
   registryDependencies?: string[];
   targetDir: string;
@@ -71,6 +84,7 @@ interface RegistryItem {
   type: string;
   title?: string;
   description?: string;
+  archetype?: string;
   cssVars?: { light: Record<string, string>; dark: Record<string, string> };
   files: RegistryFile[];
   dependencies: string[];
@@ -232,6 +246,11 @@ async function main(): Promise<void> {
     if (!BLOCK_ITEM_TYPES.has(meta.type)) {
       fail(`${relative(ROOT, metaPath)}: type must be one of ${[...BLOCK_ITEM_TYPES].join(", ")}`);
     }
+    if (meta.archetype !== undefined && !ARCHETYPES.has(meta.archetype)) {
+      fail(
+        `${relative(ROOT, metaPath)}: archetype "${meta.archetype}" must be one of ${[...ARCHETYPES].join(", ")}`,
+      );
+    }
     const key = relative(BLOCKS_DIR, dirname(metaPath));
     if (metas.has(key)) {
       fail(`duplicate block directory key: ${key}`);
@@ -380,6 +399,9 @@ async function main(): Promise<void> {
       type: meta.type,
       ...(meta.title ? { title: meta.title } : {}),
       ...(meta.description ? { description: meta.description } : {}),
+      // archetype 透传到 item 顶层（schema additionalProperties 开放，validate 不拒）；
+      // M7-B1 消费做同原型 slot 结构一致性校验，vocab:generate 消费产 BLOCKS_BY_ARCHETYPE。
+      ...(meta.archetype ? { archetype: meta.archetype } : {}),
       files,
       dependencies: [...dependencies].sort(),
       registryDependencies: [...registryDependencies].sort(),

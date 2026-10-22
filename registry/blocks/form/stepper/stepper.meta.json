@@ -4,6 +4,7 @@
   "title": "Stepper",
   "description": "分步向导：步骤指示三态(done/current/waiting) + 每步「下一步」前校验（可异步）+ 错误提示 + 上一步回退 + 完成回调；summary 由末步 content 提供。",
   "categories": ["form"],
+  "archetype": "wizard",
   "dependencies": [],
   "registryDependencies": [],
   "targetDir": "components/blocks/form/stepper"

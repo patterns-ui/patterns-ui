@@ -172,6 +172,16 @@
         "types": "./dist/storage/index.d.cts",
         "default": "./dist/storage/index.cjs"
       }
+    },
+    "./vocab": {
+      "import": {
+        "types": "./dist/vocab/index.d.ts",
+        "default": "./dist/vocab/index.js"
+      },
+      "require": {
+        "types": "./dist/vocab/index.d.cts",
+        "default": "./dist/vocab/index.cjs"
+      }
     }
   },
   "files": [

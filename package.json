@@ -8,7 +8,7 @@
   "description": "@patterns-ui — console/SaaS UI 底座：core 逻辑包 + registry blocks + demo",
   "scripts": {
     "dev": "pnpm --filter demo dev",
-    "build": "pnpm --filter @patterns-ui/core build && pnpm registry:build",
+    "build": "pnpm vocab:generate && pnpm --filter @patterns-ui/core build && pnpm registry:build",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter demo test:e2e",
     "review": "pnpm --filter demo review",
@@ -16,6 +16,7 @@
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
     "registry:build": "tsx registry/scripts/build.ts",
+    "vocab:generate": "tsx registry/scripts/generate-blocks.ts",
     "registry:smoke": "node scripts/registry-consumer-smoke.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",

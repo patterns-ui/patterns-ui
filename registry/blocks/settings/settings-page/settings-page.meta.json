@@ -4,6 +4,7 @@
   "title": "Settings Page",
   "description": "SaaS 模板页四节：组织（name/avatar inline-edit）、个人（display name/email/时区表单）、安全（改密码 SecretWidget + 会话占位登出全部）、外观（theme+preset，core theme 偏好直连）。",
   "categories": ["settings"],
+  "archetype": "settings",
   "dependencies": [],
   "registryDependencies": [],
   "targetDir": "components/blocks/settings/settings-page"

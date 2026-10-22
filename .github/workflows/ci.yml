@@ -36,9 +36,11 @@ jobs:
       - name: Build (core + registry)
         run: pnpm build
 
-      # 产物新鲜度：registry 构建输出必须与提交进仓库的版本一致（改源不改产物 = 红）
-      - name: Registry freshness (registry.json / dist / theme css)
-        run: git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css'
+      # 产物新鲜度：registry 构建输出 + 词表生成物必须与提交进仓库的版本一致（改源不改产物 = 红）
+      - name: Freshness (registry.json / dist / theme css / vocab)
+        run: |
+          pnpm vocab:generate
+          git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css' 'packages/core/src/vocab/blocks.generated.ts'
 
       - name: Typecheck (all workspaces)
         run: pnpm -r typecheck

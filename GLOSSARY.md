@@ -33,6 +33,10 @@ _Avoid_: 页面类型、布局
 **宿主**：
 同一原型 slot 结构的呈现容器（dialog / sheet / page 等），以 prop 表达，不是平行 block。
 
+**archetype**：
+registry meta 的可选字段，声明该 block 是哪个页面原型的宿主/预设（7 合法值，与页面原型词表同源）；`vocab:generate` 据此产 `BLOCKS_BY_ARCHETYPE`，B1 消费做同原型 slot 结构一致性校验。
+_Avoid_: 页面类型字段、UI 分类标签
+
 **横切三态**：
 loading / empty / error，所有原型必备的三种状态，由共享件承担；不是原型。
 _Avoid_: 错误页原型、空页原型

@@ -9,6 +9,7 @@
       "type": "registry:block",
       "title": "Auth Card Layout",
       "description": "auth 卡片壳：居中 main + max-w-sm 卡片 + 居中 header（brand/title/description）+ footer；登录/注册/忘记密码/OTP 四页共用。",
+      "archetype": "auth-flow",
       "files": [
         {
           "path": "registry/blocks/auth/auth-card-layout/auth-card-layout.tsx",
@@ -29,6 +30,7 @@
       "type": "registry:block",
       "title": "Forgot Password Page",
       "description": "忘记密码页：提交邮箱 → 「发送成功」终态（不暴露邮箱是否存在）。",
+      "archetype": "auth-flow",
       "files": [
         {
           "path": "registry/blocks/auth/forgot-password-page/forgot-password-page.tsx",
@@ -54,6 +56,7 @@
       "type": "registry:block",
       "title": "Onboarding Wizard",
       "description": "带逻辑的首登引导向导：欢迎（团队名）→ 创建首个资源（异步提交）→ 邀请成员（动态行 + 邮箱校验）→ 完成 summary；步骤间数据保留；Stepper 驱动每步校验。",
+      "archetype": "wizard",
       "files": [
         {
           "path": "registry/blocks/auth/onboarding/onboarding.tsx",
@@ -81,6 +84,7 @@
       "type": "registry:block",
       "title": "OTP Page",
       "description": "MFA/验证码页：6 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。",
+      "archetype": "auth-flow",
       "files": [
         {
           "path": "registry/blocks/auth/otp-page/otp-page.tsx",
@@ -106,6 +110,7 @@
       "type": "registry:block",
       "title": "Sign In Page",
       "description": "登录页：品牌位 + 邮箱密码表单 + 内联错误展示 + pending 态；onSubmit 抛错展示（如 401 文案）；next 回跳由宿主处理。",
+      "archetype": "auth-flow",
       "files": [
         {
           "path": "registry/blocks/auth/sign-in-page/sign-in-page.tsx",
@@ -131,6 +136,7 @@
       "type": "registry:block",
       "title": "Sign Up Page",
       "description": "注册页：姓名/邮箱/密码/确认密码（一致性校验）+ 提交成功态。",
+      "archetype": "auth-flow",
       "files": [
         {
           "path": "registry/blocks/auth/sign-up-page/sign-up-page.tsx",
@@ -393,6 +399,7 @@
       "type": "registry:block",
       "title": "Form Dialog",
       "description": "弹窗表单宿主（小表单/创建流）：头部 + 内嵌 form 主体 + 底部动作，sm/md/lg 三档尺寸。",
+      "archetype": "resource-form",
       "files": [
         {
           "path": "registry/blocks/form/form-dialog/form-dialog.tsx",
@@ -414,6 +421,7 @@
       "type": "registry:block",
       "title": "Form Page",
       "description": "整页表单宿主：页头(返回/标题/动作) + 分区表单(左侧标题描述右侧字段) + sticky 底部动作条。",
+      "archetype": "resource-form",
       "files": [
         {
           "path": "registry/blocks/form/form-page/form-page.tsx",
@@ -437,6 +445,7 @@
       "type": "registry:block",
       "title": "Form Sheet",
       "description": "抽屉表单宿主（复杂表单）：头部标题描述 + 滚动主体 + sticky 底部动作条，sm/md/lg 三档宽度。",
+      "archetype": "resource-form",
       "files": [
         {
           "path": "registry/blocks/form/form-sheet/form-sheet.tsx",
@@ -508,6 +517,7 @@
       "type": "registry:block",
       "title": "Stepper",
       "description": "分步向导：步骤指示三态(done/current/waiting) + 每步「下一步」前校验（可异步）+ 错误提示 + 上一步回退 + 完成回调；summary 由末步 content 提供。",
+      "archetype": "wizard",
       "files": [
         {
           "path": "registry/blocks/form/stepper/stepper.tsx",
@@ -706,6 +716,7 @@
       "type": "registry:block",
       "title": "List Page (Table)",
       "description": "列表页模板（table 变体）：PageHeader(title/description/actions) + lead(stat-strip) + filter(filter-bar) + toolbar(selection/banner/refresh) + body(async-state+data-table) + pagination + appendix 槽。",
+      "archetype": "resource-list",
       "files": [
         {
           "path": "registry/blocks/list/list-page/list-page.tsx",
@@ -925,6 +936,7 @@
       "type": "registry:block",
       "title": "Settings Page",
       "description": "SaaS 模板页四节：组织（name/avatar inline-edit）、个人（display name/email/时区表单）、安全（改密码 SecretWidget + 会话占位登出全部）、外观（theme+preset，core theme 偏好直连）。",
+      "archetype": "settings",
       "files": [
         {
           "path": "registry/blocks/settings/settings-page/settings-page.tsx",
@@ -1446,6 +1458,7 @@
       "type": "registry:block",
       "title": "Detail Page",
       "description": "详情页模板：返回链 + hero(图标/头像+标题+StatusBadge+actions) + tabs（受控 + useDetailTabParam URL 深链）+ lead 槽。",
+      "archetype": "resource-detail",
       "files": [
         {
           "path": "registry/blocks/show/detail-page/detail-page.tsx",

@@ -663,7 +663,8 @@ export function createStorage<TData>(
 
 ## 16. 导出与构建
 
-- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`；`./mutation` 已于 M6-E 删除）。
+- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`、`./vocab`；`./mutation` 已于 M6-E 删除）。
+- `./vocab`（M7-A1，`src/vocab/index.ts` re-export `blocks.generated.ts` 全部导出）：封闭词表的类型与常量——`ARCHETYPES`/`Archetype`（7 页面原型）、`CELL_NAMES`/`CellName`（cells 词表，排除映射器工厂 cell-for）、`BLOCK_NAMES`/`BlockName`（全部 block，含 cell-for）、`BLOCKS_BY_ARCHETYPE` + `BlockNameFor<A extends Archetype>`（按原型收窄合法 block 名，M7-A2 `definePage<Archetype>` 消费）、`THEME_PRESET_NAMES`/`ThemePresetName`，及 `CELL_DOCS`/`BLOCK_DOCS` 描述映射。生成物由 `pnpm vocab:generate` 产出并提交进 git（registry meta/themes 为唯一事实源，形态见 paradigm.md §3.3 (2)）；运行时解析出口（name → component）随 M7-A2 在此追加。
 - 所有 hook 浏览器 API 访问收敛 effect/事件内；导出 `useMounted()` 惯例 helper。
 - 包名 `@patterns-ui/core`，scope 内后续包遵循 `@patterns-ui/*`（如 @patterns-ui/eslint-plugin）。
 - dev 消费形态：demo 的 vite dev 把 `@patterns-ui/core` alias 到 workspace 源码（干净 clone `pnpm install && pnpm dev` 即起）；build/typecheck 消费 dist（与真实宿主一致）。

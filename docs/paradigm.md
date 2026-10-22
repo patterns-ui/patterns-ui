@@ -159,7 +159,7 @@
 ### 3.3 封闭词表的实现（名字间接层）
 
 1. **配置写名字**：页面只写 `.resource.ts` / `page.ts` 纯配置（0 JSX）；字段→组件默认映射，override 只能写词表内的名字。
-2. **类型查名字**：构建生成 `blocks.generated.ts`——各词表为**显式注解**的字面量联合类型（防 TS2742 跨包推断失败）+ JSDoc；生成物提交进 git（TanStack Router `routeTree.gen.ts` 同模式，IDE/CI 无需先跑生成器）。写错名字 → typecheck 报错列出全部合法值（**报错信息即目录**）。
+2. **类型查名字**：构建生成 `blocks.generated.ts`——各词表为**显式注解**的字面量联合类型（防 TS2742 跨包推断失败）+ JSDoc；生成物提交进 git（TanStack Router `routeTree.gen.ts` 同模式，IDE/CI 无需先跑生成器）。写错名字 → typecheck 报错列出全部合法值（**报错信息即目录**）。落形态（M7-A1 定案）：各词表生成 `X_NAMES = [...] as const` 元组 + `XName = (typeof X_NAMES)[number]` 派生联合——元组内为显式字面量、无推断歧义（防 TS2742 目的等同达成），而派生联合在报错信息里**展开全部合法值**（别名直写的字面量联合只显示别名与最近候选，TS2820，不满足"报错信息即目录"）；每个名字行上方带 JSDoc 注释 + `X_DOCS: Record<XName, string>` 描述映射常量（单源均为 meta description，供 patterns.md/AGENTS.md 生成器与 ui:check 工具消费）。
 3. **运行时解析名字**：core 提供 name → component 解析出口。
 
 > **决策记录：名字解析 × tree-shaking。** 全量注入表会让包体积上限 = 词表全集，且"词表全量合法（typecheck）与注入子集（运行时）"两个世界互相打架。选定方案：**按原型分组的注入子表 + `definePage<Archetype>` 类型级收窄**——类型收窄后，typecheck 的合法值域与注入表同域，写未注入的名字直接编译报错；宿主按需注入原型子表，体积可控。备选（触发条件：词表 >150 条或 chunk 超预算时重议）：构建期把配置编译为直接 import 的 vite 插件。禁止：无类型收窄的全量注入。
