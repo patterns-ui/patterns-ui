@@ -27,8 +27,27 @@ function avatarDataUri(initial: string, hue: number): string {
 
 export const DEMO_EMAIL = "demo@fleetly.dev";
 
-export const db = {
-  users: [
+// ---------------------------------------------------------------------------
+// e2e 确定性锚点（M7-B2 截图基线）：置位后种子数据的时间戳以该时刻为锚
+// （POST /api/__e2e/reset?now=<epoch>）；未置位 = 墙钟（dev 数据始终「新鲜」）。
+// 交互期运行的的时间推算（task/deployment 状态机）刻意仍走真实 Date.now()——
+// 锚点只服务种子确定性，不冻结运行时行为。
+// ---------------------------------------------------------------------------
+
+let mockNowPinned: number | null = null;
+
+export function setMockNow(epochMs: number | null): void {
+  mockNowPinned = epochMs;
+}
+
+/** 种子时间锚点（未置位时回落墙钟） */
+export function nowMs(): number {
+  return mockNowPinned ?? Date.now();
+}
+
+/** 种子根用户（usr_demo；usr_1..6 由 usersForRef 按目录单源补齐） */
+function seedUsers(): MockUser[] {
+  return [
     {
       id: "usr_demo",
       name: "Demo User",
@@ -36,8 +55,12 @@ export const db = {
       role: "owner",
       permissions: ["*"],
     },
-  ] satisfies MockUser[],
-  orgs: [
+  ];
+}
+
+/** 种子租户（org 名可被 PATCH /api/orgs/:id 修改；reset 恢复） */
+function seedOrgs(): MockTenant[] {
+  return [
     {
       id: "acme-web",
       name: "Acme Web",
@@ -59,7 +82,12 @@ export const db = {
       avatarUrl: avatarDataUri("P", 30),
       description: "个人沙箱，随时重建。",
     },
-  ] satisfies MockTenant[],
+  ];
+}
+
+export const db = {
+  users: seedUsers(),
+  orgs: seedOrgs(),
   /** token → userId */
   tokens: new Map<string, string>(),
 };
@@ -197,8 +225,8 @@ const SERVICE_WORDS = [
 
 function seededIso(dayOffset: number, hour: number, minute: number): string {
   // 动态锚点（启动时刻向前推）：数据始终「新鲜」，时间列默认呈现相对时间（如「3 天前」）；
-  // hour/minute 参与回退而非前跳，保证结果严格在过去。
-  const base = Date.now();
+  // hour/minute 参与回退而非前跳，保证结果严格在过去。锚点可被 setMockNow 钉死（e2e）。
+  const base = nowMs();
   return new Date(base - dayOffset * 86_400_000 - hour * 3_600_000 - minute * 60_000).toISOString();
 }
 
@@ -253,7 +281,7 @@ function seedAuditEvents(tenantId: string): MockAuditEvent[] {
           : `services/${prefix}-svc-${String((i % 120) + 1).padStart(3, "0")}`,
       ip: `10.${(i % 8) + 1}.${(i * 3) % 250}.${(i * 7) % 250}`,
       // 时间递减生成（index 0 最新；keyset 游标按 createdAt desc, id desc 稳定翻页）；锚点动态
-      createdAt: new Date(Date.now() - i * 137 * 60_000).toISOString(),
+      createdAt: new Date(nowMs() - i * 137 * 60_000).toISOString(),
     };
   });
 }
@@ -572,7 +600,7 @@ export function notificationsOf(tenantId: string): MockNotification[] {
         title: t.title,
         body: t.body,
         read: i >= 8,
-        createdAt: new Date(Date.now() - i * 47 * 60_000).toISOString(),
+        createdAt: new Date(nowMs() - i * 47 * 60_000).toISOString(),
         actorId: pick(rng, SEED_ACTOR_IDS),
       };
     });
@@ -609,7 +637,7 @@ export function metricsPointsOf(tenantId: string): MockMetricPoint[] {
   let rows = tenantMetrics.get(tenantId);
   if (!rows) {
     // 1000 点确定性种子（虚拟化演示用；不翻页一次全给）；锚点动态（最近 1000 分钟）
-    const base = Date.now();
+    const base = nowMs();
     rows = Array.from({ length: 1000 }, (_, i) => ({
       id: `mp-${String(i + 1).padStart(4, "0")}`,
       ts: new Date(base - i * 60_000).toISOString(),
@@ -621,4 +649,28 @@ export function metricsPointsOf(tenantId: string): MockMetricPoint[] {
     tenantMetrics.set(tenantId, rows);
   }
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// e2e 重置（M7-B2）：清空全部租户态/任务/token 并恢复根种子（org 名、用户目录）；
+// epochMs 置位同时钉死种子时间锚点（见 setMockNow）。由 plugin.ts 的
+// POST /api/__e2e/reset 调用（免鉴权，仅 demo dev/preview mock 服务器存在）。
+// ---------------------------------------------------------------------------
+
+export function resetMockDb(epochMs?: number): void {
+  tenantServices.clear();
+  tenantAuditEvents.clear();
+  tenantDeployments.clear();
+  tenantApiKeys.clear();
+  tenantMembers.clear();
+  tenantInvitations.clear();
+  tenantNotifications.clear();
+  tenantRegions.clear();
+  tenantMetrics.clear();
+  tasks.clear();
+  db.tokens.clear();
+  db.orgs = seedOrgs();
+  db.users.length = 0;
+  db.users.push(...seedUsers());
+  setMockNow(epochMs ?? null);
 }

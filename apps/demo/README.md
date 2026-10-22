@@ -6,7 +6,11 @@ Tailwind v4，blocks 经 `@/components/blocks` alias 直接引用 `registry/bloc
 ```bash
 pnpm dev              # http://localhost:5173（mock API 内置于 vite middleware）
 pnpm test             # 守卫测试（vitest）
-pnpm test:e2e         # Playwright 冒烟主链路
+pnpm test:e2e         # Playwright 冒烟主链路（dev server）
+pnpm test:e2e:preview # Playwright prod-preview 回归（需先 pnpm build）
+# 三态截图基线（M7-B2）：生成/更新 vs CI 校验（不带 --update-snapshots 即校验模式）
+pnpm exec playwright test -c playwright.config.shots.ts --update-snapshots
+pnpm exec playwright test -c playwright.config.shots.ts
 ```
 
 登录：`demo@fleetly.dev`，密码任意（演示环境不发送真实邮件）。
@@ -38,9 +42,15 @@ pnpm test:e2e         # Playwright 冒烟主链路
 ## dev-only 便利（不影响产品形态）
 
 - 顶栏无 preset 切换器（在 Settings → 外观）；`/dev/audit-legacy` 与 `/preview` 不出现在导航和 ⌘K。
-- mock 触发器：Services 搜索 `boom` → 500 错误态；新建服务名称含 `taken` → 422 字段错误回填；
-  编辑页「模拟他人抢先保存」→ 409 冲突流；部署表单「模拟失败」→ failed 终态。
-- mock 数据时间锚点是启动时刻（时间列默认相对形态）；services 120 行 / audit 320 行 / metrics 1000 行。
+- mock 触发器：URL `?demo-error=<code>` chaos 派发器（`?demo-error=500` 全局 /
+  `?demo-error=services:403` 定向；全局豁免会话端点 auth/me，语义单源
+  `src/mocks/chaos.ts`，覆盖全部 9 个路由组）；Services 搜索 `boom` → 500 错误态；
+  新建服务名称含 `taken` → 422 字段错误回填；编辑页「模拟他人抢先保存」→ 409 冲突流；
+  部署表单「模拟失败」→ failed 终态。
+- mock 数据时间锚点是启动时刻（时间列默认相对形态）；e2e 可经
+  `POST /api/__e2e/reset?now=<epoch>` 重置内存态并把种子锚定到固定时刻（截图基线
+  确定性前提，见 `e2e/states-baseline.spec.ts`）；services 120 行 / audit 320 行 /
+  metrics 1000 行。
 
 ## 守卫测试（`src/guards/guards.test.ts`）
 

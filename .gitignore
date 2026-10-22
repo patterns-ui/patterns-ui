@@ -25,6 +25,7 @@ apps/demo/playwright-report/
 .DS_Store
 *.local
 
-# agent workspace
+# agent workspace（锚定根目录——前导 / 必须保留：apps/demo/e2e/screenshots/baseline
+# 是 M7-B2 三态截图基线，须入库）
 .zcode/
-screenshots/
+/screenshots/

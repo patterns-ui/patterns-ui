@@ -30,15 +30,6 @@ function decodeCursor(raw: string | null): { createdAt: string; id: string } | u
   }
 }
 
-function demoErrorGate(ctx: MockRequestContext): ReturnType<typeof fail> | undefined {
-  const header = ctx.req.headers["x-demo-error"];
-  const forced = Array.isArray(header) ? header[0] : header;
-  if (forced === "401" || forced === "403" || forced === "500") {
-    return fail(Number(forced), `x-demo-error 触发的 ${forced} 演示`);
-  }
-  return undefined;
-}
-
 function parseFilters(ctx: MockRequestContext) {
   const raw = ctx.query.get("f");
   if (!raw) return undefined;
@@ -58,8 +49,7 @@ export const auditRoutes: MockRoute[] = [
     path: "/api/t/:tid/audit-events",
     handler: (ctx) => {
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
-      const gated = demoErrorGate(ctx);
-      if (gated) return gated;
+      // x-demo-error chaos 派发已上收 mock 入口统一处理（M7-B2 迁移，见 ../chaos.ts）
 
       const all = auditEventsOf(ctx.params.tid ?? "");
       const filters = parseFilters(ctx);

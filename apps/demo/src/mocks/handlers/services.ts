@@ -20,18 +20,11 @@ function requireUser(req: MockRequestContext["req"]): boolean {
   return findUserByToken(bearerToken(req)) !== undefined;
 }
 
-/** 错误触发：header x-demo-error（401|403|500）或搜索词 boom */
-function demoErrorGate(ctx: MockRequestContext): ReturnType<typeof fail> | undefined {
-  const header = ctx.req.headers["x-demo-error"];
-  const forced = Array.isArray(header) ? header[0] : header;
-  if (forced === "401" || forced === "403" || forced === "500") {
-    const messages: Record<string, string> = {
-      "401": "未登录或登录已过期（x-demo-error 触发）",
-      "403": "没有权限执行此操作（x-demo-error 触发）",
-      "500": "模拟服务端错误（x-demo-error 触发）",
-    };
-    return fail(Number(forced), messages[forced] ?? "模拟错误");
-  }
+/**
+ * 错误触发：搜索词 boom（x-demo-error chaos 派发已上收 mock 入口统一处理——
+ * M7-B2 迁移，语义单源见 ../chaos.ts；boom 是 handler 内置业务演示，保留）。
+ */
+function searchBoomGate(ctx: MockRequestContext): ReturnType<typeof fail> | undefined {
   const q = ctx.query.get("q");
   if (q?.toLowerCase().includes("boom")) {
     return fail(500, "搜索词包含 boom：模拟服务端错误");
@@ -158,7 +151,7 @@ export const serviceRoutes: MockRoute[] = [
     path: "/api/t/:tid/services",
     handler: (ctx) => {
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
-      const gated = demoErrorGate(ctx);
+      const gated = searchBoomGate(ctx);
       if (gated) return gated;
 
       const services = servicesOf(ctx.params.tid ?? "");
@@ -222,7 +215,7 @@ export const serviceRoutes: MockRoute[] = [
     path: "/api/t/:tid/services",
     handler: (ctx) => {
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
-      const gated = demoErrorGate(ctx);
+      const gated = searchBoomGate(ctx);
       if (gated) return gated;
       const body = (ctx.body ?? {}) as Partial<MockService> & { name?: unknown };
       // 422 字段错误演示：name < 3 字符 / env 非法（{ fields, form? } 形状，core useResourceForm 消费）
@@ -334,7 +327,7 @@ export const serviceRoutes: MockRoute[] = [
     path: "/api/t/:tid/services/:id",
     handler: (ctx) => {
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
-      const gated = demoErrorGate(ctx);
+      const gated = searchBoomGate(ctx);
       if (gated) return gated;
       const row = servicesOf(ctx.params.tid ?? "").find((s) => s.id === ctx.params.id);
       if (!row) return fail(404, "服务不存在");
@@ -361,7 +354,7 @@ export const serviceRoutes: MockRoute[] = [
     path: "/api/t/:tid/services/:id",
     handler: (ctx) => {
       if (!requireUser(ctx.req)) return fail(401, "未登录或登录已过期");
-      const gated = demoErrorGate(ctx);
+      const gated = searchBoomGate(ctx);
       if (gated) return gated;
       const services = servicesOf(ctx.params.tid ?? "");
       const idx = services.findIndex((s) => s.id === ctx.params.id);

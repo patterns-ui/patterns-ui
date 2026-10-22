@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
-import { mulberry32 } from "./db";
+import { chaosGate } from "./chaos";
+import { mulberry32, resetMockDb } from "./db";
 import { apiKeyRoutes } from "./handlers/api-keys";
 import { auditRoutes } from "./handlers/audit";
 import { authRoutes } from "./handlers/auth";
@@ -107,6 +108,20 @@ function installMiddleware(middlewares: {
         next();
         return;
       }
+      // e2e 重置端点（M7-B2 截图基线的确定性前提）：清空内存态 + 重种子；
+      // ?now=<epoch-ms> 把种子时间锚定到该时刻（与浏览器冻结时钟同一时刻 →
+      // 相对时间输出逐像素确定）。免鉴权、免 chaos，仅供测试进程调用。
+      if (url.pathname === "/api/__e2e/reset") {
+        if ((req.method ?? "") !== "POST") {
+          sendJson(res, { status: 405, body: { message: "reset 仅支持 POST" } });
+          return;
+        }
+        const nowParam = url.searchParams.get("now");
+        const epoch = nowParam !== null && nowParam !== "" ? Number(nowParam) : Number.NaN;
+        resetMockDb(Number.isFinite(epoch) ? epoch : undefined);
+        sendJson(res, { status: 200, body: { ok: true } });
+        return;
+      }
       const match = matchRoute(req.method ?? "GET", url.pathname);
       if (!match) {
         sendJson(res, {
@@ -119,6 +134,13 @@ function installMiddleware(middlewares: {
       await new Promise((r) =>
         setTimeout(r, MIN_DELAY_MS + delayRng() * (MAX_DELAY_MS - MIN_DELAY_MS)),
       );
+      // chaos 派发器（M7-B2）：x-demo-error 头（页面 ?demo-error= 由 api.ts 转发）
+      // 命中则在 handler 前统一返回错误——覆盖全部路由组；语义单源见 ./chaos.ts。
+      const chaos = chaosGate(req.headers, url.pathname);
+      if (chaos) {
+        sendJson(res, chaos);
+        return;
+      }
       const result = await match.route.handler({
         method: req.method ?? "GET",
         url,

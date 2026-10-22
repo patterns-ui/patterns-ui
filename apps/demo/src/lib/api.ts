@@ -23,6 +23,20 @@ export function setToken(token: string | null): void {
 }
 
 /**
+ * demo-error chaos 转发（M7-B2）：页面 URL 携带 ?demo-error=<code> 时，所有请求
+ * 带 x-demo-error 头转给 mock 派发器（语义单源：src/mocks/chaos.ts）。逐请求读取
+ * 当前页面 URL——参数移除后 chaos 即停；非浏览器环境无 location，静默跳过。
+ */
+function chaosForwardHeaders(): Record<string, string> {
+  try {
+    const code = new URLSearchParams(globalThis.location?.search ?? "").get("demo-error");
+    return code === null ? {} : { "x-demo-error": code };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * demo 的 fetch 封装：自动带 Bearer token；非 2xx 抛 HttpError（message 优先取响应体 message）。
  *
  * 2xx JSON 兜底（M6-E）：204 或空 body → 约定值 undefined（调用方按可选数据处理）；
@@ -34,6 +48,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     ...init,
     headers: {
       "content-type": "application/json",
+      ...chaosForwardHeaders(),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(init.headers ?? {}),
     },
