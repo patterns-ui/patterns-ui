@@ -18,6 +18,12 @@
     "registry:build": "tsx registry/scripts/build.ts",
     "vocab:generate": "tsx registry/scripts/generate-blocks.ts",
     "registry:smoke": "node scripts/registry-consumer-smoke.mjs",
+    "lint:eslint": "pnpm --filter @patterns-ui/eslint-plugin lint:eslint",
+    "slots:check": "pnpm --filter @patterns-ui/eslint-plugin check:slots",
+    "registry:freeze": "pnpm --filter @patterns-ui/eslint-plugin freeze:regen",
+    "ui:shots": "node scripts/ui-shots.mjs",
+    "ui:score": "node scripts/consistency-score.mjs",
+    "ui:check": "node scripts/ui-check.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release-tag": "changeset tag"

@@ -48,6 +48,16 @@ jobs:
       - name: Unit & guard tests (core + demo)
         run: pnpm -r test
 
+      # M7-B1：范式 lint（pages/registry 域四规则）+ archetype/slot 三方一致 + freeze 清单
+      - name: Paradigm lint (eslint-plugin)
+        run: pnpm lint:eslint
+      - name: Archetype/slot consistency check
+        run: pnpm slots:check
+
+      # M7-B3：一致性分数棘轮（只许升）
+      - name: Consistency score (--check)
+        run: pnpm ui:score --check
+
       # shadcn CLI 直拉法：CI 网络可直连 schema（本机 init/add 挂起是网络环境问题）
       - name: Validate shadcn registry
         run: pnpm dlx shadcn@latest registry validate
@@ -139,6 +149,9 @@ jobs:
         run: pnpm --filter demo build
       - name: Run prod-preview regression (webServer 自起 vite preview)
         run: pnpm --filter demo test:e2e:preview
+      # M7-B2：三态截图基线校验（--check：不更新基线，diff 即败；diff 图随 trace artifact 上传）
+      - name: Three-state screenshot baselines (--check)
+        run: pnpm ui:shots --check
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
