@@ -40,7 +40,7 @@
    - `@patterns-ui/core` → npm dependencies。
    - `@/lib/*`、`@/hooks/*` → 保留原样（用户项目别名解析）。
 4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码。
-5. 主题：生成 `registry:theme` item（cssVars + `[data-preset]` css 文件）。每个 preset css 文件自含 `@theme inline` 段（全部令牌 → `--color-*` 一对一映射 + radius 派生四档，口径与 apps/demo/src/styles.css 一致）——消费端只 add 一个 theme item 即可用全部语义色/radius utility。
+5. 主题：生成 `registry:theme` item（**仅 css 文件，不带 cssVars 字段**）。每个 preset css 文件自含 `@theme inline` 段（全部令牌 → `--color-*` 一对一映射 + radius 派生四档，口径与 apps/demo/src/styles.css 一致）——消费端只 add 一个 theme item、`@import` 落盘 css 即可用全部语义色/radius utility。不带 cssVars 的原因：CLI 对 registry:theme 的 cssVars 物化会向消费端 index.css 追加自生成的 `@theme inline`，其 var 引用双写前导横线（`var(----x)`，shadcn@4.21/4.22 实测，官方标准 token 一并损坏），且 `:root`/`.dark` 平铺物化与我们的 `data-preset` 多 preset 切换语义冲突——theme 的唯一交付面是自含 css 文件。
 6. 输出 `registry.json` + `dist/r/*.json`；CI 以 `git diff --exit-code` 校验产物新鲜度，`pnpm dlx shadcn@latest registry validate` 校验 schema；`registry-consumer` job 跑消费端冒烟（`pnpm registry:smoke`）。
 
 ## 4. 发布通道

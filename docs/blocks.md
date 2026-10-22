@@ -132,7 +132,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 ## themes/ —— 主题 preset
 
-`registry/themes/<preset>.json`：`{ name, label, cssVars: { light: {...}, dark: {...} } }`。构建生成 `registry:theme` item（cssVars + 附带 `[data-preset]` CSS）。首发：`default`（近黑中性 + indigo 强调）、`aurora`（浅色为主 + teal 强调）。default 的 token 基线见 architecture.md §8。
+`registry/themes/<preset>.json`：`{ name, label, cssVars: { light: {...}, dark: {...} } }`（cssVars 是生成 CSS 的源数据）。构建生成 `registry:theme` item——**仅附带自含 `[data-preset]` CSS（vars + `@theme inline`），不带 cssVars 字段**（CLI 的 cssVars 物化存在 `var(----x)` 双横线 bug 且与 preset 切换语义冲突，见 registry.md §3）。首发：`default`（近黑中性 + indigo 强调）、`aurora`（浅色为主 + teal 强调）。default 的 token 基线见 architecture.md §8。
 
 ## 与 core 的边界（验收检查）
 

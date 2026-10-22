@@ -147,13 +147,16 @@ function buildThemeItems(): RegistryItem[] {
     const css = buildThemeCss(theme);
     // 生成 CSS 落盘到 registry/themes/<name>.css（提交进仓库；demo 与用户项目直接 @import）
     writeFileSync(join(THEMES_DIR, `${theme.name}.css`), css);
+    // 刻意不携带 cssVars：CLI 对 registry:theme 的 cssVars 物化会向消费端 index.css 追加
+    // 自生成的 @theme inline，其 var 引用双写前导横线（var(----x)，shadcn@4.21/4.22 实测），
+    // 且 :root/.dark 平铺与我们的 data-preset 多 preset 切换语义冲突——theme 的唯一交付面
+    // 是下面这个自含 css 文件（vars + @theme inline），消费端 @import 即得全部 utility。
     items.push({
       $schema: "https://ui.shadcn.com/schema/registry-item.json",
       name: `theme-${theme.name}`,
       type: "registry:theme",
       title: `${theme.label} Theme`,
       ...(theme.description ? { description: theme.description } : {}),
-      cssVars: theme.cssVars,
       files: [
         {
           path: relative(ROOT, join(THEMES_DIR, `${theme.name}.css`)),

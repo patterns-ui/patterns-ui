@@ -12,10 +12,13 @@
  *
  * 前置：仓库根已跑 `pnpm build`（registry/dist 由 registry:build 产出）。
  * 注意：shadcn CLI 在本机有网络挂起史（CI 正常）——本脚本各步骤带超时，挂起即失败退出；
- * CI 是权威判官。
+ * CI 是权威判官。本机可用 SMOKE_SKIP_ADD=1 跳过 add：两个文件直接从仓库源拷到 CLI 相同
+ * 落点（src/theme/<name>.css、src/components/blocks/shared/status-badge/…），下游接线/
+ * 构建/断言与真实路径完全一致。
  */
 import { spawn, spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -32,6 +35,8 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST_DIR = join(ROOT, "registry", "dist");
 // 单步超时：CI 冷缓存下 pnpm dlx shadcn 首次拉包可能偏慢；真挂起（远超此值）则失败退出而非无限等
 const STEP_TIMEOUT_MS = 8 * 60_000;
+// shadcn 包版本可覆盖（本机网络对最新版 CLI 的 ui.shadcn.com 拉取不稳时，用旧版复现真实路径调试）
+const SHADCN_SPEC = process.env.SMOKE_SHADCN_PKG ?? "shadcn@latest";
 
 /** 与 workspace catalog 对齐的最小消费端依赖（react19 + vite + tailwind v4） */
 const TMP_PACKAGE_JSON = {
@@ -280,24 +285,49 @@ async function main() {
     // 装依赖（pnpm-lock.yaml 的存在同时让 shadcn CLI 识别包管理器为 pnpm）
     run("install tmp deps", "pnpm", ["install"], { cwd: tmp });
 
-    const { proc, port } = await serveRegistryDist();
-    serverProc = proc;
-    console.log(`[smoke] serving ${DIST_DIR} on http://127.0.0.1:${port} (external process)`);
+    if (process.env.SMOKE_SKIP_ADD === "1") {
+      // 离线模式：文件拷到与 CLI add 相同的落点，走完全相同的下游验证
+      const themeCss = join(ROOT, "registry", "themes", "default.css");
+      const badgeSrc = join(
+        ROOT,
+        "registry",
+        "blocks",
+        "shared",
+        "status-badge",
+        "status-badge.tsx",
+      );
+      mkdirSync(join(tmp, "src", "theme"), { recursive: true });
+      mkdirSync(join(tmp, "src", "components", "blocks", "shared", "status-badge"), {
+        recursive: true,
+      });
+      cpSync(themeCss, join(tmp, "src", "theme", "default.css"));
+      cpSync(
+        badgeSrc,
+        join(tmp, "src", "components", "blocks", "shared", "status-badge", "status-badge.tsx"),
+      );
+      // 真实路径里 shadcn add 会安装 item 的 npm 依赖（status-badge 依赖 cn），离线模式补齐
+      run("install cn (item npm dep)", "pnpm", ["add", "cn"], { cwd: tmp });
+      console.log("[smoke] SMOKE_SKIP_ADD=1 — files copied to CLI landing spots");
+    } else {
+      const { proc, port } = await serveRegistryDist();
+      serverProc = proc;
+      console.log(`[smoke] serving ${DIST_DIR} on http://127.0.0.1:${port} (external process)`);
 
-    // add 我们的 theme + status-badge（--yes 跳过确认；flags 已对照 shadcn add --help 核实）
-    run(
-      "shadcn add",
-      "pnpm",
-      [
-        "dlx",
-        "shadcn@latest",
-        "add",
-        `http://127.0.0.1:${port}/r/theme-default.json`,
-        `http://127.0.0.1:${port}/r/status-badge.json`,
-        "--yes",
-      ],
-      { cwd: tmp },
-    );
+      // add 我们的 theme + status-badge（--yes 跳过确认；flags 已对照 shadcn add --help 核实）
+      run(
+        "shadcn add",
+        "pnpm",
+        [
+          "dlx",
+          SHADCN_SPEC,
+          "add",
+          `http://127.0.0.1:${port}/r/theme-default.json`,
+          `http://127.0.0.1:${port}/r/status-badge.json`,
+          "--yes",
+        ],
+        { cwd: tmp },
+      );
+    }
 
     // 落点发现：theme css（含 data-preset 段的 .css）与 status-badge 组件文件
     const indexCssPath = join(tmp, "src", "index.css");
@@ -370,8 +400,12 @@ export function App() {
     if (serverProc) {
       serverProc.kill();
     }
-    rmSync(tmp, { recursive: true, force: true });
-    console.log(`[smoke] cleaned up ${tmp}`);
+    if (process.env.SMOKE_KEEP === "1") {
+      console.log(`[smoke] SMOKE_KEEP=1 — tmp kept for inspection: ${tmp}`);
+    } else {
+      rmSync(tmp, { recursive: true, force: true });
+      console.log(`[smoke] cleaned up ${tmp}`);
+    }
   }
 }
 
