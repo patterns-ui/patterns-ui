@@ -79,3 +79,31 @@
 - `packages/core` 用 changesets；minor = 新能力，patch = 修复，major = 破坏性。
 - blocks 与 core 同节奏打 tag（`v0.x.y`），registry.json 内 `name@^x.y.z` 自引用跟随发布版本。
 - 首个版本 `0.1.0`（M2 结束时发首个内部可用版）。
+
+## 7. meta 冻结与范式 lint（M7-B1）
+
+### 7.1 冻结清单 `registry/.freeze.json`
+
+- **语义**：路径（block 目录名 `<category>/<name>`）、`name`、`targetDir` **三不变**；内容可变（哈希不冻结——改源码不影响）。与 §2「永不改名纪律」同源：改名/移动会断消费端 `registryDependencies` 与安装路径。
+- **生成**：`pnpm --filter @patterns-ui/eslint-plugin freeze:regen`（`packages/eslint-plugin/scripts/generate-freeze.mjs`）。确定性生成物（键排序、无时间戳，连跑两次零 diff），提交进 git。
+- **执行**：eslint 规则 `patterns-ui/registry-frozen`（清单不存在 / 新增目录未登记 / name·targetDir 漂移 / 清单目录消失 → error）。目录归属按**路径**判定（`registry/blocks/<category>/<block>` 两层），meta 文件名不参与——半改名（目录复制/目录名与 meta.name 不一致）同样命中，与 build.ts 的位置扫描口径一致。
+- **豁免流程**：重新生成清单（`freeze:regen`）+ PR 附理由。新增 block = 合规改动走此流程；改名/删除原则拒绝（词表断链），确须变更须在 PR 说明迁移方案。
+
+### 7.2 范式 lint（@patterns-ui/eslint-plugin）
+
+自定义规则走 eslint（biome 不支持自定义规则）；**作用域仅 `apps/demo/src/pages/**` 与 `registry/blocks/**`**，其余目录不受 eslint 管（仓根 `eslint.config.mjs` 挂载 preset，biome 保持全仓其余职责）。四规则：
+
+| 规则 | 内容 | fix |
+|---|---|---|
+| `no-jsx-in-pages` | pages 配置域禁 JSX（§3.3 0 JSX 配置；`.ts` 内 JSX 会被 TS 解析先行拦截）；豁免 = 文件头 `// sandbox:` 登记注释 | — |
+| `no-raw-primitives` | 禁裸 `<table>` 家族与 `<dialog>`——必须走 data-table / dialog 系 block（三态 + a11y 内建）；封装本体（data-table 目录）在仓根 config 关规则；逐处豁免 = 行尾 `/* patterns-ui-allow-raw */` | — |
+| `no-hex-arbitrary-tailwind` | 禁 hex 色值与 arbitrary 值（`-[…]` utility 位；variant 位 `data-[state=open]:` 不违规）——走主题令牌/设计标度 | spacing 族 px 有确定性等价（`p-[8px]` → `p-2`）；白名单 `allow` 选项（仓根 config 基线）+ 行尾 `/* patterns-ui-allow-color */` |
+| `registry-frozen` | 见 §7.1 | — |
+
+**运行命令**（CI / root script `lint:eslint` 接此）：`pnpm --filter @patterns-ui/eslint-plugin lint:eslint`。
+
+### 7.3 archetype slot 一致性校验
+
+三方一致：registry meta（`archetype` 声明）↔ `core/vocab` `BLOCKS_BY_ARCHETYPE`（镜像，由 `vocab:generate` 产出）↔ `core/page` `PAGE_SLOT_FILLS` + `SLOT_NAMES_BY_ARCHETYPE`（A2 手写域表）。校验含：meta 值合法（name=目录名、archetype ∈ 7 值）、宿主表双向镜像、填充表无悬空名、三表原型键全覆盖、词表新鲜度（BLOCK_NAMES ↔ meta 名集）。失败输出列全表（报错即目录）。
+
+**运行命令**：`pnpm --filter @patterns-ui/eslint-plugin check:slots`（进 CI）。

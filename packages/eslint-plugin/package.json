@@ -1,0 +1,33 @@
+{
+  "name": "@patterns-ui/eslint-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "description": "@patterns-ui 范式执行层（M7-B1）：pages 0 JSX / 禁裸 table·dialog 原语 / 禁 hex 与 arbitrary tailwind / registry meta 冻结；flat config preset，规则不依赖仓内路径（服务 M7-D 发布）",
+  "main": "./src/index.mjs",
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "freeze:regen": "node scripts/generate-freeze.mjs",
+    "check:slots": "tsx scripts/check-archetype-slots.mjs",
+    "lint:eslint": "eslint ../../apps/demo/src/pages ../../registry/blocks"
+  },
+  "peerDependencies": {
+    "eslint": "^9.0.0 || ^10.0.0"
+  },
+  "dependencies": {
+    "@typescript-eslint/parser": "catalog:"
+  },
+  "devDependencies": {
+    "@types/estree": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

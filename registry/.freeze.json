@@ -1,0 +1,297 @@
+{
+  "$comment": "registry 冻结清单（M7-B1 registry-frozen）：路径（block 目录名）/name/targetDir 三不变，内容可变（哈希不冻结）。新增/改名/移动 block 须重新生成本清单并在 PR 附理由。生成：pnpm --filter @patterns-ui/eslint-plugin freeze:regen。生成物，勿手改。",
+  "blocks": {
+    "auth/auth-card-layout": {
+      "name": "auth-card-layout",
+      "targetDir": "components/blocks/auth/auth-card-layout"
+    },
+    "auth/forgot-password-page": {
+      "name": "forgot-password-page",
+      "targetDir": "components/blocks/auth/forgot-password-page"
+    },
+    "auth/onboarding": {
+      "name": "onboarding",
+      "targetDir": "components/blocks/auth/onboarding"
+    },
+    "auth/otp-page": {
+      "name": "otp-page",
+      "targetDir": "components/blocks/auth/otp-page"
+    },
+    "auth/sign-in-page": {
+      "name": "sign-in-page",
+      "targetDir": "components/blocks/auth/sign-in-page"
+    },
+    "auth/sign-up-page": {
+      "name": "sign-up-page",
+      "targetDir": "components/blocks/auth/sign-up-page"
+    },
+    "cells/cell-boolean": {
+      "name": "cell-boolean",
+      "targetDir": "components/blocks/cells/cell-boolean"
+    },
+    "cells/cell-enum-badge": {
+      "name": "cell-enum-badge",
+      "targetDir": "components/blocks/cells/cell-enum-badge"
+    },
+    "cells/cell-for": {
+      "name": "cell-for",
+      "targetDir": "components/blocks/cells/cell-for"
+    },
+    "cells/cell-id": {
+      "name": "cell-id",
+      "targetDir": "components/blocks/cells/cell-id"
+    },
+    "cells/cell-number": {
+      "name": "cell-number",
+      "targetDir": "components/blocks/cells/cell-number"
+    },
+    "cells/cell-progress": {
+      "name": "cell-progress",
+      "targetDir": "components/blocks/cells/cell-progress"
+    },
+    "cells/cell-status": {
+      "name": "cell-status",
+      "targetDir": "components/blocks/cells/cell-status"
+    },
+    "cells/cell-tags": {
+      "name": "cell-tags",
+      "targetDir": "components/blocks/cells/cell-tags"
+    },
+    "cells/cell-time": {
+      "name": "cell-time",
+      "targetDir": "components/blocks/cells/cell-time"
+    },
+    "cells/cell-user": {
+      "name": "cell-user",
+      "targetDir": "components/blocks/cells/cell-user"
+    },
+    "form/confirm-dialog": {
+      "name": "confirm-dialog",
+      "targetDir": "components/blocks/form/confirm-dialog"
+    },
+    "form/form-dialog": {
+      "name": "form-dialog",
+      "targetDir": "components/blocks/form/form-dialog"
+    },
+    "form/form-page": {
+      "name": "form-page",
+      "targetDir": "components/blocks/form/form-page"
+    },
+    "form/form-sheet": {
+      "name": "form-sheet",
+      "targetDir": "components/blocks/form/form-sheet"
+    },
+    "form/reference-select": {
+      "name": "reference-select",
+      "targetDir": "components/blocks/form/reference-select"
+    },
+    "form/secret-reveal": {
+      "name": "secret-reveal",
+      "targetDir": "components/blocks/form/secret-reveal"
+    },
+    "form/stepper": {
+      "name": "stepper",
+      "targetDir": "components/blocks/form/stepper"
+    },
+    "form/typed-form-field": {
+      "name": "typed-form-field",
+      "targetDir": "components/blocks/form/typed-form-field"
+    },
+    "list/audit-log": {
+      "name": "audit-log",
+      "targetDir": "components/blocks/list/audit-log"
+    },
+    "list/data-table": {
+      "name": "data-table",
+      "targetDir": "components/blocks/list/data-table"
+    },
+    "list/export-button": {
+      "name": "export-button",
+      "targetDir": "components/blocks/list/export-button"
+    },
+    "list/facet-sidebar": {
+      "name": "facet-sidebar",
+      "targetDir": "components/blocks/list/facet-sidebar"
+    },
+    "list/filter-bar": {
+      "name": "filter-bar",
+      "targetDir": "components/blocks/list/filter-bar"
+    },
+    "list/list-page": {
+      "name": "list-page",
+      "targetDir": "components/blocks/list/list-page"
+    },
+    "list/new-items-banner": {
+      "name": "new-items-banner",
+      "targetDir": "components/blocks/list/new-items-banner"
+    },
+    "list/notification-inbox": {
+      "name": "notification-inbox",
+      "targetDir": "components/blocks/list/notification-inbox"
+    },
+    "list/pagination-bar": {
+      "name": "pagination-bar",
+      "targetDir": "components/blocks/list/pagination-bar"
+    },
+    "list/refresh-bar": {
+      "name": "refresh-bar",
+      "targetDir": "components/blocks/list/refresh-bar"
+    },
+    "list/resource-list-view": {
+      "name": "resource-list-view",
+      "targetDir": "components/blocks/list/resource-list-view"
+    },
+    "list/saved-views-menu": {
+      "name": "saved-views-menu",
+      "targetDir": "components/blocks/list/saved-views-menu"
+    },
+    "list/selection-bar": {
+      "name": "selection-bar",
+      "targetDir": "components/blocks/list/selection-bar"
+    },
+    "list/use-resource-mutations": {
+      "name": "use-resource-mutations",
+      "targetDir": "components/blocks/list/use-resource-mutations"
+    },
+    "settings/settings-page": {
+      "name": "settings-page",
+      "targetDir": "components/blocks/settings/settings-page"
+    },
+    "shared/async-state": {
+      "name": "async-state",
+      "targetDir": "components/blocks/shared/async-state"
+    },
+    "shared/copy-button": {
+      "name": "copy-button",
+      "targetDir": "components/blocks/shared/copy-button"
+    },
+    "shared/empty-state": {
+      "name": "empty-state",
+      "targetDir": "components/blocks/shared/empty-state"
+    },
+    "shared/error-pages": {
+      "name": "error-pages",
+      "targetDir": "components/blocks/shared/error-pages"
+    },
+    "shared/error-state": {
+      "name": "error-state",
+      "targetDir": "components/blocks/shared/error-state"
+    },
+    "shared/page-header": {
+      "name": "page-header",
+      "targetDir": "components/blocks/shared/page-header"
+    },
+    "shared/relative-time": {
+      "name": "relative-time",
+      "targetDir": "components/blocks/shared/relative-time"
+    },
+    "shared/resource-icon": {
+      "name": "resource-icon",
+      "targetDir": "components/blocks/shared/resource-icon"
+    },
+    "shared/skeleton": {
+      "name": "skeleton",
+      "targetDir": "components/blocks/shared/skeleton"
+    },
+    "shared/stat-strip": {
+      "name": "stat-strip",
+      "targetDir": "components/blocks/shared/stat-strip"
+    },
+    "shared/status-badge": {
+      "name": "status-badge",
+      "targetDir": "components/blocks/shared/status-badge"
+    },
+    "shared/user-avatar": {
+      "name": "user-avatar",
+      "targetDir": "components/blocks/shared/user-avatar"
+    },
+    "shell/app-shell": {
+      "name": "app-shell",
+      "targetDir": "components/blocks/shell/app-shell"
+    },
+    "shell/breadcrumbs": {
+      "name": "breadcrumbs",
+      "targetDir": "components/blocks/shell/breadcrumbs"
+    },
+    "shell/command-palette": {
+      "name": "command-palette",
+      "targetDir": "components/blocks/shell/command-palette"
+    },
+    "shell/global-search-page": {
+      "name": "global-search-page",
+      "targetDir": "components/blocks/shell/global-search-page"
+    },
+    "shell/preset-switcher": {
+      "name": "preset-switcher",
+      "targetDir": "components/blocks/shell/preset-switcher"
+    },
+    "shell/theme-toggle": {
+      "name": "theme-toggle",
+      "targetDir": "components/blocks/shell/theme-toggle"
+    },
+    "shell/top-bar": {
+      "name": "top-bar",
+      "targetDir": "components/blocks/shell/top-bar"
+    },
+    "shell/user-menu": {
+      "name": "user-menu",
+      "targetDir": "components/blocks/shell/user-menu"
+    },
+    "show/danger-zone": {
+      "name": "danger-zone",
+      "targetDir": "components/blocks/show/danger-zone"
+    },
+    "show/detail-grid": {
+      "name": "detail-grid",
+      "targetDir": "components/blocks/show/detail-grid"
+    },
+    "show/detail-page": {
+      "name": "detail-page",
+      "targetDir": "components/blocks/show/detail-page"
+    },
+    "show/diff-viewer": {
+      "name": "diff-viewer",
+      "targetDir": "components/blocks/show/diff-viewer"
+    },
+    "show/inline-edit-field": {
+      "name": "inline-edit-field",
+      "targetDir": "components/blocks/show/inline-edit-field"
+    },
+    "show/record-pager": {
+      "name": "record-pager",
+      "targetDir": "components/blocks/show/record-pager"
+    },
+    "show/reference-field": {
+      "name": "reference-field",
+      "targetDir": "components/blocks/show/reference-field"
+    },
+    "show/resource-detail-view": {
+      "name": "resource-detail-view",
+      "targetDir": "components/blocks/show/resource-detail-view"
+    },
+    "show/timeline": {
+      "name": "timeline",
+      "targetDir": "components/blocks/show/timeline"
+    },
+    "sidebar/nav-group": {
+      "name": "nav-group",
+      "targetDir": "components/blocks/sidebar/nav-group"
+    },
+    "sidebar/nav-user": {
+      "name": "nav-user",
+      "targetDir": "components/blocks/sidebar/nav-user"
+    },
+    "sidebar/side-nav": {
+      "name": "side-nav",
+      "targetDir": "components/blocks/sidebar/side-nav"
+    },
+    "sidebar/tenant-switcher": {
+      "name": "tenant-switcher",
+      "targetDir": "components/blocks/sidebar/tenant-switcher"
+    },
+    "team/team-page": {
+      "name": "team-page",
+      "targetDir": "components/blocks/team/team-page"
+    }
+  }
+}

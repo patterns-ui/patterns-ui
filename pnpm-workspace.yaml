@@ -39,6 +39,10 @@ catalog:
 
   # 构建 / 工具链
   typescript: 5.9.3
+  # lint 执行层（M7-B1 @patterns-ui/eslint-plugin：自定义规则走 eslint，biome 不支持）
+  eslint: 10.13.0
+  "@typescript-eslint/parser": 8.72.0
+  "@types/estree": 1.0.9
   vite: 8.3.5
   "@vitejs/plugin-react": 6.1.2
   tailwindcss: 4.3.3

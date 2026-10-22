@@ -445,7 +445,7 @@ export function DataTable<TData extends RowData>({
     return () => {
       for (const unsub of unsubs) unsub();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 载入只在 key/table 实例首次生效
+    // 订阅只在 key/table 实例首次生效（依赖刻意收窄；本仓无 react-hooks lint——biome 承担分析）
   }, [preferencesKey, table]);
 
   const changeDensity = (next: TableDensity): void => {

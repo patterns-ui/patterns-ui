@@ -7,7 +7,14 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!docs", "!registry.json", "!registry/dist", "!.changeset"]
+    "includes": [
+      "**",
+      "!docs",
+      "!registry.json",
+      "!registry/.freeze.json",
+      "!registry/dist",
+      "!.changeset"
+    ]
   },
   "css": {
     "parser": {
