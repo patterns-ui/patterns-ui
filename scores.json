@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "comment": "一致性分数基线（M7-B3）。生成：node scripts/consistency-score.mjs --baseline；CI 校验：node scripts/consistency-score.mjs --check（任一反向指标上升/正向指标下降 = 退出码 1）。timestamp 有意不入库（同 commit 重跑 bit 级一致）；口径变更递增 version 并重生成。",
+  "metrics": {
+    "handRolledQueryKeyArrays": {
+      "count": 5,
+      "occurrences": [
+        "apps/demo/src/components/pages/regions.tsx:28",
+        "apps/demo/src/routes/_shell/t.$tenantId.settings.tsx:29",
+        "apps/demo/src/routes/_shell/t.$tenantId.settings.tsx:40",
+        "apps/demo/src/routes/_shell/t.$tenantId.settings.tsx:81",
+        "apps/demo/src/routes/_shell/t.$tenantId.team.tsx:37"
+      ]
+    },
+    "handRolledLocalStorage": {
+      "count": 5,
+      "occurrences": [
+        "apps/demo/src/lib/api.ts:16",
+        "apps/demo/src/lib/api.ts:18",
+        "apps/demo/src/lib/api.ts:7",
+        "packages/core/src/theme/index.tsx:50",
+        "packages/core/src/theme/index.tsx:52"
+      ]
+    },
+    "handRolledDebounceTimers": {
+      "count": 2,
+      "occurrences": [
+        "registry/blocks/cells/cell-id/cell-id.tsx:18",
+        "registry/blocks/form/reference-select/reference-select.tsx:77"
+      ]
+    },
+    "pagesWithJsx": {
+      "count": 0,
+      "files": []
+    },
+    "vocabCoverage": {
+      "total": 18,
+      "covered": 13,
+      "uncovered": [
+        "apps/demo/src/pages/api-keys.page.ts",
+        "apps/demo/src/pages/deployments.page.ts",
+        "apps/demo/src/pages/regions.page.ts",
+        "apps/demo/src/pages/services-edit.page.ts",
+        "apps/demo/src/pages/services-new.page.ts"
+      ]
+    },
+    "manualBlockImportRoutes": {
+      "count": 0,
+      "routes": []
+    },
+    "sandboxItems": {
+      "count": 0,
+      "items": []
+    }
+  }
+}
