@@ -1,4 +1,4 @@
-import { useAuth } from "@fleetly/patterns-ui-core/auth";
+import { useAuth } from "@patterns-ui/core/auth";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { SignInPage } from "@/components/blocks/auth/sign-in-page/sign-in-page";
 

@@ -1,10 +1,10 @@
-import { createResource } from "@fleetly/patterns-ui-core/data";
+import { createResource } from "@patterns-ui/core/data";
 import {
   createListColumnHelper,
   type ListColumnDef,
   listTableFeatures,
   useResourceTable,
-} from "@fleetly/patterns-ui-core/list";
+} from "@patterns-ui/core/list";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useTable } from "@tanstack/react-table";

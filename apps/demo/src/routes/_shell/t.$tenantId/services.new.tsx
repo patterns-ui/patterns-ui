@@ -1,4 +1,4 @@
-import { useResourceForm } from "@fleetly/patterns-ui-core/form";
+import { useResourceForm } from "@patterns-ui/core/form";
 import { createFileRoute } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { z } from "zod";

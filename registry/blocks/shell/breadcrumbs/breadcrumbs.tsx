@@ -1,5 +1,5 @@
-import type { CrumbResolve } from "@fleetly/patterns-ui-core/router";
-import { useCrumbs } from "@fleetly/patterns-ui-core/router";
+import type { CrumbResolve } from "@patterns-ui/core/router";
+import { useCrumbs } from "@patterns-ui/core/router";
 import { Link } from "@tanstack/react-router";
 import { Fragment } from "react";
 import {

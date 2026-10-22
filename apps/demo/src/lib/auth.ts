@@ -1,5 +1,5 @@
-import type { AuthProviderProps, AuthUser } from "@fleetly/patterns-ui-core/auth";
-import { HttpError } from "@fleetly/patterns-ui-core/data";
+import type { AuthProviderProps, AuthUser } from "@patterns-ui/core/auth";
+import { HttpError } from "@patterns-ui/core/data";
 import { api, getToken, setToken } from "./api";
 
 interface LoginResponse {

@@ -1,4 +1,4 @@
-import { rootTenantRedirect } from "@fleetly/patterns-ui-core/tenant";
+import { rootTenantRedirect } from "@patterns-ui/core/tenant";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { listTenants } from "@/lib/tenants";
 

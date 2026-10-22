@@ -1,4 +1,4 @@
-# @fleetly/patterns-ui
+# @patterns-ui
 
 自有 CRUD SaaS/console 项目的业务模式底座：交付内置决策的业务模式与强制行为一致性的共享内核，人类与 AI 共用同一套装配语言。
 

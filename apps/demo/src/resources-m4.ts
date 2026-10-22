@@ -1,5 +1,5 @@
-import type { ListParams, Page } from "@fleetly/patterns-ui-core/data";
-import { defineResource, inferColumns } from "@fleetly/patterns-ui-core/resource";
+import type { ListParams, Page } from "@patterns-ui/core/data";
+import { defineResource, inferColumns } from "@patterns-ui/core/resource";
 import { api } from "./lib/api";
 import { createRestClient } from "./lib/clients";
 import type {

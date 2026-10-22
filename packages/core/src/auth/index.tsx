@@ -195,7 +195,7 @@ export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) {
     throw new Error(
-      "useAuth must be used within an AuthProvider (@fleetly/patterns-ui-core/auth)",
+      "useAuth must be used within an AuthProvider (@patterns-ui/core/auth)",
     );
   }
   return ctx;

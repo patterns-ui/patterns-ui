@@ -1,6 +1,6 @@
 # 范式与定位设计（M6–M8 的设计契约）
 
-本文定义 `@fleetly/patterns-ui` 的产品定位、架构判据、页面构建范式与 AI 指导机制，并据此给出 M6–M8 的任务与验收清单。**与 architecture.md（分层契约）、registry.md（分发契约）、core-api.md（API 契约）同级，本文是 M6–M8 各阶段的验收依据。** 里程碑明细暂记于本文，各阶段验收通过后回写 milestones.md。
+本文定义 `@patterns-ui` 的产品定位、架构判据、页面构建范式与 AI 指导机制，并据此给出 M6–M8 的任务与验收清单。**与 architecture.md（分层契约）、registry.md（分发契约）、core-api.md（API 契约）同级，本文是 M6–M8 各阶段的验收依据。** 里程碑明细暂记于本文，各阶段验收通过后回写 milestones.md。
 
 > **修订记录**
 > - v1（2026-10-22）：初稿。
@@ -206,7 +206,7 @@
 
 **任务**
 
-- **A 发布就绪**：core 补 `@tanstack/react-table` peer dep；license 定 MIT + repository/engines/publishConfig 元数据补全；release workflow（changesets action，**仅 tag + CHANGELOG，不 npm publish**——对外通道维持 GitHub 私有 registry，公开发布待 M8 后另议）；theme 产物追加 `@theme inline` 映射段；registry 配置补 `registry:base` 钉住 Base UI（防 CLI 方言漂移）；`IMPLICIT_NPM_IMPORTS` 收敛（react-query 照常声明）；build.ts 解析 `@/components/ui/*` 补全 registryDependencies，**自家 item 引用一律完整 URL**；CI 加 registry.json 新鲜度 diff（`shadcn registry validate` 已存在，勿重复）；CI 新增 `publint`/`attw` job（`pnpm --filter @fleetly/patterns-ui-core exec publint && pnpm dlx attw -P packages/core`）。
+- **A 发布就绪**：core 补 `@tanstack/react-table` peer dep；license 定 MIT + repository/engines/publishConfig 元数据补全；release workflow（changesets action，**仅 tag + CHANGELOG，不 npm publish**——对外通道维持 GitHub 私有 registry，公开发布待 M8 后另议）；theme 产物追加 `@theme inline` 映射段；registry 配置补 `registry:base` 钉住 Base UI（防 CLI 方言漂移）；`IMPLICIT_NPM_IMPORTS` 收敛（react-query 照常声明）；build.ts 解析 `@/components/ui/*` 补全 registryDependencies，**自家 item 引用一律完整 URL**；CI 加 registry.json 新鲜度 diff（`shadcn registry validate` 已存在，勿重复）；CI 新增 `publint`/`attw` job（`pnpm --filter @patterns-ui/core exec publint && pnpm dlx attw -P packages/core`）。
 - **B 结构归位（下沉）**：`scheduleUndoable` 归位为 data 内部；queryKey 工厂（listKey/detailKey/manyKey）成为 data 公共出口 + 跨模块一致性契约测试；`createStorage(key, zodSchema, {version, migrate})` 统一存储（含租户段拼装），替换 core 5 处 + blocks 2 处手写；**key 变更三处同步**（core 常量 / demo index.html 防闪脚本 / guards G6 matcher）+ 旧数据迁移或显式弃用决策；`useDebouncedCallback`/`isIsoDate`/label 工具单点化；task 轮询统一 `refetchInterval`；**Provider 组件级测试补齐**（auth/tenant/theme：401 快照流转、租户切换清缓存、preset 恢复）；`?page=-1`/`?size=-30` 回落合法值的单测。
 - **C L4 健壮化（上浮）**：先给 services def 设 `list.pageSize=30` fixture，再改 `def.list` 配置直灌 `useResourceTable`（单源，消除钳制分叉）；默认 `getId` 改编译期约束；`as never`/`as unknown as` 收敛单点；zod 内省 dev-only。
 - **D 变体收敛（下沉）**：shell/sidebar 变体 → 基座 block + `variant` prop（**联动改写消费者**：`routes/_shell/t.$tenantId.tsx` 与 `preview.tsx`，保住 M1"三形态可切换预览"语义）；`AuthCardLayout` 抽取；ErrorPage 参数化单模板；`PageHeader` 共享原语（`text-[22px]` ×14：blocks 11 + demo 3）；过滤树字段级 API 下沉 core/filters；team/notification/global-search 手拼 queryKey 改走公共出口；补 1 条过滤树 e2e（facet 组合 → URL → 刷新还原）；typed-form-field label id 绑定到全部 widget 控件 + `aria-describedby` 关联错误（§2.3 a11y 债务，§8）。
@@ -233,14 +233,14 @@
 - **A1〔中〕生成器与类型层**：`blocks.generated.ts` 生成器（显式注解、JSDoc、提交进 git）；registry meta 增 `archetype` 字段；生成物单测（JSDoc 与 meta description 一致、类型可编译）。
 - **A2〔中大〕运行时层**：按原型分组的注入子表 + `definePage<Archetype>` 类型收窄 + name→component 解析出口；`definePage`（slot 组装）/`defineFlow`（步骤流 + **action 词表初版**：navigate/toast/refresh/invalidate/refetch/close/reload/copy/waitDialog/loading 共 10 个，可扩）；detail `kind:"custom"` 改登记制（必须登记 sandbox 名）；**解析器/渲染器/状态机单测（含名字缺失、slot 越界失败路径）**；settings-page 节化改造（sections[] 可扩展）；分页 mode 升格为 def 一等契约节点（page/offset/keyset 封闭词表，与 core-api §3 ListMode 语义对齐并同步改写该节）；错误信封解析出口统一（parseError 单源，替换 form/team-page/error-state 三处自解析）。
 - **A3〔大〕页面迁移**：demo 24 个路由，19 个分三批配置化——资源 9 页（services×4、audit、api-keys、regions、deployments…）用现有 defineResource；模式页 6 个（settings、team、notifications、onboarding、search、index）等 definePage/defineFlow；auth×4。其余 5 个进**豁免清单**（`preview`、`dev.audit-legacy` 工具/参照页；`__root`/`_shell`/`t.$tenantId` 布局路由），文件头注释声明。
-- **B1〔中〕eslint-plugin-fleetly**：四规则（pages 无 JSX / 禁裸 table·dialog 原语 / 禁 hex 与 arbitrary tailwind 值 / registry 冻结）+ `--fix`。**工具链决策**：自定义规则走 eslint（biome 不支持自定义规则），作用域仅 pages/registry 目录，biome 保持全仓其余职责。**冻结语义**：路径/name/targetDir 三不变、内容可变（哈希不冻结）。另含：同 archetype 的 item slot 结构一致性 CI 校验（消费 meta.archetype，承接 §3.2）。插件按 npm 包形态开发（flat config preset），规则不依赖仓内路径（服务 M7-D）。
+- **B1〔中〕@patterns-ui/eslint-plugin**：四规则（pages 无 JSX / 禁裸 table·dialog 原语 / 禁 hex 与 arbitrary tailwind 值 / registry 冻结）+ `--fix`。**工具链决策**：自定义规则走 eslint（biome 不支持自定义规则），作用域仅 pages/registry 目录，biome 保持全仓其余职责。**冻结语义**：路径/name/targetDir 三不变、内容可变（哈希不冻结）。另含：同 archetype 的 item slot 结构一致性 CI 校验（消费 meta.archetype，承接 §3.2）。插件按 npm 包形态开发（flat config preset），规则不依赖仓内路径（服务 M7-D）。
 - **B2〔中〕截图基线 + chaos 前置**：三态 = **loading/empty/error**（mock `?demo-error=` 与空过滤构造）；确定性前提：冻结时钟（relative-time 不随墙钟漂移）、禁动画、mock 每 worker 重置；`screenshots/baseline/**` 入库，`toHaveScreenshot(maxDiffPixelRatio: 0.02)`，失败上传 diff artifact。**chaos 开关从 C 挪此**：`?demo-error=` 派发器统一进 mock 入口，覆盖全部 handler 文件（现状仅 2/9）。
 - **B3〔中〕一致性分数**：口径 = 可枚举检查项计数（手写拷贝数 / 页面 JSX 文件数 / 词表覆盖页面比例 / sandbox 使用率——§2.3 债务清单的机械化子集，**非平均值**，新增页面不稀释）；`scripts/consistency-score.mjs` + 首份 `scores.json` 基线入库；`ui:score --check` 只许升。
 - **B4〔小中〕核对器与编排**：**配置名字 ⊆ 注入表 ∪ sandbox 登记表**三方一致核对（替代"import 图核对"——配置化后页面无组件 import 可比）；`pnpm ui:check` 一条龙（typecheck + lint + regen 新鲜度 + 截图 + 分数 + a11y 检查 + chunk 体积预算报告，承接 §8）。
 - **C1〔中〕文档生成器**：AGENTS.md（+ CLAUDE.md symlink）+ patterns.md（原型判定表、判别式、词表、每原型 2-3 精选组合、反模式）；CI regen diff。
 - **C2〔中大〕模式一级概念**：registry item 用合法类型（`registry:block`/`registry:item`）+ 附加字段 `pattern: { contractCard, blocks[], metaPatterns[] }`（声明组合了哪些元模式，供 patterns.md 生成器与决策树第二层引用；schema 顶层 additionalProperties 开放，已核实；**不可用自定义 type 值，validate 会拒**；注意：顶层 `pattern` 字段经 CLI zod parse 会被**静默剥离**——validate 通过 ≠ 透传给消费端，仓内生成器读源文件不受影响，消费端契约卡分发另走 `registry:file`）；**抽取 audit-trail、read-state 两个元模式引擎下沉 core**（§1.2 清单"待抽取"项，headless 化 + 失败路径单测）；既有 5 模式补契约卡（含 contractVersion 与两层契约：元模式契约 + 业务契约）；core 元模式 hook 在 dev 模式对注入 adapter 做形状校验 + contractVersion 失配警告；registry.md 同步新增字段与 type 取值清单（`registry:item`/`registry:file`）；`shadcn add --dry-run` 冒烟进 CI。
 - **C3〔中〕skills 与验收附件**：ui-page/ui-block/ui-theme 三 skill × 三 agent 目录变体（单一源生成）；`docs/agent-acceptance.md`（标准任务提示词、环境、判定清单）；e2e 补三 spec（422 回填闭环 / 409 并发 / bulk 部分失败）。
-- **D〔中〕分发型执行层（已拍板：类型 + skills，lint 暂缓）**：词表类型与解析出口随 core 包分发（消费端装包即得 typecheck 防线，零额外分发成本）；skills 双通道（§4.3，含通道一 registry item 内嵌按项目渲染脚本的自实现）；eslint-plugin-fleetly 本阶段仅本仓 CI 使用，npm 发布推迟至有真实外部消费者反馈后（B1 的"规则不依赖仓内路径"约束即为届时发布预置）。
+- **D〔中〕分发型执行层（已拍板：类型 + skills，lint 暂缓）**：词表类型与解析出口随 core 包分发（消费端装包即得 typecheck 防线，零额外分发成本）；skills 双通道（§4.3，含通道一 registry item 内嵌按项目渲染脚本的自实现）；@patterns-ui/eslint-plugin 本阶段仅本仓 CI 使用，npm 发布推迟至有真实外部消费者反馈后（B1 的"规则不依赖仓内路径"约束即为届时发布预置）。
 
 **验收清单**
 

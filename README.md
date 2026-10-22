@@ -1,8 +1,8 @@
-# @fleetly/patterns-ui
+# @patterns-ui
 
 给我们自己的 console / SaaS 项目用的 CRUD UI 底座：装上即得高完成度骨架，加资源页接近零样板。
 - **技术栈**：pnpm monorepo · React 19 · TanStack Router / Query / Table v9 / Form v1 · shadcn/ui（Base UI 方言）· Tailwind v4 · zod v4
-- **分发**：逻辑层 npm 包 `@fleetly/patterns-ui-core`（语义化版本 + changesets）+ UI 层 shadcn registry blocks（拷贝进项目、完全拥有、可任意改）
+- **分发**：逻辑层 npm 包 `@patterns-ui/core`（语义化版本 + changesets）+ UI 层 shadcn registry blocks（拷贝进项目、完全拥有、可任意改）
 - **仓库**：`patterns-ui/patterns-ui`（私有，repo-as-registry）
 
 ## 特性
@@ -33,11 +33,11 @@ cd my-console && pnpm add tailwindcss @tailwindcss/vite && pnpm dev   # styles.c
 
 # 2) shadcn 初始化（Base UI 方言）并注册本仓库 registry
 pnpm dlx shadcn@latest init -b base     # 生成 components.json / lib/utils 等
-pnpm dlx shadcn@latest registry add @fleetly=gh:patterns-ui/patterns-ui
+pnpm dlx shadcn@latest registry add @patterns-ui=gh:patterns-ui/patterns-ui
 
 # 3) 装 core 逻辑包 + 需要的 blocks（拷贝进 src/components/blocks/，完全可改）
-pnpm add @fleetly/patterns-ui-core
-pnpm dlx shadcn@latest add @fleetly/list-page @fleetly/data-table @fleetly/filter-bar
+pnpm add @patterns-ui/core
+pnpm dlx shadcn@latest add @patterns-ui/list-page @patterns-ui/data-table @patterns-ui/filter-bar
 # 等价裸名形态（与 docs/registry.md §4 一致）：
 pnpm dlx shadcn@latest add patterns-ui/patterns-ui/list-page
 ```
@@ -51,9 +51,9 @@ pnpm dlx shadcn@latest add patterns-ui/patterns-ui/list-page
 ### L2：DataTable + useResourceTable（自己装配）
 
 ```tsx
-import { useResourceTable } from "@fleetly/patterns-ui-core/list";
+import { useResourceTable } from "@patterns-ui/core/list";
 import { servicesResource } from "@/resources"; // createResource({ name, client })
-import { createListColumnHelper } from "@fleetly/patterns-ui-core/list";
+import { createListColumnHelper } from "@patterns-ui/core/list";
 
 const helper = createListColumnHelper<Service>();
 const columns = [helper.accessor("name", { header: "名称" }) /* … */];
@@ -124,7 +124,7 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit2")({
 
 ## Block 目录（75 blocks + 2 主题 preset = 77 items）
 
-安装：`pnpm dlx shadcn@latest add @fleetly/<name>`。规格见 [docs/blocks.md](docs/blocks.md)。
+安装：`pnpm dlx shadcn@latest add @patterns-ui/<name>`。规格见 [docs/blocks.md](docs/blocks.md)。
 
 | 分类                 | Blocks                                                                                                                                                                                                                                                           |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -141,7 +141,7 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit2")({
 
 ## 升级策略
 
-- **逻辑层（core）**：走 npm semver。`@fleetly/patterns-ui-core` 的变更经 changesets 记录（本仓库 `pnpm changeset`），发版产 CHANGELOG；minor = 新能力，patch = 修复，major = 破坏性（docs/registry.md §6）。
+- **逻辑层（core）**：走 npm semver。`@patterns-ui/core` 的变更经 changesets 记录（本仓库 `pnpm changeset`），发版产 CHANGELOG；minor = 新能力，patch = 修复，major = 破坏性（docs/registry.md §6）。
 - **UI blocks**：源码拷贝进项目后完全归你 —— 升级是「对比合并」而非覆盖：
 
   ```bash
@@ -190,7 +190,7 @@ PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 pnpm --filter demo exec playwr
 ## 开发（本仓库）
 
 ```
-packages/core/    # @fleetly/patterns-ui-core —— 纯逻辑 npm 包（hooks、数据约定、类型）
+packages/core/    # @patterns-ui/core —— 纯逻辑 npm 包（hooks、数据约定、类型）
 registry/         # UI blocks 源码（copy-paste 层事实源）+ 构建脚本
 apps/demo/        # 开发场 / 活文档 / 新项目参考实现（Vite + TanStack Router + mock API）
 docs/             # 规格文档（架构、core API、blocks、registry、里程碑验收）

@@ -174,7 +174,7 @@ export function useTenant(): TenantContextValue {
   const ctx = useContext(TenantContext);
   if (!ctx) {
     throw new Error(
-      "useTenant must be used within a TenantProvider (@fleetly/patterns-ui-core/tenant)",
+      "useTenant must be used within a TenantProvider (@patterns-ui/core/tenant)",
     );
   }
   return ctx;

@@ -6,7 +6,7 @@
  * sections 的 cell 类型经 cellFor 渲染（与 inferColumns 同一标记体系）。
  */
 
-import type { ResourceDef } from "@fleetly/patterns-ui-core/resource";
+import type { ResourceDef } from "@patterns-ui/core/resource";
 import { useMemo } from "react";
 import {
   listPathOf,

@@ -1,4 +1,4 @@
-import type { NewItemsSignal } from "@fleetly/patterns-ui-core/task";
+import type { NewItemsSignal } from "@patterns-ui/core/task";
 import { cn } from "cn";
 import { ArrowUpToLine } from "lucide-react";
 import { Button } from "@/components/ui/button";

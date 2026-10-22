@@ -5,7 +5,7 @@
 - **源**：`registry/blocks/<category>/<name>/`（tsx 源码 + `<name>.meta.json`）与 `registry/themes/<preset>.json`。
 - **产物**（`pnpm registry:build`，脚本 `registry/scripts/build.ts`）：
   - `registry/dist/r/<name>.json` —— 单个 registry-item JSON（shadcn registry-item schema）
-  - `registry.json`（仓库根）—— 索引：`{ "$schema": ..., "name": "@fleetly/patterns-ui", "homepage": ..., "items": [...] }`，**提交进仓库**（GitHub repo-as-registry 入口）
+  - `registry.json`（仓库根）—— 索引：`{ "$schema": ..., "name": "@patterns-ui", "homepage": ..., "items": [...] }`，**提交进仓库**（GitHub repo-as-registry 入口）
 
 ## 2. meta.json 格式
 
@@ -16,13 +16,13 @@
   "title": "Data Table",
   "description": "TanStack Table v9 封装……",
   "categories": ["list"],
-  "dependencies": ["@fleetly/patterns-ui-core@^0.0.0"],
+  "dependencies": ["@patterns-ui/core@^0.0.0"],
   "registryDependencies": ["table", "dropdown-menu", "checkbox", "cells"],
   "targetDir": "components/blocks/list/data-table"
 }
 ```
 
-- `dependencies`：npm 依赖（带 semver）。`@fleetly/patterns-ui-core` 版本读 `packages/core/package.json` 自动填充。
+- `dependencies`：npm 依赖（带 semver）。`@patterns-ui/core` 版本读 `packages/core/package.json` 自动填充。
 - `registryDependencies`：裸名 = shadcn 内置件（button/table/…）；**列表里的目录内名字 = 我们的 block**（构建时改写为完整引用）。
 - `targetDir`：安装目标目录（默认 `components/blocks/<category>/<name>`）。
 - type 取值：组件 `registry:component`、页面模板 `registry:block`、主题 `registry:theme`。
@@ -33,7 +33,7 @@
 2. 每个 block：读目录内全部 `.tsx/.ts/.css` 文件 → `files: [{ path, target: "<targetDir>/<file>", type, content }]`。
 3. 解析源码 import：
    - `@/components/blocks/<name>` → 加入 registryDependencies（避免循环声明则以 meta 为准校验）。
-   - `@fleetly/patterns-ui-core` → npm dependencies。
+   - `@patterns-ui/core` → npm dependencies。
    - `@/components/ui/*`、`@/lib/*` → 保留原样（用户项目别名解析）。
 4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码。
 5. 主题：生成 `registry:theme` item（cssVars + `[data-preset]` css 文件）。
@@ -50,7 +50,7 @@
 
 ## 5. 升级策略（文档化到 README「升级」一节）
 
-1. 逻辑层升级走 npm（`@fleetly/patterns-ui-core` semver + changesets CHANGELOG）。
+1. 逻辑层升级走 npm（`@patterns-ui/core` semver + changesets CHANGELOG）。
 2. UI block 升级：
    ```bash
    npx shadcn add patterns-ui/patterns-ui/data-table --dry-run   # 预览将变更的文件

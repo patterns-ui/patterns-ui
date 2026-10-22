@@ -335,7 +335,7 @@ importers:
       '@changesets/cli':
         specifier: ^3.0.3
         version: 3.0.3
-      '@fleetly/patterns-ui-core':
+      '@patterns-ui/core':
         specifier: workspace:*
         version: link:packages/core
       '@tanstack/react-query':
@@ -380,7 +380,7 @@ importers:
       '@base-ui/react':
         specifier: 'catalog:'
         version: 1.9.0(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@fleetly/patterns-ui-core':
+      '@patterns-ui/core':
         specifier: workspace:*
         version: link:../../packages/core
       '@tanstack/react-form':

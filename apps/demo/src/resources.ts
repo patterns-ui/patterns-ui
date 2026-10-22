@@ -1,4 +1,4 @@
-import { createResource } from "@fleetly/patterns-ui-core/data";
+import { createResource } from "@patterns-ui/core/data";
 import { createCursorClient, createRestClient } from "./lib/clients";
 import {
   type MockApiKey,

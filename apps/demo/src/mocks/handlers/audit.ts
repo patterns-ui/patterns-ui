@@ -45,7 +45,7 @@ function parseFilters(ctx: MockRequestContext) {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== "object") return undefined;
-    return parsed as import("@fleetly/patterns-ui-core/filters").FilterTree;
+    return parsed as import("@patterns-ui/core/filters").FilterTree;
   } catch {
     return undefined;
   }

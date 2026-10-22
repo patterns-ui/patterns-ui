@@ -4,7 +4,7 @@
  * 行为：
  *  1. 扫描 registry/blocks 下所有 <name>.meta.json（registry/themes 的 theme item 支持在 M1 接入）。
  *  2. 内联 block 目录内 .ts/.tsx/.css 源文件为 files[].content，target 由 meta.targetDir 决定。
- *  3. 解析源码 import：block 间依赖 → registryDependencies；@fleetly/patterns-ui-core → npm dependencies
+ *  3. 解析源码 import：block 间依赖 → registryDependencies；@patterns-ui/core → npm dependencies
  *     （版本读 packages/core/package.json）；其余裸 npm 包并入 dependencies（react 系除外）。
  *  4. 校验：registryDependencies 引用的 block 存在、无循环依赖、无相对路径逃逸出 block 目录、
  *     不得 import demo 代码（architecture.md §5 之外的 `@/*` 形态一律拒绝）。
@@ -33,7 +33,7 @@ const IMPLICIT_NPM_IMPORTS = new Set([
   "@tanstack/react-router",
   "@tanstack/react-query",
 ]);
-const CORE_PACKAGE = "@fleetly/patterns-ui-core";
+const CORE_PACKAGE = "@patterns-ui/core";
 
 interface BlockMeta {
   name: string;
@@ -353,7 +353,7 @@ async function main(): Promise<void> {
 
   const registryIndex = {
     $schema: "https://ui.shadcn.com/schema/registry.json",
-    name: "@fleetly/patterns-ui",
+    name: "@patterns-ui",
     homepage: "https://github.com/patterns-ui/patterns-ui",
     items,
   };

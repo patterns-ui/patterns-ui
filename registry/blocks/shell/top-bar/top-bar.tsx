@@ -1,4 +1,4 @@
-import type { CrumbResolve } from "@fleetly/patterns-ui-core/router";
+import type { CrumbResolve } from "@patterns-ui/core/router";
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AvatarUser } from "@/components/blocks/shared/user-avatar/user-avatar";

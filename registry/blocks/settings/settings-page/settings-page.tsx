@@ -5,7 +5,7 @@
  * 外观（theme + preset）。个人/安全节为 typed-form-field 表单（zod 校验 + 服务端错误位）；
  * 时区/主题直连 core datetime/theme 偏好（localStorage，不进 URL）。
  */
-import { type ThemeMode, useTheme } from "@fleetly/patterns-ui-core/theme";
+import { type ThemeMode, useTheme } from "@patterns-ui/core/theme";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Building2, KeyRound, LogOut, Palette, UserCog } from "lucide-react";

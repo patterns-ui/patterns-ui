@@ -10,7 +10,7 @@
 
 1. pnpm monorepo：`pnpm-workspace.yaml`（`packages/*`、`apps/*`）+ catalog 管理共享依赖版本；根 `package.json` 脚本（dev/build/test/lint/registry:build/typecheck）。
 2. `tsconfig.base.json`（strict、`@types/react` 等）；每包继承。biome 初始化并配置（含 import 排序、禁止 `any` 豁免清单留空）。
-3. `packages/core` 空壳：package.json（name `@fleetly/patterns-ui-core`、peerDeps、exports 子路径骨架）、tsup 配置、`src/index.ts` 占位、vitest 就位。
+3. `packages/core` 空壳：package.json（name `@patterns-ui/core`、peerDeps、exports 子路径骨架）、tsup 配置、`src/index.ts` 占位、vitest 就位。
 4. `apps/demo`：Vite + React 19 + TanStack Router 文件路由（@tanstack/router-plugin，autoCodeSplitting）+ Tailwind v4 + TanStack Query；`shadcn init`（Base UI 方言）装基础件；`src/routes/index.tsx` 欢迎页。
 5. **alias 消费链**：demo tsconfig paths + vite alias 加 `@/components/blocks/* → ../../registry/blocks/*`；在 `registry/blocks/shared/` 放一个样例 block（`status-badge`），demo 页面引用它渲染成功。
 6. `registry/scripts/build.ts` 最小版：扫 meta.json → 内联源码 → 生成 `registry.json` + `dist/r/*.json`；`pnpm registry:build` + `shadcn registry validate` 通过。
@@ -21,7 +21,7 @@
 - [ ] `pnpm install && pnpm lint && pnpm build` 全绿
 - [ ] `pnpm dev` 起 demo，页面渲染 status-badge 样例 block（含 tailwind 样式生效）
 - [ ] `pnpm registry:build` 产物存在且 `shadcn registry validate` 通过
-- [ ] core 包 `pnpm --filter @fleetly/patterns-ui-core build` 产出 ESM + dts
+- [ ] core 包 `pnpm --filter @patterns-ui/core build` 产出 ESM + dts
 - [ ] catalog 生效：react/react-dom/@tanstack/* 版本单一来源
 - [ ] git 提交：`feat(m0): monorepo skeleton, registry pipeline, demo alias chain`
 

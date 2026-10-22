@@ -3,8 +3,8 @@
  * 数据经 core createResource hooks（useList/useReferenceLabel）；blocks 不发裸请求。
  */
 
-import type { ResourceOf } from "@fleetly/patterns-ui-core/data";
-import { type ReferenceSource, useReferenceLabel } from "@fleetly/patterns-ui-core/reference";
+import type { ResourceOf } from "@patterns-ui/core/data";
+import { type ReferenceSource, useReferenceLabel } from "@patterns-ui/core/reference";
 import { cn } from "cn";
 import { ChevronsUpDown, Plus, Search } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";

@@ -1,5 +1,5 @@
-import type { BulkResult, MutationOpts, Resource } from "@fleetly/patterns-ui-core/data";
-import type { UndoableToastControl } from "@fleetly/patterns-ui-core/mutation";
+import type { BulkResult, MutationOpts, Resource } from "@patterns-ui/core/data";
+import type { UndoableToastControl } from "@patterns-ui/core/mutation";
 import { cn } from "cn";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";

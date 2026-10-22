@@ -1,7 +1,7 @@
 {
-  "name": "@fleetly/patterns-ui-core",
+  "name": "@patterns-ui/core",
   "version": "0.1.0",
-  "description": "@fleetly/patterns-ui 的逻辑层：data/list/filters/form/reference/mutation/tenant/auth/router/task/inline/datetime/resource/theme",
+  "description": "@patterns-ui 的逻辑层：data/list/filters/form/reference/mutation/tenant/auth/router/task/inline/datetime/resource/theme",
   "type": "module",
   "license": "UNLICENSED",
   "sideEffects": false,

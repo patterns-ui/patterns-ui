@@ -9,7 +9,7 @@ import {
   createListColumnHelper,
   type ListColumnDef,
   listTableFeatures,
-} from "@fleetly/patterns-ui-core/list";
+} from "@patterns-ui/core/list";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTable } from "@tanstack/react-table";
 import { cn } from "cn";

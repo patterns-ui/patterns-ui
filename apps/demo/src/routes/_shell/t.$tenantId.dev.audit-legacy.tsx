@@ -1,10 +1,10 @@
-import type { FilterDef } from "@fleetly/patterns-ui-core/filters";
+import type { FilterDef } from "@patterns-ui/core/filters";
 import {
   createListColumnHelper,
   createListSearchSchema,
   type ListMode,
   useResourceTable,
-} from "@fleetly/patterns-ui-core/list";
+} from "@patterns-ui/core/list";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { z } from "zod";

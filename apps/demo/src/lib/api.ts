@@ -1,4 +1,4 @@
-import { HttpError } from "@fleetly/patterns-ui-core/data";
+import { HttpError } from "@patterns-ui/core/data";
 
 export const TOKEN_KEY = "demo:token";
 

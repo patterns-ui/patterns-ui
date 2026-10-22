@@ -1,6 +1,6 @@
 # demo 应用（Fleetly Console）
 
-`@fleetly/patterns-ui` 的完整示例应用：TanStack Router 文件路由 + shadcn（Base UI 方言）+
+`@patterns-ui` 的完整示例应用：TanStack Router 文件路由 + shadcn（Base UI 方言）+
 Tailwind v4，blocks 经 `@/components/blocks` alias 直接引用 `registry/blocks`（单一事实源）。
 
 ```bash

@@ -1,4 +1,4 @@
-import { navFromResources } from "@fleetly/patterns-ui-core/resource";
+import { navFromResources } from "@patterns-ui/core/resource";
 import {
   Bell,
   Boxes,

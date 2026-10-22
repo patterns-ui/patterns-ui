@@ -1,4 +1,4 @@
-import { HttpError } from "@fleetly/patterns-ui-core/data";
+import { HttpError } from "@patterns-ui/core/data";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";

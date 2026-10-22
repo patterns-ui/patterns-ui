@@ -1,6 +1,6 @@
 # 架构规格
 
-本文是 `@fleetly/patterns-ui` 的架构契约，也是所有实现阶段的验收依据之一。
+本文是 `@patterns-ui` 的架构契约，也是所有实现阶段的验收依据之一。
 
 ## 1. 定位
 
@@ -25,7 +25,7 @@ L0  Tokens           CSS 变量设计令牌 + 主题 preset 机制（纯 CSS）
 **依赖规则（强制，验收时检查 import）：**
 
 - `packages/core` **不得** import 任何 React UI 组件、shadcn、blocks；只依赖 `@tanstack/react-query`、`@tanstack/react-router`（peer）、`zod`（peer）、`react`（peer）。ThemeProvider 允许依赖 `next-themes`。
-- `registry/blocks/**` 可以 import：`@fleetly/patterns-ui-core`、`@/components/ui/*`（shadcn 基础件）、`@/components/blocks/*`（其他 block）、`@/lib/*`、lucide-react 等运行库。**不得** import demo 应用代码。
+- `registry/blocks/**` 可以 import：`@patterns-ui/core`、`@/components/ui/*`（shadcn 基础件）、`@/components/blocks/*`（其他 block）、`@/lib/*`、lucide-react 等运行库。**不得** import demo 应用代码。
 - `apps/demo` 可以 import 一切；是唯一允许出现业务/ mock 代码的地方。
 - 纯视觉组件（L2 以下）零路由依赖；需要路由的组件只经 `@tanstack/react-router` 的 `Link/useRouter/useSearch/useNavigate`。
 
@@ -54,7 +54,7 @@ patterns-ui/
 ├── biome.json
 ├── registry.json                  # 构建产物（GitHub registry 索引），提交进仓库
 ├── docs/                          # 本规格书系列
-├── packages/core/                 # @fleetly/patterns-ui-core
+├── packages/core/                 # @patterns-ui/core
 │   ├── package.json               # exports 子路径：./data ./list ./form ... ./resource ./datetime
 │   ├── tsconfig.json
 │   └── src/
@@ -95,7 +95,7 @@ block 源码要**同时**在 demo 内直接开发运行、又能原样内联进 
 |---|---|---|
 | `@/components/ui/button` | `apps/demo/src/components/ui/button.tsx` | 用户 components.json aliases（shadcn 标准） |
 | `@/components/blocks/list/data-table` | `registry/blocks/list/data-table/`（tsconfig paths + vite alias） | registry 安装目标 `components/blocks/list/data-table/` |
-| `@fleetly/patterns-ui-core` | workspace 包 | npm 安装（registry item 的 `dependencies` 声明） |
+| `@patterns-ui/core` | workspace 包 | npm 安装（registry item 的 `dependencies` 声明） |
 | `@/lib/*`、`@/hooks/*` | demo 的 utils | 用户项目（registry item 里如需则随 item 附带 lib 文件） |
 
 demo 的 `tsconfig.json` paths 与 `vite.config.ts` resolve.alias 必须包含：

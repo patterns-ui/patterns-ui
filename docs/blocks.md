@@ -6,7 +6,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 - 样式只用 tailwind + token 语义类（`bg-background`/`text-muted-foreground`/`border`…），**禁止**硬编码色值（preset 兼容性要求）。
 - 组件透传 props 用 Base UI `render` 惯例（不用 `asChild`）。
-- 时间显示一律走 `@fleetly/patterns-ui-core/datetime`；状态色一律 `--status-*` token（经 `status-badge`）。
+- 时间显示一律走 `@patterns-ui/core/datetime`；状态色一律 `--status-*` token（经 `status-badge`）。
 - 依赖标注：`ui:` = shadcn 基础件；`core:` = npm 包模块；`block:` = 其他 block（registryDependencies）。
 
 ## shell/ —— 应用壳

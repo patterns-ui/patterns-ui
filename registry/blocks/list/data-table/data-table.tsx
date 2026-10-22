@@ -1,10 +1,10 @@
-import type { UseInlineEditResult } from "@fleetly/patterns-ui-core/inline";
+import type { UseInlineEditResult } from "@patterns-ui/core/inline";
 import type {
   ListColumnDef,
   ListColumnHelper,
   ListTable,
   ListTableFeatures,
-} from "@fleetly/patterns-ui-core/list";
+} from "@patterns-ui/core/list";
 import { type Cell, FlexRender, type Row, type RowData } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cn";

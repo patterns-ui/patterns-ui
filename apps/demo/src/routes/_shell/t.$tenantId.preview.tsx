@@ -1,5 +1,5 @@
-import { useAuth } from "@fleetly/patterns-ui-core/auth";
-import { useTenant } from "@fleetly/patterns-ui-core/tenant";
+import { useAuth } from "@patterns-ui/core/auth";
+import { useTenant } from "@patterns-ui/core/tenant";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { z } from "zod";

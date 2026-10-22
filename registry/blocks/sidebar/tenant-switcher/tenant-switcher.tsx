@@ -1,4 +1,4 @@
-import { useTenant } from "@fleetly/patterns-ui-core/tenant";
+import { useTenant } from "@patterns-ui/core/tenant";
 import { cn } from "cn";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { UserAvatar } from "@/components/blocks/shared/user-avatar/user-avatar";

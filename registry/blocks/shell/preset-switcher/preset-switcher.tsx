@@ -1,4 +1,4 @@
-import { useTheme } from "@fleetly/patterns-ui-core/theme";
+import { useTheme } from "@patterns-ui/core/theme";
 import { Check, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {

@@ -5,7 +5,7 @@
  * PATCH 单条已读（update(id, {read:true})）、POST 全部已读（bulkUpdate 约定或 host 自接）。
  * 通知行形状（约定字段）：{ id, type, title, body?, read, createdAt, actor? }。
  */
-import type { ListParams, Page, ResourceClient } from "@fleetly/patterns-ui-core/data";
+import type { ListParams, Page, ResourceClient } from "@patterns-ui/core/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { AlertTriangle, CheckCheck, CreditCard, type LucideIcon, Rocket } from "lucide-react";

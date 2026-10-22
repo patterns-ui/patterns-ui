@@ -2,8 +2,8 @@
  * reference-field —— 外键显示（异步解析 label；core useReferenceLabel）。
  */
 
-import type { ReferenceSource } from "@fleetly/patterns-ui-core/reference";
-import { useReferenceLabel } from "@fleetly/patterns-ui-core/reference";
+import type { ReferenceSource } from "@patterns-ui/core/reference";
+import { useReferenceLabel } from "@patterns-ui/core/reference";
 import type { ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
