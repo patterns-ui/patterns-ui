@@ -86,7 +86,7 @@ function GuardBody({
       cancelLabel="留在本页"
       onConfirm={() => {
         guard.proceed();
-        toast.info("已离开编辑页（演示：草稿保留）");
+        toast.info("已离开编辑页，草稿已保留");
       }}
     />
   );

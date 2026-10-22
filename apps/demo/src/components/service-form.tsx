@@ -147,7 +147,7 @@ export function OwnerSelectWidget(props: {
         open={creating}
         onOpenChange={setCreating}
         title="新建成员"
-        description="就地创建后自动回选为负责人（reference-select allowCreate 演示）。"
+        description="创建后自动选为该服务的负责人。"
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setCreating(false)}>
@@ -216,7 +216,7 @@ export function ServiceBasicsFields({ form }: ServiceFormTreeProps) {
           <field.TextWidget
             label="名称"
             required
-            description="3 个字符以上；提交后服务端仍会校验（422 字段错误演示：提交「ab」）"
+            description="3 个字符以上"
             placeholder="如 payments-gateway"
           />
         )}
@@ -286,7 +286,7 @@ export function ServiceAdvancedFields({ form }: ServiceFormTreeProps) {
       </AppField>
       <AppField name="_attachments">
         {(field: FieldWithWidgets) => (
-          <field.UploadWidget label="附件（演示）" description="模拟上传进度；仅保存在表单草稿中" />
+          <field.UploadWidget label="附件" description="上传进度为模拟；文件仅保存在表单草稿中" />
         )}
       </AppField>
     </>

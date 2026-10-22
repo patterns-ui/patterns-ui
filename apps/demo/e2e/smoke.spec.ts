@@ -74,4 +74,52 @@ test.describe("冒烟主链路", () => {
     await undoButton.click();
     await expect(page.getByText("gateway-01").first()).toBeVisible({ timeout: 10_000 }); // 撤销恢复
   });
+
+  test("1280×800：表格横向滚动时行操作尾列始终可见（sticky）", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await page.locator("#signin-email").fill("demo@fleetly.dev");
+    await page.locator("#signin-password").fill("e2e-sticky");
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/t\/[^/]+$/, { timeout: 30_000 });
+
+    await page.getByRole("link", { name: "Services" }).first().click();
+    const tableSlot = page.locator('[data-slot="data-table"]');
+    await expect(tableSlot).toBeVisible();
+
+    // 滚动容器是 data-table 内唯一的 overflow-x-auto（ui/table 不再自带，避免双 scrollport 破坏 sticky）
+    const scrollInfo = await tableSlot.evaluate((el) => {
+      const scroller = el.querySelector<HTMLElement>("div.overflow-x-auto");
+      if (!scroller) return null;
+      return {
+        scrollWidth: scroller.scrollWidth,
+        clientWidth: scroller.clientWidth,
+      };
+    });
+    expect(scrollInfo).not.toBeNull();
+
+    const actionsBox = await page.locator('th:has(.sr-only:text("操作"))').first().boundingBox();
+    expect(actionsBox).not.toBeNull();
+    if (actionsBox) {
+      // 尾列（行操作）右缘不得超出视口 —— 未滚动时也可见
+      expect(actionsBox.x + actionsBox.width).toBeLessThanOrEqual(1280);
+    }
+
+    if (scrollInfo && scrollInfo.scrollWidth > scrollInfo.clientWidth) {
+      // 横向溢出真实存在：滚到最右，行操作列必须仍钉在视口内（sticky right）
+      await tableSlot.evaluate((el) => {
+        const scroller = el.querySelector<HTMLElement>("div.overflow-x-auto");
+        if (scroller) scroller.scrollLeft = scroller.scrollWidth;
+      });
+      await page.waitForTimeout(150);
+      const scrolled = await page.locator('th:has(.sr-only:text("操作"))').first().boundingBox();
+      expect(scrolled).not.toBeNull();
+      if (scrolled) {
+        expect(scrolled.x + scrolled.width).toBeLessThanOrEqual(1280);
+        expect(scrolled.x).toBeGreaterThanOrEqual(0);
+      }
+    }
+
+    await page.screenshot({ path: "test-results/services-1280x800.png", fullPage: false });
+  });
 });

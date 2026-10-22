@@ -5,7 +5,10 @@ import type * as React from "react";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    // 注意：这里不再自带 overflow-x-auto —— 嵌套横向滚动容器会让 position: sticky
+    // 附着到错误的 scrollport（行操作尾列无法钉住）。横向滚动由使用方（data-table）的
+    // 唯一滚动容器负责。
+    <div data-slot="table-container" className="relative w-full">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

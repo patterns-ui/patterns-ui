@@ -4,7 +4,7 @@ import { Onboarding } from "@/components/blocks/auth/onboarding/onboarding";
 import { servicesResource } from "@/resources";
 import { teamClient } from "@/resources-m4";
 
-/** 首登向导演示：欢迎 → 创建首个资源 → 邀请成员 → 完成跳转（步骤间数据保留） */
+/** 首登向导：欢迎 → 创建首个资源 → 邀请成员 → 完成跳转（步骤间数据保留） */
 function OnboardingPage() {
   const navigate = useNavigate();
   const { tenantId } = Route.useParams();
@@ -14,7 +14,7 @@ function OnboardingPage() {
       <Onboarding
         defaultTeamName="Acme Web"
         envOptions={[
-          { value: "rep", label: "rep（演示）" },
+          { value: "rep", label: "rep" },
           { value: "staging", label: "staging" },
           { value: "prod", label: "prod" },
         ]}

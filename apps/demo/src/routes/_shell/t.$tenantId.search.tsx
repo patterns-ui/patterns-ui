@@ -42,7 +42,7 @@ function SearchPage() {
         },
         {
           name: "audit-events",
-          label: "Audit Events",
+          label: "Audit",
           icon: ScrollText,
           search: async (q) => {
             const hits = await searchAll(q, tenantId);

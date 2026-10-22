@@ -78,7 +78,7 @@ function ApiKeysPage() {
     <>
       <ListPage
         title="API Keys"
-        description="密钥创建后一次性展示（secret-reveal）· 列表永不返回 secret · 吊销需输入名称确认（type-to-confirm）。"
+        description="用于 CI 与集成的访问密钥。密钥仅在创建时展示一次，吊销后立即失效。"
         actions={<Button onClick={() => setCreateOpen(true)}>创建 Key</Button>}
         body={
           <AsyncState
@@ -125,7 +125,7 @@ function ApiKeysPage() {
                 description="高危操作：吊销后使用该 Key 的调用将立即 401。"
                 actions={rows.slice(0, 3).map((row) => ({
                   label: `吊销 ${row.name}`,
-                  description: `前缀 ${row.prefix}…（type-to-confirm 演示）`,
+                  description: `前缀 ${row.prefix}…`,
                   typeToConfirm: row.name,
                   confirmLabel: "吊销",
                   pending: remove.isPending,

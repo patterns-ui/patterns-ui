@@ -19,7 +19,8 @@ export function AppShellFloating({ sidebar, topbar, children, fullBleed }: AppSh
   return (
     <SidebarProvider>
       {sidebar}
-      <SidebarInset className="md:peer-data-[variant=floating]:m-2">
+      {/* min-w-0：防 flex 子项被宽表格撑破视口（同 app-shell-inset） */}
+      <SidebarInset className="min-w-0 md:peer-data-[variant=floating]:m-2">
         {topbar}
         <main className={cn("flex min-h-0 flex-1 flex-col", fullBleed ? "" : "gap-4 p-4")}>
           {children}

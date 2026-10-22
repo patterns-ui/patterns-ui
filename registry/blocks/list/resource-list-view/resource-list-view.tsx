@@ -94,6 +94,8 @@ export interface ResourceListViewProps<TData extends AnyRow> {
   def: ResourceDef<TData>;
   /** 展示变体（默认 table；grid = 磁贴墙，标题取 name/title/id 字段） */
   variant?: "table" | "grid";
+  /** 页头副标题（产品说明文案；缺省无） */
+  description?: string;
   /** 页头右侧动作（新建按钮等） */
   actions?: React.ReactNode;
   /** DataTable 附加高级模式 props（grouping/tree/aggregates/inline/virtual/mobile 透传） */
@@ -107,6 +109,7 @@ export interface ResourceListViewProps<TData extends AnyRow> {
 export function ResourceListView<TData extends AnyRow>({
   def,
   variant = "table",
+  description,
   actions,
   tableProps,
   preferencesKey,
@@ -172,7 +175,7 @@ export function ResourceListView<TData extends AnyRow>({
       description={
         def.parent && parentValue !== undefined
           ? `${def.parent.resource}/${parentValue} 的 ${def.label ?? def.name}`
-          : undefined
+          : description
       }
       actions={actions}
       filter={

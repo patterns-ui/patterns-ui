@@ -12,12 +12,13 @@ import type {
 } from "./mocks/db";
 
 /**
- * M4 资源层：L4 defineResource 定义 + team/notification/search/regions/metrics 适配。
- * auditDef 用 inferColumns（内联 2 行代表性样本）生成列 —— 与手写 M2 版并存的对照。
+ * 资源层：defineResource 定义 + team/notification/search/regions/metrics 适配。
+ * auditDef 是产品 Audit 页（/audit）的定义源；列由 inferColumns 从内联样本推断。
+ * 手写实现作为库回归对照保留在 /dev/audit-legacy（不进导航）。
  */
 
 // ---------------------------------------------------------------------------
-// audit L4 定义（对照 _shell/t.$tenantId.audit.tsx 手写版）
+// audit 定义（产品页 /audit；手写对照见 routes/_shell/t.$tenantId.dev.audit-legacy.tsx）
 // ---------------------------------------------------------------------------
 
 const AUDIT_SAMPLE: Record<string, unknown>[] = [

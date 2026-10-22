@@ -202,7 +202,7 @@ function ServicesPage() {
   return (
     <ListPage
       title="Services"
-      description="服务的完整列表纵切演示：URL 事实源（过滤/排序/分页/搜索）· 多列排序 · 命名视图 · 批量与 undoable 删除 · CSV 导出 · 轮询新数据。"
+      description="集群中运行的服务及其状态。"
       actions={
         <>
           <RefreshBar
@@ -236,9 +236,14 @@ function ServicesPage() {
             ]}
             filename="services"
           />
-          <Button variant={groupOn ? "default" : "outline"} size="sm" onClick={toggleGroup}>
+          <Button
+            variant={groupOn ? "default" : "outline"}
+            size="sm"
+            aria-pressed={groupOn}
+            onClick={toggleGroup}
+          >
             <Columns3 data-icon="inline-start" />
-            {groupOn ? "分组：env（开）" : "分组演示"}
+            分组
           </Button>
           <Button render={<Link to="/t/$tenantId/services/new" params={{ tenantId }} />}>
             <Plus /> 新建服务
@@ -273,7 +278,7 @@ function ServicesPage() {
                 label: `批量重启（${selectedIds.length}）`,
                 confirm: "批量重启",
                 run: () => {
-                  toast.info(`演示：对 ${selectedIds.length} 个服务执行重启（M3 接长任务）`);
+                  toast.info(`已提交重启请求：${selectedIds.length} 个服务`);
                 },
               },
             ]}
@@ -309,13 +314,6 @@ function ServicesPage() {
           pageSizeOptions={[10, 20, 50, 100]}
         />
       }
-      appendix={
-        <p className="text-muted-foreground/80 text-xs">
-          提示：URL 即事实源 ——
-          过滤/排序/页码变化会写入地址栏，复制链接即可还原；命名视图保存的就是当前查询串。
-          搜索「boom」可触发 500 错误态。
-        </p>
-      }
     />
   );
 }
@@ -323,7 +321,7 @@ function ServicesPage() {
 const baseSearchSchema = createListSearchSchema({ filters: FILTER_DEFS });
 const searchSchema = z.object({
   ...baseSearchSchema.shape,
-  /** 分组演示开关（group=on → 按 env 分组 + replicas sum 聚合；避免数字串被 router JSON 化） */
+  /** 分组开关（group=on → 按 env 分组 + replicas sum 聚合；避免数字串被 router JSON 化） */
   group: z.literal("on").optional().catch(undefined),
 });
 

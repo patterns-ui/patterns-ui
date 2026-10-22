@@ -5,20 +5,15 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { AppShellInset } from "@/components/blocks/shell/app-shell-inset/app-shell-inset";
 import { CommandPalette } from "@/components/blocks/shell/command-palette/command-palette";
-import { PresetSwitcher } from "@/components/blocks/shell/preset-switcher/preset-switcher";
 import { TopBar } from "@/components/blocks/shell/top-bar/top-bar";
 import { SideNavInset } from "@/components/blocks/sidebar/side-nav-inset/side-nav-inset";
 import { NotificationBell } from "@/components/notification-bell";
 import { tenantNavGroups } from "@/lib/nav";
 import { listTenants, resolveTenant } from "@/lib/tenants";
 
-const PRESETS = [
-  { id: "default", label: "Default" },
-  { id: "aurora", label: "Aurora" },
-];
-
 /**
  * 租户布局：TenantProvider（/t/$tenantId 前缀语义）+ inset 壳 + ⌘K 命令面板。
+ * 顶栏只保留产品要素：搜索 / 通知 / 主题 / 账号（主题 preset 在 Settings → 外观切换）。
  */
 function TenantLayout() {
   const { tenantId } = Route.useParams();
@@ -102,12 +97,7 @@ function TenantShellChrome({
             user={user ?? { name: "…", email: "" }}
             onLogout={onLogout}
             breadcrumbResolve={breadcrumbResolve}
-            extra={
-              <>
-                <NotificationBell tenantId={tenantId} />
-                <PresetSwitcher presets={PRESETS} />
-              </>
-            }
+            extra={<NotificationBell tenantId={tenantId} />}
           />
         }
       >

@@ -124,9 +124,10 @@ const SERVICE_WORDS = [
 ];
 
 function seededIso(dayOffset: number, hour: number, minute: number): string {
-  // 固定锚点 2026-09-01，向前推 dayOffset 天（保证 createdAt 分布稳定）
-  const base = Date.UTC(2026, 8, 1, 0, 0, 0);
-  return new Date(base - dayOffset * 86_400_000 + hour * 3_600_000 + minute * 60_000).toISOString();
+  // 动态锚点（启动时刻向前推）：数据始终「新鲜」，时间列默认呈现相对时间（如「3 天前」）；
+  // hour/minute 参与回退而非前跳，保证结果严格在过去。
+  const base = Date.now();
+  return new Date(base - dayOffset * 86_400_000 - hour * 3_600_000 - minute * 60_000).toISOString();
 }
 
 function at<T>(arr: readonly T[], i: number): T {
@@ -150,7 +151,8 @@ function seedServices(tenantId: string): MockService[] {
       region: at(REGIONS, i % REGIONS.length),
       owner: `usr_${(i % 6) + 1}`,
       createdAt: seededIso(90 - Math.floor(i / 2), (i * 7) % 24, (i * 13) % 60),
-      updatedAt: seededIso(Math.max(0, 30 - (i % 30)), (i * 5) % 24, (i * 17) % 60),
+      // 更新时间分布在 0-7 天内（时间列默认相对形态：今天 / N 天前）
+      updatedAt: seededIso(Math.floor((i % 21) / 3), (i * 5) % 24, (i * 17) % 60),
       version: 1 + (i % 4),
     };
   }).map((row) => ({
@@ -182,8 +184,8 @@ function seedAuditEvents(tenantId: string): MockAuditEvent[] {
         ? `members/usr_${(i % 6) + 1}`
         : `services/${prefix}-svc-${String((i % 120) + 1).padStart(3, "0")}`,
     ip: `10.${(i % 8) + 1}.${(i * 3) % 250}.${(i * 7) % 250}`,
-    // 时间递减生成（index 0 最新；keyset 游标按 createdAt desc, id desc 稳定翻页）
-    createdAt: new Date(Date.UTC(2026, 9, 21, 8) - i * 137 * 60_000).toISOString(),
+    // 时间递减生成（index 0 最新；keyset 游标按 createdAt desc, id desc 稳定翻页）；锚点动态
+    createdAt: new Date(Date.now() - i * 137 * 60_000).toISOString(),
   }));
 }
 
@@ -311,7 +313,7 @@ export function apiKeysOf(tenantId: string): MockApiKey[] {
 export function taskState(task: MockTask): MockTask {
   const elapsed = Date.now() - task.createdAt;
   if (task.failMode && elapsed >= task.durationMs) {
-    return { ...task, state: "failed", progress: 100, error: "部署失败：健康检查未通过（演示）" };
+    return { ...task, state: "failed", progress: 100, error: "部署失败：健康检查未通过" };
   }
   if (elapsed >= task.durationMs) {
     return { ...task, state: "succeeded", progress: 100 };
@@ -496,7 +498,7 @@ export function notificationsOf(tenantId: string): MockNotification[] {
         title: t.title,
         body: t.body,
         read: i >= 8,
-        createdAt: new Date(Date.UTC(2026, 9, 21, 9) - i * 47 * 60_000).toISOString(),
+        createdAt: new Date(Date.now() - i * 47 * 60_000).toISOString(),
         actorId: `usr_${(i % 6) + 1}`,
       };
     });
@@ -531,8 +533,8 @@ export function regionsOf(tenantId: string): MockRegion[] {
 export function metricsPointsOf(tenantId: string): MockMetricPoint[] {
   let rows = tenantMetrics.get(tenantId);
   if (!rows) {
-    // 1000 点确定性种子（虚拟化演示用；不翻页一次全给）
-    const base = Date.UTC(2026, 9, 21, 0, 0, 0);
+    // 1000 点确定性种子（虚拟化演示用；不翻页一次全给）；锚点动态（最近 1000 分钟）
+    const base = Date.now();
     rows = Array.from({ length: 1000 }, (_, i) => ({
       id: `mp-${String(i + 1).padStart(4, "0")}`,
       ts: new Date(base - i * 60_000).toISOString(),

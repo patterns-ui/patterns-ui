@@ -3,7 +3,7 @@ import { useTaskSubmit } from "@fleetly/ui-component-core/task";
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { cn } from "cn";
 import { Boxes, Pencil, Rocket } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { CellEnumBadge } from "@/components/blocks/cells/cell-enum-badge/cell-enum-badge";
@@ -36,6 +36,9 @@ const STATUS_TONES: Record<string, "success" | "warning" | "danger" | "neutral">
   degraded: "warning",
   stopped: "neutral",
 };
+
+/** 进行中的部署状态（这些状态下部署历史每 2s 轮询推进） */
+const ACTIVE_DEPLOY_STATES = ["queued", "building", "deploying"];
 
 function ServiceDetailPage() {
   const { tenantId, id } = Route.useParams();
@@ -291,9 +294,17 @@ function DeploymentsTab({
     () => makeDeploymentsResource(tenantId, service.id),
     [tenantId, service.id],
   );
-  const query = resource.useList({ pageSize: 10, refetchInterval: 2000 });
+  const query = resource.useList({ pageSize: 10 });
 
   const rows = query.data?.rows ?? [];
+
+  // 默认不轮询；只有存在进行中的部署（queued/building/deploying）时才每 2s 刷新推进状态
+  const hasActiveDeployment = rows.some((row) => ACTIVE_DEPLOY_STATES.includes(row.status));
+  useEffect(() => {
+    if (!hasActiveDeployment) return;
+    const id = setInterval(() => void query.refetch(), 2000);
+    return () => clearInterval(id);
+  }, [hasActiveDeployment, query.refetch]);
 
   // M4：replicas 行内编辑改接 useInlineEdit changeSet —— 改多行、一次批量提交
   const inline = useInlineEdit<MockDeployment>({
@@ -315,9 +326,7 @@ function DeploymentsTab({
       <header className="flex items-center justify-between border-b px-5 py-3.5">
         <div>
           <h2 className="text-sm font-medium">部署历史</h2>
-          <p className="text-muted-foreground text-xs">
-            子资源 keyset 分页（/services/:sid/deployments）· 每 2s 轮询推进行内状态
-          </p>
+          <p className="text-muted-foreground text-xs">部署进行中时每 2 秒自动刷新状态。</p>
         </div>
         <Button size="sm" onClick={onTrigger}>
           <Rocket /> 触发部署
@@ -331,7 +340,7 @@ function DeploymentsTab({
         <>
           <div className="border-b px-5 py-4">
             <p className="text-muted-foreground mb-3 text-xs font-medium tracking-wider uppercase">
-              最新部署阶段（timeline）
+              最新部署进度
             </p>
             <Timeline
               items={[
@@ -363,7 +372,7 @@ function DeploymentsTab({
                       : rows[0]?.status === "succeeded"
                         ? "done"
                         : "waiting",
-                  detail: rows[0]?.status === "failed" ? "健康检查未通过（演示）" : undefined,
+                  detail: rows[0]?.status === "failed" ? "健康检查未通过" : undefined,
                 },
               ]}
             />
@@ -411,13 +420,6 @@ function DeploymentsTab({
                 }}
                 onRevert={inline.revert}
               />
-            </footer>
-          ) : null}
-          {query.data?.nextCursor !== undefined ? (
-            <footer className="border-t px-5 py-2.5">
-              <span className="text-muted-foreground text-xs">
-                更多记录走 keyset 下一页（cursor: {query.data.nextCursor.slice(0, 24)}…）
-              </span>
             </footer>
           ) : null}
         </>
@@ -524,7 +526,7 @@ function DeploySheet({
         open={open}
         onOpenChange={onOpenChange}
         title={`部署 ${service.name}`}
-        description="Stepper 分步（每步校验）→ 触发长任务（queued→running→succeeded/failed）→ 完成自动刷新部署列表。"
+        description="按步骤确认来源与参数后触发部署；完成后自动刷新部署列表。"
         width="md"
         footer={<FormMessage />}
       >
@@ -534,7 +536,7 @@ function DeploySheet({
             steps={[
               {
                 title: "来源",
-                description: "选择 git 分支或镜像（SelectWidget 联动 visibleWhen 演示）。",
+                description: "选择 git 分支或容器镜像。",
                 content: (
                   <div className="space-y-4">
                     <form.AppField name="kind">
@@ -596,8 +598,8 @@ function DeploySheet({
                     <form.AppField name="simulateFail">
                       {(field) => (
                         <field.SwitchWidget
-                          label="演示失败终态"
-                          description="开启后任务将以 failed 结束"
+                          label="模拟失败"
+                          description="开启后本次部署将以失败结束"
                         />
                       )}
                     </form.AppField>
@@ -653,7 +655,7 @@ function DeploySummary({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">预期结果</dt>
-              <dd>{v.simulateFail ? "失败终态（演示）" : "成功部署"}</dd>
+              <dd>{v.simulateFail ? "失败（模拟）" : "成功部署"}</dd>
             </div>
           </dl>
         );

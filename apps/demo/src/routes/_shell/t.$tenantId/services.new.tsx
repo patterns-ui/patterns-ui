@@ -62,13 +62,13 @@ function NewServicePage() {
       <FormPage
         onSubmit={() => void form.handleSubmit()}
         title="新建服务"
-        description="分区表单（typed-form-field 全 widget 覆盖）：基本信息 / 副本与规格 / 高级。提交后回到列表；草稿自动保存于本地。"
+        description="创建一个服务并选择运行环境；草稿会自动保存在本地。"
         backTo={{ to: `/t/${tenantId}/services`, label: "Services" }}
         actions={<DirtyGuardHost form={form} />}
         sections={[
           {
             title: "基本信息",
-            description: "名称与环境必填；负责人经关联选择（支持就地新建）。",
+            description: "名称与环境必填；负责人可就地新建。",
             children: <ServiceBasicsFields form={form} />,
           },
           {
@@ -78,15 +78,12 @@ function NewServicePage() {
           },
           {
             title: "高级",
-            description: "标签 / 环境变量 / JSON 配置 / 附件（演示 widget 覆盖）。",
+            description: "标签 / 环境变量 / JSON 配置 / 附件。",
             children: <ServiceAdvancedFields form={form} />,
           },
         ]}
         footer={
           <>
-            <span className="text-muted-foreground mr-auto text-xs">
-              提示：名称含「taken」提交可触发服务端独有校验的 422 字段错误回填（如 demo-taken）。
-            </span>
             <FormMessage />
             <SubmitButton label="创建服务" pendingLabel="创建中…" />
           </>

@@ -91,51 +91,61 @@ function sendJson(res: ServerResponse, result: MockResult): void {
 }
 
 /**
- * Vite dev 中间件插件：拦截 /api/* 请求并转给内存 mock（150–300ms 延迟模拟网络）。
+ * Vite 中间件插件：拦截 /api/* 请求并转给内存 mock（150–300ms 延迟模拟网络）。
+ * dev（configureServer）与 preview（configurePreviewServer）都挂载，保证生产构建预览可用。
  */
+function installMiddleware(middlewares: {
+  use: (fn: (req: IncomingMessage, res: ServerResponse, next: () => void) => void) => unknown;
+}) {
+  middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    void (async () => {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      if (!url.pathname.startsWith("/api/")) {
+        next();
+        return;
+      }
+      const match = matchRoute(req.method ?? "GET", url.pathname);
+      if (!match) {
+        sendJson(res, {
+          status: 404,
+          body: { message: `no mock for ${req.method} ${url.pathname}` },
+        });
+        return;
+      }
+      const body = await readBody(req);
+      await new Promise((r) =>
+        setTimeout(r, MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS)),
+      );
+      const result = await match.route.handler({
+        method: req.method ?? "GET",
+        url,
+        query: url.searchParams,
+        params: match.params,
+        body,
+        req,
+        res,
+      });
+      if (!result) {
+        sendJson(res, { status: 404, body: { message: "mock handler returned nothing" } });
+        return;
+      }
+      sendJson(res, result);
+    })().catch(() => {
+      res.statusCode = 500;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ message: "mock server error" }));
+    });
+  });
+}
+
 export function mockApiPlugin(): Plugin {
   return {
     name: "demo-mock-api",
     configureServer(server) {
-      server.middlewares.use((req: IncomingMessage, res: ServerResponse, next: () => void) => {
-        void (async () => {
-          const url = new URL(req.url ?? "/", "http://localhost");
-          if (!url.pathname.startsWith("/api/")) {
-            next();
-            return;
-          }
-          const match = matchRoute(req.method ?? "GET", url.pathname);
-          if (!match) {
-            sendJson(res, {
-              status: 404,
-              body: { message: `no mock for ${req.method} ${url.pathname}` },
-            });
-            return;
-          }
-          const body = await readBody(req);
-          await new Promise((r) =>
-            setTimeout(r, MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS)),
-          );
-          const result = await match.route.handler({
-            method: req.method ?? "GET",
-            url,
-            query: url.searchParams,
-            params: match.params,
-            body,
-            req,
-            res,
-          });
-          if (!result) {
-            sendJson(res, { status: 404, body: { message: "mock handler returned nothing" } });
-            return;
-          }
-          sendJson(res, result);
-        })().catch(() => {
-          res.statusCode = 500;
-          res.setHeader("content-type", "application/json");
-          res.end(JSON.stringify({ message: "mock server error" }));
-        });
-      });
+      installMiddleware(server.middlewares);
+    },
+    configurePreviewServer(server) {
+      installMiddleware(server.middlewares);
     },
   };
 }

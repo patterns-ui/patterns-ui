@@ -27,3 +27,4 @@ apps/demo/playwright-report/
 
 # agent workspace
 .zcode/
+screenshots/

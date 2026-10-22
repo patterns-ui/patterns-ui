@@ -8,14 +8,14 @@ import { api } from "@/lib/api";
 import { resolveTenant } from "@/lib/tenants";
 
 const PRESETS = [
-  { id: "default", label: "Default（近黑中性 + indigo）" },
-  { id: "aurora", label: "Aurora（浅色为主 + teal）" },
+  { id: "default", label: "Default" },
+  { id: "aurora", label: "Aurora" },
 ];
 
 /**
  * 完整设置页（settings-page block）：组织[name/avatar] + 个人[display/email/时区] +
  * 安全[改密码 + 会话占位] + 外观[theme+preset]。组织/个人数据来自 mock（/api/me、/api/orgs/:id）。
- * 演示约定：改密码的「当前密码」为 demo1234；新密码 taken 之外的 8 位以上均可。
+ * mock 约定：改密码的「当前密码」为 demo1234；新密码 taken 之外的 8 位以上均可。
  */
 function SettingsDemoPage() {
   const { tenantId } = Route.useParams();

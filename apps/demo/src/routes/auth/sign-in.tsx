@@ -21,7 +21,7 @@ function SignInRoute() {
           <span className="text-[15px] font-semibold">Fleetly Console</span>
         </div>
       }
-      description="demo 账号：demo@fleetly.dev / 任意密码"
+      description="测试账号：demo@fleetly.dev，密码任意"
       onSubmit={async (credentials) => {
         await login(credentials);
         await navigate({ to: (next ?? "/") as never });

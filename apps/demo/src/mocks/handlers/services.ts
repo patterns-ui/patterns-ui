@@ -269,7 +269,7 @@ export const serviceRoutes: MockRoute[] = [
           // 部分失败演示：stopped 状态的服务不允许删除
           result.failed.push({
             id,
-            error: { status: 409, message: "服务已停止，无法批量删除（演示部分失败）" },
+            error: { status: 409, message: "服务已停止，无法批量删除" },
           });
         } else {
           services.splice(idx, 1);
@@ -296,7 +296,7 @@ export const serviceRoutes: MockRoute[] = [
           // 部分失败演示：prod 环境不允许批量修改
           result.failed.push({
             id,
-            error: { status: 403, message: "生产环境服务不允许批量修改（演示部分失败）" },
+            error: { status: 403, message: "生产环境服务不允许批量修改" },
           });
         } else {
           Object.assign(row, vars, {

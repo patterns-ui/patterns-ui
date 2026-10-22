@@ -18,8 +18,7 @@ import type { MockMetricPoint, MockRegion } from "@/mocks/db";
 import { metricsClient, regionsClient } from "@/resources-m4";
 
 /**
- * 高级表格演示页：region→zone 树形展开（getSubRows）+ services sum 聚合 footer +
- * 1000 行 metrics 虚拟滚动（行数 ≥200 自动启用 @tanstack/react-virtual）。
+ * Regions 页：region→zone 树形表格 + 聚合 footer + 指标采样大列表（≥200 行自动虚拟滚动）。
  */
 
 // ---------------------------------------------------------------------------
@@ -202,8 +201,7 @@ function MetricsVirtual() {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-[13px]">
-          1000 行种子 · 页大小 100 → 当前加载 {list.table.getRowModel().rows.length} 行； 行数 ≥ 200
-          自动启用虚拟滚动（spacer 模式）。
+          最近 1000 条指标采样，当前显示 {list.table.getRowModel().rows.length} 条。
         </p>
       </div>
       <DataTable table={list.table} preferencesKey="metrics-points" virtual />
@@ -219,17 +217,16 @@ function RegionsPage() {
   return (
     <div className="flex flex-col gap-6 pb-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-tight">Regions & Scale</h1>
+        <h1 className="text-[22px] font-semibold tracking-tight">Regions</h1>
         <p className="text-muted-foreground text-[13px]">
-          树形展开（region → zone，getSubRows 注入）+ 聚合 footer（services sum / load avg）；
-          下方为 1000 行大列表虚拟滚动演示。
+          各区域与可用区的服务分布、负载与健康状态。
         </p>
       </header>
       <section className="bg-card overflow-hidden rounded-xl border p-4">
         <RegionsTree />
       </section>
       <section className="bg-card overflow-hidden rounded-xl border p-4">
-        <h2 className="mb-3 text-sm font-medium">metrics-points（虚拟化）</h2>
+        <h2 className="mb-3 text-sm font-medium">指标采样</h2>
         <MetricsVirtual />
       </section>
     </div>

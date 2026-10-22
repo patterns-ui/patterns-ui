@@ -14,7 +14,7 @@ export interface TopBarProps {
   onOpenSearch: () => void;
   user: AvatarUser & { email?: string };
   onLogout: () => void;
-  /** 右侧扩展位（如 PresetSwitcher） */
+  /** 右侧扩展位（如通知铃铛） */
   extra?: ReactNode;
   /** 面包屑与搜索位之间的扩展位 */
   center?: ReactNode;

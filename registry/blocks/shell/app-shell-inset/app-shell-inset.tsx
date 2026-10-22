@@ -20,7 +20,9 @@ export function AppShellInset({ sidebar, topbar, children, fullBleed }: AppShell
   return (
     <SidebarProvider>
       {sidebar}
-      <SidebarInset>
+      {/* min-w-0：flex 子项默认 min-width:auto 会被宽表格等内容撑破视口（内容区横向溢出，
+          行操作尾列看似“被裁”）。收敛后横向滚动在卡片内的滚动容器发生，sticky 尾列才成立。 */}
+      <SidebarInset className="min-w-0">
         {topbar}
         <main className={cn("flex min-h-0 flex-1 flex-col", fullBleed ? "" : "gap-4 p-4")}>
           {children}

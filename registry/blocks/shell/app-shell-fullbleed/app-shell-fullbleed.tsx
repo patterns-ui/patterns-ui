@@ -16,7 +16,8 @@ export function AppShellFullbleed({ sidebar, topbar, children }: AppShellProps) 
   return (
     <SidebarProvider>
       {sidebar}
-      <SidebarInset>
+      {/* min-w-0：防 flex 子项被宽表格撑破视口（同 app-shell-inset） */}
+      <SidebarInset className="min-w-0">
         {topbar}
         <main className="flex min-h-0 flex-1 flex-col">{children}</main>
       </SidebarInset>

@@ -86,24 +86,43 @@ function defLabel(defs: FilterDef[], field: string): string {
 function formatLeafValue(leaf: FilterLeaf): string {
   if (Array.isArray(leaf.value)) {
     if (leaf.op === "between")
-      return `${String(leaf.value[0] ?? "…")} ~ ${String(leaf.value[1] ?? "…")}`;
+      return `${String(leaf.value[0] ?? "")}..${String(leaf.value[1] ?? "")}`;
     return leaf.value.map((v) => String(v)).join("、");
   }
   return String(leaf.value);
 }
 
-const OP_LABELS: Partial<Record<FilterOperator, string>> = {
-  eq: "=",
+/** 已应用 chip 的运算符前缀：省略式渲染（缺省读作「字段: 值」），保持可读优先 */
+const OP_CHIP_PREFIX: Partial<Record<FilterOperator, string>> = {
   ne: "≠",
-  in: "属于",
-  nin: "不属于",
-  contains: "包含",
+  nin: "≠",
+  contains: "~",
   gt: ">",
   gte: "≥",
   lt: "<",
   lte: "≤",
-  between: "区间",
-  exists: "存在",
+};
+
+/** chip 文本：`字段: 值` / `字段: ≠值` / `字段: a..b` / `字段: >值` / `字段: 有值|为空` */
+function formatChip(leaf: FilterLeaf): string {
+  if (leaf.op === "exists") return leaf.value === false ? "为空" : "有值";
+  const value = formatLeafValue(leaf);
+  return `${OP_CHIP_PREFIX[leaf.op] ?? ""}${value}`;
+}
+
+/** 编辑器下拉里的运算符选项（上下文是「字段 [运算符] 值」，用紧凑符号） */
+const OP_LABELS: Partial<Record<FilterOperator, string>> = {
+  eq: "=",
+  ne: "≠",
+  in: "∈",
+  nin: "∉",
+  contains: "~",
+  gt: ">",
+  gte: "≥",
+  lt: "<",
+  lte: "≤",
+  between: "a..b",
+  exists: "≠空",
 };
 
 /** 过滤工具条：搜索 + FilterDef 渲染 + 高级 and/or 编辑器 + 已应用 chips + saved-views + 刷新 */
@@ -171,9 +190,8 @@ export function FilterBar({
         <div className="flex flex-wrap items-center gap-1.5" data-slot="filter-chips">
           {leaves.map((leaf, i) => (
             <Badge key={`${leaf.field}-${i}`} variant="secondary" className="gap-1 font-normal">
-              <span className="text-muted-foreground">{defLabel(defs, leaf.field)}</span>
-              {OP_LABELS[leaf.op] ?? leaf.op}
-              {formatLeafValue(leaf)}
+              <span className="text-muted-foreground">{defLabel(defs, leaf.field)}:</span>
+              <span className="font-mono text-xs">{formatChip(leaf)}</span>
               <button
                 type="button"
                 aria-label={`移除 ${defLabel(defs, leaf.field)} 过滤`}

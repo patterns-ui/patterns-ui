@@ -79,7 +79,7 @@ function EditServicePage() {
       { version: String(current.version) },
     );
     setConflictArmed(true);
-    toast.warning("已模拟「他人抢先保存」（服务端版本 +1）。现在提交表单将触发 409 冲突。");
+    toast.warning("已模拟他人保存新版本。现在提交表单将提示版本冲突。");
   };
 
   if (initialValues === undefined) {
@@ -103,7 +103,7 @@ function EditServicePage() {
       <FormPage
         onSubmit={() => void form.handleSubmit()}
         title="编辑服务"
-        description="dirty guard（行内导航/刷新拦截）· 草稿自动保存与恢复 · 409 乐观并发冲突演示 · 变更摘要（diff-viewer 仅变更字段）。"
+        description="修改服务的基本信息、规格与高级配置。"
         backTo={{ to: `/t/${tenantId}/services/${id}` }}
         actions={<DirtyGuardHost form={form} />}
         sections={[
@@ -116,7 +116,9 @@ function EditServicePage() {
                 <p className="text-xs font-medium">变更摘要</p>
                 <DiffViewer before={initialValues} after={form.store.state.values} mode="json" />
                 {conflictArmed ? (
-                  <p className="text-status-warning text-xs">⚠ 版本冲突已就绪：提交将返回 409。</p>
+                  <p className="text-status-warning text-xs">
+                    ⚠ 已有他人保存了新版本，提交前需要先解决冲突。
+                  </p>
                 ) : null}
               </div>
             ),
@@ -141,7 +143,7 @@ function EditServicePage() {
               disabled={conflictArmed}
               onClick={() => void armConflict()}
             >
-              模拟他人抢先保存（409 演示）
+              模拟他人抢先保存
             </Button>
             <FormMessage />
             <SubmitButton label="保存修改" pendingLabel="保存中…" />
