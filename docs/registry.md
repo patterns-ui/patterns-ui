@@ -22,8 +22,11 @@
 }
 ```
 
-- `dependencies`：npm 依赖（带 semver）。`@patterns-ui/core` 版本读 `packages/core/package.json` 自动填充。
-- `registryDependencies`：裸名 = shadcn 内置件（button/table/…）；**列表里的目录内名字 = 我们的 block**（构建时改写为完整引用）。
+- `dependencies`：npm 依赖（带 semver）。`@patterns-ui/core` 版本读 `packages/core/package.json` 自动填充；源码 import 的裸 npm 包（如 `@tanstack/react-query`）自动并入——只有 react 系（react/react-dom/react/jsx-runtime、`react/*`）视为宿主自带不声明。
+- `registryDependencies` 的三种写法与构建期改写（**产物中永不出现裸名**——裸名永远解析到官方 shadcn）：
+  - 裸名命中我方 block 名 → 改写为 GitHub 完整引用 `patterns-ui/patterns-ui/<name>`（§4 主通道）；
+  - 其余裸名（button/table/dropdown-menu…官方件）→ 改写为 `https://ui.shadcn.com/r/styles/base-nova/<name>.json` 完整 URL（**方言钉扎点** `OFFICIAL_BASE_REGISTRY`，见 build.ts——消费端 components.json 的 style 不再影响我们 item 的方言）；
+  - 已含 `/` 的引用（完整 URL / `owner/repo/item` / `@ns/item`）→ 原样保留。
 - `targetDir`：安装目标目录（默认 `components/blocks/<category>/<name>`）。
 - type 取值：组件 `registry:component`、页面模板 `registry:block`、主题 `registry:theme`。
 
@@ -32,12 +35,13 @@
 1. 扫描 `registry/blocks/**/**.meta.json` + `registry/themes/*.json`。
 2. 每个 block：读目录内全部 `.tsx/.ts/.css` 文件 → `files: [{ path, target: "<targetDir>/<file>", type, content }]`。
 3. 解析源码 import：
-   - `@/components/blocks/<name>` → 加入 registryDependencies（避免循环声明则以 meta 为准校验）。
+   - `@/components/blocks/<name>` → registryDependencies（改写为 `patterns-ui/patterns-ui/<name>` 完整引用）。
+   - `@/components/ui/<name>` → 钉扎为官方 base-nova 完整 URL 并入 registryDependencies（ui 别名永远指官方，即使存在同名我方 block）；barrel import `@/components/ui`（无具体名）构建直接 fail。
    - `@patterns-ui/core` → npm dependencies。
-   - `@/components/ui/*`、`@/lib/*` → 保留原样（用户项目别名解析）。
+   - `@/lib/*`、`@/hooks/*` → 保留原样（用户项目别名解析）。
 4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码。
-5. 主题：生成 `registry:theme` item（cssVars + `[data-preset]` css 文件）。
-6. 输出 `registry.json` + `dist/r/*.json`；执行 `pnpm dlx shadcn@latest registry validate`（CI 亦跑）。
+5. 主题：生成 `registry:theme` item（cssVars + `[data-preset]` css 文件）。每个 preset css 文件自含 `@theme inline` 段（全部令牌 → `--color-*` 一对一映射 + radius 派生四档，口径与 apps/demo/src/styles.css 一致）——消费端只 add 一个 theme item 即可用全部语义色/radius utility。
+6. 输出 `registry.json` + `dist/r/*.json`；CI 以 `git diff --exit-code` 校验产物新鲜度，`pnpm dlx shadcn@latest registry validate` 校验 schema；`registry-consumer` job 跑消费端冒烟（`pnpm registry:smoke`）。
 
 ## 4. 发布通道
 

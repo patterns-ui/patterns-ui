@@ -30,7 +30,9 @@ export default defineConfig({
     index: "src/index.ts",
     ...Object.fromEntries(modules.map((m) => [`${m}/index`, moduleEntry(m)])),
   },
-  format: ["esm"],
+  // 双格式：package.json "type": "module" 下 esm → .js、cjs → .cjs，
+  // exports 每个出口的 import/require 条件分别指向（attw node16-cjs 必需，publint 亦检查）
+  format: ["esm", "cjs"],
   dts: true,
   clean: true,
   sourcemap: true,

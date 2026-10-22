@@ -2,11 +2,7 @@
  * timeline —— 事件时间线（三态：done/running/waiting；docs/blocks.md show/）。
  */
 
-import {
-  formatAbsolute,
-  formatRelative,
-  useDateTimePrefs,
-} from "@patterns-ui/core/datetime";
+import { formatAbsolute, formatRelative, useDateTimePrefs } from "@patterns-ui/core/datetime";
 import { cn } from "cn";
 import { Check, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";

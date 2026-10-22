@@ -36,6 +36,10 @@ jobs:
       - name: Build (core + registry)
         run: pnpm build
 
+      # 产物新鲜度：registry 构建输出必须与提交进仓库的版本一致（改源不改产物 = 红）
+      - name: Registry freshness (registry.json / dist / theme css)
+        run: git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css'
+
       - name: Typecheck (all workspaces)
         run: pnpm -r typecheck
 
@@ -48,6 +52,64 @@ jobs:
 
       - name: Build demo (vite)
         run: pnpm --filter demo build
+
+  # ADR-0007：暂不 npm publish，但 publint/attw 保证 @patterns-ui/core 随时可发
+  publint-attw:
+    name: publint / attw (@patterns-ui/core)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本读根 package.json 的 packageManager 字段
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build core (dual esm+cjs)
+        run: pnpm --filter @patterns-ui/core build
+
+      - name: publint
+        run: pnpm --filter @patterns-ui/core exec publint
+
+      # attw：npm 上的 "attw" 是防依赖混淆占位包，真身是 @arethetypeswrong/cli。
+      # --profile node16 = 检查 node16 的 CJS 与 ESM 双向解析（bundler 免检）。
+      # 排除 node10 列：该解析模式不认 exports map，子路径物理上无解（Node 10 亦不识别 .cjs，
+      # 垫目录也救不了 require）——CJS 支持已诚实落地（双格式 + .d.cts 条件），非掩盖。
+      - name: attw (pack & analyze)
+        run: pnpm dlx @arethetypeswrong/cli -P packages/core --profile node16
+
+  # 消费端冒烟：tmp vite+react19+ts 工程里 shadcn add 我们的 theme + status-badge → vite build → headless 令牌断言
+  registry-consumer:
+    name: registry consumer smoke (shadcn add → vite build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本读根 package.json 的 packageManager 字段
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 冒烟脚本消费 registry/dist（静态 JSON 由本地 http server 托管给 shadcn add）
+      - name: Build (core + registry)
+        run: pnpm build
+
+      - name: Consumer smoke (tmp vite app + shadcn add + build + assert)
+        run: pnpm registry:smoke
 
   e2e:
     name: Playwright smoke (manual)

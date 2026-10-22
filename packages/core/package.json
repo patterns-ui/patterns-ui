@@ -3,71 +3,175 @@
   "version": "0.1.0",
   "description": "@patterns-ui 的逻辑层：data/list/filters/form/reference/mutation/tenant/auth/router/task/inline/datetime/resource/theme",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "sideEffects": false,
-  "main": "./dist/index.js",
+  "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:patterns-ui/patterns-ui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/patterns-ui/patterns-ui/issues"
+  },
+  "homepage": "https://github.com/patterns-ui/patterns-ui#readme",
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     },
     "./data": {
-      "types": "./dist/data/index.d.ts",
-      "import": "./dist/data/index.js"
+      "import": {
+        "types": "./dist/data/index.d.ts",
+        "default": "./dist/data/index.js"
+      },
+      "require": {
+        "types": "./dist/data/index.d.cts",
+        "default": "./dist/data/index.cjs"
+      }
     },
     "./list": {
-      "types": "./dist/list/index.d.ts",
-      "import": "./dist/list/index.js"
+      "import": {
+        "types": "./dist/list/index.d.ts",
+        "default": "./dist/list/index.js"
+      },
+      "require": {
+        "types": "./dist/list/index.d.cts",
+        "default": "./dist/list/index.cjs"
+      }
     },
     "./filters": {
-      "types": "./dist/filters/index.d.ts",
-      "import": "./dist/filters/index.js"
+      "import": {
+        "types": "./dist/filters/index.d.ts",
+        "default": "./dist/filters/index.js"
+      },
+      "require": {
+        "types": "./dist/filters/index.d.cts",
+        "default": "./dist/filters/index.cjs"
+      }
     },
     "./form": {
-      "types": "./dist/form/index.d.ts",
-      "import": "./dist/form/index.js"
+      "import": {
+        "types": "./dist/form/index.d.ts",
+        "default": "./dist/form/index.js"
+      },
+      "require": {
+        "types": "./dist/form/index.d.cts",
+        "default": "./dist/form/index.cjs"
+      }
     },
     "./reference": {
-      "types": "./dist/reference/index.d.ts",
-      "import": "./dist/reference/index.js"
+      "import": {
+        "types": "./dist/reference/index.d.ts",
+        "default": "./dist/reference/index.js"
+      },
+      "require": {
+        "types": "./dist/reference/index.d.cts",
+        "default": "./dist/reference/index.cjs"
+      }
     },
     "./mutation": {
-      "types": "./dist/mutation/index.d.ts",
-      "import": "./dist/mutation/index.js"
+      "import": {
+        "types": "./dist/mutation/index.d.ts",
+        "default": "./dist/mutation/index.js"
+      },
+      "require": {
+        "types": "./dist/mutation/index.d.cts",
+        "default": "./dist/mutation/index.cjs"
+      }
     },
     "./tenant": {
-      "types": "./dist/tenant/index.d.ts",
-      "import": "./dist/tenant/index.js"
+      "import": {
+        "types": "./dist/tenant/index.d.ts",
+        "default": "./dist/tenant/index.js"
+      },
+      "require": {
+        "types": "./dist/tenant/index.d.cts",
+        "default": "./dist/tenant/index.cjs"
+      }
     },
     "./auth": {
-      "types": "./dist/auth/index.d.ts",
-      "import": "./dist/auth/index.js"
+      "import": {
+        "types": "./dist/auth/index.d.ts",
+        "default": "./dist/auth/index.js"
+      },
+      "require": {
+        "types": "./dist/auth/index.d.cts",
+        "default": "./dist/auth/index.cjs"
+      }
     },
     "./router": {
-      "types": "./dist/router/index.d.ts",
-      "import": "./dist/router/index.js"
+      "import": {
+        "types": "./dist/router/index.d.ts",
+        "default": "./dist/router/index.js"
+      },
+      "require": {
+        "types": "./dist/router/index.d.cts",
+        "default": "./dist/router/index.cjs"
+      }
     },
     "./task": {
-      "types": "./dist/task/index.d.ts",
-      "import": "./dist/task/index.js"
+      "import": {
+        "types": "./dist/task/index.d.ts",
+        "default": "./dist/task/index.js"
+      },
+      "require": {
+        "types": "./dist/task/index.d.cts",
+        "default": "./dist/task/index.cjs"
+      }
     },
     "./inline": {
-      "types": "./dist/inline/index.d.ts",
-      "import": "./dist/inline/index.js"
+      "import": {
+        "types": "./dist/inline/index.d.ts",
+        "default": "./dist/inline/index.js"
+      },
+      "require": {
+        "types": "./dist/inline/index.d.cts",
+        "default": "./dist/inline/index.cjs"
+      }
     },
     "./datetime": {
-      "types": "./dist/datetime/index.d.ts",
-      "import": "./dist/datetime/index.js"
+      "import": {
+        "types": "./dist/datetime/index.d.ts",
+        "default": "./dist/datetime/index.js"
+      },
+      "require": {
+        "types": "./dist/datetime/index.d.cts",
+        "default": "./dist/datetime/index.cjs"
+      }
     },
     "./resource": {
-      "types": "./dist/resource/index.d.ts",
-      "import": "./dist/resource/index.js"
+      "import": {
+        "types": "./dist/resource/index.d.ts",
+        "default": "./dist/resource/index.js"
+      },
+      "require": {
+        "types": "./dist/resource/index.d.cts",
+        "default": "./dist/resource/index.cjs"
+      }
     },
     "./theme": {
-      "types": "./dist/theme/index.d.ts",
-      "import": "./dist/theme/index.js"
+      "import": {
+        "types": "./dist/theme/index.d.ts",
+        "default": "./dist/theme/index.js"
+      },
+      "require": {
+        "types": "./dist/theme/index.d.cts",
+        "default": "./dist/theme/index.cjs"
+      }
     }
   },
   "files": [
@@ -81,6 +185,7 @@
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-router": "^1.0.0",
+    "@tanstack/react-table": "^9.3.1",
     "react": "^19.0.0",
     "zod": "^4.0.0"
   },
@@ -95,6 +200,7 @@
     "@testing-library/react": "catalog:",
     "@types/react": "catalog:",
     "happy-dom": "catalog:",
+    "publint": "^0.3.25",
     "react": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",

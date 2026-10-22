@@ -1,0 +1,44 @@
+name: Release
+
+# ADR-0007：MIT 定案但暂不 npm publish —— 本 workflow 只产出 git tag + CHANGELOG。
+# 模式：push main 且有 changeset → changesets/action 开/更新 "Version Packages" PR；
+# 该 PR 合并（changeset 清空、版本落定）→ 执行 publish 脚本（= `changeset tag`，仅打 tag 推送）。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Changesets (tag + changelog only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # 推送 tag 与版本提交
+      pull-requests: write # 开/更新 Version Packages PR
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本读根 package.json 的 packageManager 字段
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # version = 有 changeset 时更新 Version Packages PR；publish = PR 合并后执行（仅 changeset tag，不 npm publish）
+      - uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release-tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

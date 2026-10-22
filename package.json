@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.9.1",
+  "license": "MIT",
   "description": "@patterns-ui — console/SaaS UI 底座：core 逻辑包 + registry blocks + demo",
   "scripts": {
     "dev": "pnpm --filter demo dev",
@@ -14,8 +15,10 @@
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",
     "registry:build": "tsx registry/scripts/build.ts",
+    "registry:smoke": "node scripts/registry-consumer-smoke.mjs",
     "changeset": "changeset",
-    "version-packages": "changeset version"
+    "version-packages": "changeset version",
+    "release-tag": "changeset tag"
   },
   "devDependencies": {
     "@base-ui/react": "catalog:",

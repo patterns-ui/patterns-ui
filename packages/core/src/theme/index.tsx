@@ -126,9 +126,7 @@ export function useTheme(): {
   const next = useNextTheme();
   const ctx = useContext(PresetContext);
   if (!ctx) {
-    throw new Error(
-      "useTheme must be used within a ThemeProvider (@patterns-ui/core/theme)",
-    );
+    throw new Error("useTheme must be used within a ThemeProvider (@patterns-ui/core/theme)");
   }
   return {
     theme: (next.theme ?? DEFAULT_THEME) as ThemeMode,
