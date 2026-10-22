@@ -5,7 +5,7 @@
 import type { DirtyGuardState } from "@patterns-ui/core/form";
 import { useFormDirtyGuard } from "@patterns-ui/core/form";
 import { FileWarning } from "lucide-react";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/blocks/form/confirm-dialog/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,9 @@ export function useFormDraftAutosave(
   }, [form, saveDraft]);
 }
 
-/** dirty guard 宿主：form.Subscribe(isDirty) → 本组件（真组件内调用 hooks）→ 确认框 */
+/** dirty guard 宿主：form.Subscribe(isDirty) → 本组件（真组件内调用 hooks）→ 确认框。
+ * 脏态经 store 原始订阅同步写入 ref 并以 getter 传入 useFormDirtyGuard——守卫武装不依赖
+ * Subscribe 重渲染提交时机（慢机竞态：fill 后立即点导航可能抢在重渲染前，boolean 形态漏拦）。 */
 export function DirtyGuardHost({
   form,
   onBlocked,
@@ -37,15 +39,23 @@ export function DirtyGuardHost({
   form: any;
   onBlocked?: () => void;
 }) {
+  const dirtyRef = useRef(form.store.state.isDirty === true);
+  useEffect(() => {
+    const subscription = form.store.subscribe(() => {
+      dirtyRef.current = form.store.state.isDirty === true;
+    }) as { unsubscribe: () => void };
+    return () => subscription.unsubscribe();
+  }, [form]);
+  const getDirty = useCallback(() => dirtyRef.current, []);
   return (
     <form.Subscribe
       selector={(s: { isDirty: boolean; isSubmitting: boolean; isSubmitSuccessful: boolean }) =>
         [s.isDirty, s.isSubmitting, s.isSubmitSuccessful] as const
       }
     >
-      {([isDirty, isSubmitting, isSubmitSuccessful]: readonly [boolean, boolean, boolean]) => (
+      {([, isSubmitting, isSubmitSuccessful]: readonly [boolean, boolean, boolean]) => (
         <GuardBody
-          isDirty={isDirty}
+          getDirty={getDirty}
           submitActive={isSubmitting || isSubmitSuccessful}
           onBlocked={onBlocked}
         />
@@ -55,17 +65,18 @@ export function DirtyGuardHost({
 }
 
 function GuardBody({
-  isDirty,
+  getDirty,
   submitActive,
   onBlocked,
 }: {
-  isDirty: boolean;
+  /** 实时脏态读取（store 订阅同步维护的 ref） */
+  getDirty: () => boolean;
   /** 提交中/已成功：redirect 引发的导航自动放行（不弹确认） */
   submitActive: boolean;
   onBlocked?: () => void;
 }) {
   // 提交期间/成功后解除 guard：useResourceForm 的 redirect 导航不被自身拦截
-  const guard: DirtyGuardState = useFormDirtyGuard(isDirty, !submitActive);
+  const guard: DirtyGuardState = useFormDirtyGuard(getDirty, !submitActive);
   useEffect(() => {
     if (guard.blocked && submitActive) {
       guard.proceed();

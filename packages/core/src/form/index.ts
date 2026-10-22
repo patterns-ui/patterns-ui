@@ -335,9 +335,24 @@ export interface DirtyGuardState {
 /**
  * 脏表单双拦截：TanStack Router useBlocker（行内导航，需路由上下文）+ beforeUnload（刷新/关闭）。
  * 确认 UI 由 blocks 提供：`blocked === true` 时渲染确认框，proceed()/stay() 接管。
+ *
+ * `isDirty` 支持两种形态（非破坏性联合）：
+ * - `boolean`：经宿主重渲染传播（ref 在渲染期同步）；
+ * - `() => boolean`（getter）：宿主可在 form store 原始订阅内同步更新被捕获的 ref——
+ *   守卫武装不依赖 React 渲染调度。竞态场景：慢机上「填表 → 立即点导航」可能抢在
+ *   Subscribe 重渲染提交之前，boolean 形态的 ref 仍是旧值 → 导航漏拦；getter 形态
+ *   在 store 变更的同一任务内武装（demo 的 DirtyGuardHost 即此形态）。
  */
-export function useFormDirtyGuard(isDirty: boolean, enabled = true): DirtyGuardState {
-  const active = enabled && isDirty;
+export function useFormDirtyGuard(
+  isDirty: boolean | (() => boolean),
+  enabled = true,
+): DirtyGuardState {
+  // shouldBlockFn 读取的脏态出口：boolean 形态每渲染刷新；getter 形态读实时值
+  const readDirtyRef = useRef<() => boolean>(() => false);
+  readDirtyRef.current = typeof isDirty === "function" ? isDirty : () => isDirty;
+  const enabledRef = useRef(enabled);
+  enabledRef.current = enabled;
+  const active = enabled && (typeof isDirty === "function" ? isDirty() : isDirty);
 
   // beforeunload：浏览器刷新/关闭（原生对话框；仅提示，不可定制）
   useEffect(() => {
@@ -351,11 +366,9 @@ export function useFormDirtyGuard(isDirty: boolean, enabled = true): DirtyGuardS
   }, [active]);
 
   // 行内导航：useBlocker + withResolver（status: idle | blocked）
-  const activeRef = useRef(active);
-  activeRef.current = active;
   const bypassRef = useRef(false);
   const blocker = useBlocker({
-    shouldBlockFn: () => !bypassRef.current && activeRef.current,
+    shouldBlockFn: () => !bypassRef.current && enabledRef.current && readDirtyRef.current(),
     enableBeforeUnload: false,
     withResolver: true,
   });

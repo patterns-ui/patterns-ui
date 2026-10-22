@@ -468,7 +468,7 @@ export function draftKey(resourceName: string, id: string | undefined): string
 - **服务端错误**：`onSubmit` 的返回值在 v1.33 被忽略；必须 `formApi.setErrorMap({ onSubmit: { fields, form } })`（或 onServer 时相）。`isGlobalFormValidationError = 对象含 "fields" 键`。
 - 便利封装：blocks `typed-form-field` 导出 `TypedField`（component prop 风格）与 `VisibleWhen`（条件显隐）。
 
-**dirty guard**：`useFormDirtyGuard(isDirty: boolean, enabled?: boolean)` → `{ blocked, proceed(), stay() }` —— 拦截 router beforeUnload + TanStack Router `useBlocker`（阻塞行内导航）；确认 UI 由 blocks 提供（`blocked === true` 时渲染确认框）。注意：提交成功后的 redirect 导航会被自身 guard 拦截 —— 宿主应在 `isSubmitting || isSubmitSuccessful` 期间禁用 guard（demo `DirtyGuardHost` 的做法）。
+**dirty guard**：`useFormDirtyGuard(isDirty: boolean | (() => boolean), enabled?: boolean)` → `{ blocked, proceed(), stay() }` —— 拦截 router beforeUnload + TanStack Router `useBlocker`（阻塞行内导航）；确认 UI 由 blocks 提供（`blocked === true` 时渲染确认框）。注意：提交成功后的 redirect 导航会被自身 guard 拦截 —— 宿主应在 `isSubmitting || isSubmitSuccessful` 期间禁用 guard（demo `DirtyGuardHost` 的做法）。`isDirty` 的 getter 形态（M7-A3）：宿主在 form store 原始订阅内同步更新 ref 并传 getter——守卫武装不经 React 渲染调度（慢机竞态：填表后立即导航可能抢在 Subscribe 重渲染提交前，boolean 形态读旧值漏拦；getter 在 store 变更同一任务内武装，demo `DirtyGuardHost` 即此形态）。
 
 ---
 

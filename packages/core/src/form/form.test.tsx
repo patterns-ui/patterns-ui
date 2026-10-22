@@ -428,6 +428,27 @@ describe("useFormDirtyGuard", () => {
     expect(router.state.location.pathname).toBe("/services");
   });
 
+  it("getter 形态：ref 更新后未重渲染也应拦截（同步武装，慢机竞态回归）", async () => {
+    const router = buildRouter();
+    const dirtyRef = { current: false };
+    const harness = await renderInRoute(() => useFormDirtyGuard(() => dirtyRef.current), router);
+
+    // 干净状态：导航不被拦截
+    await act(async () => {
+      await router.navigate({ to: "/services/new" });
+    });
+    expect(harness.current().blocked).toBe(false);
+
+    // 脏态只更新 ref、不触发任何重渲染（模拟 store 订阅与点击导航之间的竞态窗口）
+    dirtyRef.current = true;
+    await act(async () => {
+      void router.navigate({ to: "/services" });
+      await new Promise((r) => setTimeout(r, 10));
+    });
+    expect(harness.current().blocked).toBe(true);
+    expect(router.state.location.pathname).toBe("/services/new");
+  });
+
   it("beforeunload 监听随 dirty 开关", async () => {
     const addSpy = vi.spyOn(window, "addEventListener");
     const removeSpy = vi.spyOn(window, "removeEventListener");
