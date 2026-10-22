@@ -5,10 +5,15 @@ import {
   type FilterLeaf,
   type FilterOperator,
   type FilterTree,
+  filterLabel,
   flattenLeaves,
-  isFilterLeaf,
   isFilterNode,
+  leafForField,
+  opsForFilterDef,
+  removeField,
   removeLeaf,
+  valueControlForDef,
+  withFieldLeaf,
 } from "@patterns-ui/core/filters";
 import { cn } from "cn";
 import { ArrowDownUp, ChevronDown, Plus, Search, SlidersHorizontal, X } from "lucide-react";
@@ -56,31 +61,6 @@ export interface FilterBarProps {
   savedViewsResourceKey?: string;
   onRefresh?: () => void;
   className?: string;
-}
-
-/** 同 field 叶子替换/追加（简单控件写入路径；or 树保持原 combinator） */
-export function withLeaf(tree: FilterTree | undefined, leaf: FilterLeaf): FilterTree {
-  if (tree === undefined) return leaf;
-  if (isFilterLeaf(tree)) {
-    return tree.field === leaf.field ? leaf : { combinator: "and", children: [tree, leaf] };
-  }
-  const children = tree.children.filter((c) => !(isFilterLeaf(c) && c.field === leaf.field));
-  return { combinator: tree.combinator, children: [...children, leaf] };
-}
-
-export function removeByField(tree: FilterTree | undefined, field: string): FilterTree | undefined {
-  if (tree === undefined) return undefined;
-  if (isFilterLeaf(tree)) return tree.field === field ? undefined : tree;
-  const children = tree.children
-    .map((c) => removeByField(c, field))
-    .filter((c): c is FilterTree => c !== undefined);
-  if (children.length === 0) return undefined;
-  if (children.length === 1) return children[0];
-  return { combinator: tree.combinator, children };
-}
-
-function defLabel(defs: FilterDef[], field: string): string {
-  return defs.find((d) => d.field === field)?.label ?? field;
 }
 
 function formatLeafValue(leaf: FilterLeaf): string {
@@ -138,10 +118,10 @@ export function FilterBar({
   const leaves = useMemo(() => flattenLeaves(applied), [applied]);
 
   const applyLeaf = (leaf: FilterLeaf): void => {
-    list.applyFilters(withLeaf(list.state.filters, leaf));
+    list.applyFilters(withFieldLeaf(list.state.filters, leaf));
   };
   const clearField = (field: string): void => {
-    list.applyFilters(removeByField(list.state.filters, field));
+    list.applyFilters(removeField(list.state.filters, field));
   };
 
   return (
@@ -162,7 +142,7 @@ export function FilterBar({
           <FilterDefControl
             key={def.field}
             def={def}
-            leaf={leaves.find((l) => l.field === def.field)}
+            leaf={leafForField(applied, def.field)}
             onApply={applyLeaf}
             onClear={() => clearField(def.field)}
           />
@@ -190,11 +170,11 @@ export function FilterBar({
         <div className="flex flex-wrap items-center gap-1.5" data-slot="filter-chips">
           {leaves.map((leaf, i) => (
             <Badge key={`${leaf.field}-${i}`} variant="secondary" className="gap-1 font-normal">
-              <span className="text-muted-foreground">{defLabel(defs, leaf.field)}:</span>
+              <span className="text-muted-foreground">{filterLabel(defs, leaf.field)}:</span>
               <span className="font-mono text-xs">{formatChip(leaf)}</span>
               <button
                 type="button"
-                aria-label={`移除 ${defLabel(defs, leaf.field)} 过滤`}
+                aria-label={`移除 ${filterLabel(defs, leaf.field)} 过滤`}
                 className="hover:bg-muted-foreground/20 -mr-1 rounded-full p-0.5"
                 onClick={() => list.applyFilters(removeLeaf(list.state.filters, leaf))}
               >
@@ -674,14 +654,7 @@ function LeafRow({
   onChange: (next: FilterTree | undefined) => void;
 }) {
   const def = defs.find((d) => d.field === leaf.field) ?? defs[0];
-  const ops: FilterOperator[] =
-    def?.kind === "number"
-      ? ["eq", "gt", "gte", "lt", "lte", "between"]
-      : def?.kind === "multi-select"
-        ? ["in", "nin"]
-        : def?.kind === "date-range"
-          ? ["between"]
-          : ["eq", "ne", "contains"];
+  const ops: FilterOperator[] = opsForFilterDef(def);
 
   return (
     <div className="bg-muted/30 flex flex-wrap items-center gap-1.5 rounded-md border px-2 py-1.5">
@@ -745,7 +718,9 @@ function LeafValueEditorInline({
   def: FilterDef | undefined;
   onChange: (next: FilterTree | undefined) => void;
 }) {
-  if (def?.kind === "select") {
+  // 控件形态推断走 core/filters 字段级 API（valueControlForDef）；JSX 留在 block 层
+  const control = valueControlForDef(def, leaf.op);
+  if (control === "option" && def?.kind === "select") {
     return (
       <Select
         value={String(leaf.value ?? "")}
@@ -766,7 +741,7 @@ function LeafValueEditorInline({
       </Select>
     );
   }
-  if (def?.kind === "multi-select") {
+  if (control === "options" && def?.kind === "multi-select") {
     const options = def.options === "facet" ? [] : def.options;
     const values = Array.isArray(leaf.value) ? (leaf.value as string[]) : [];
     return (
@@ -797,7 +772,7 @@ function LeafValueEditorInline({
       </DropdownMenu>
     );
   }
-  if (leaf.op === "between") {
+  if (control === "range") {
     const pair =
       Array.isArray(leaf.value) && leaf.value.length === 2
         ? [String(leaf.value[0] ?? ""), String(leaf.value[1] ?? "")]

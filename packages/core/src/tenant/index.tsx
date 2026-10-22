@@ -17,7 +17,9 @@ import {
   useMemo,
   useRef,
 } from "react";
+import { z } from "zod";
 import { useMounted } from "../mounted";
+import { createStorage } from "../storage";
 
 export { useMounted };
 
@@ -47,21 +49,20 @@ export function replaceTenantPrefix(pathname: string, tenantId: string): string 
   return `/t/${tenantId}`;
 }
 
-/** 记忆最近租户（偏好语义）。应在 effect / 事件内调用（localStorage 访问已 try/catch 收敛）。 */
+/** 租户记忆存储（createStorage 单源；信封前裸字符串经 migrate 无损沿用） */
+const tenantStorage = createStorage(TENANT_STORAGE_KEY, z.string(), {
+  version: 1,
+  // 信封前格式 = 裸字符串 "t-xxx"（未经 JSON 序列化）：原样沿用
+  migrate: (raw) => raw,
+});
+
+/** 记忆最近租户（偏好语义）。应在 effect / 事件内调用（存储访问已 try/catch 收敛）。 */
 export function rememberTenant(id: string): void {
-  try {
-    globalThis.localStorage?.setItem(TENANT_STORAGE_KEY, id);
-  } catch {
-    /* 非浏览器环境 / 隐私模式：静默降级为不记忆 */
-  }
+  tenantStorage.write(id);
 }
 
 export function getRememberedTenant(): string | null {
-  try {
-    return globalThis.localStorage?.getItem(TENANT_STORAGE_KEY) ?? null;
-  } catch {
-    return null;
-  }
+  return tenantStorage.read() ?? null;
 }
 export interface RootTenantRedirectOptions {
   tenants: Tenant[];
@@ -94,6 +95,15 @@ interface TenantContextValue {
 
 const TenantContext = createContext<TenantContextValue | null>(null);
 
+/**
+ * 租户注册表缓存 key（模块内单点定义；非资源 list 族，不走 data/query-keys 工厂——
+ * 形状 `["fc", "tenants"]` / `["fc", "tenant", id]` 与资源键约定不同族，勿混用）。
+ */
+const tenantKeys = {
+  list: ["fc", "tenants"] as const,
+  detail: (id: string | undefined) => ["fc", "tenant", id] as const,
+};
+
 export function TenantProvider({ resolveTenant, listTenants, children }: TenantProviderProps) {
   const params = useParams({ strict: false }) as { tenantId?: string };
   const tenantId = params.tenantId;
@@ -102,13 +112,13 @@ export function TenantProvider({ resolveTenant, listTenants, children }: TenantP
   const queryClient = useQueryClient();
 
   const tenantsQuery = useQuery({
-    queryKey: ["fc", "tenants"],
+    queryKey: tenantKeys.list,
     queryFn: listTenants,
     staleTime: 60_000,
   });
 
   const tenantQuery = useQuery({
-    queryKey: ["fc", "tenant", tenantId],
+    queryKey: tenantKeys.detail(tenantId),
     queryFn: () => resolveTenant(tenantId as string),
     enabled: tenantId != null,
     staleTime: 60_000,

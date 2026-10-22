@@ -6,6 +6,7 @@
  * sections 的 cell 类型经 cellFor 渲染（与 inferColumns 同一标记体系）。
  */
 
+import { defaultReferenceLabel } from "@patterns-ui/core/reference";
 import type { ResourceDef } from "@patterns-ui/core/resource";
 import { useMemo } from "react";
 import {
@@ -77,7 +78,7 @@ export function ResourceDetailView<TData extends AnyRow>({
   }
 
   const record = row as Record<string, unknown>;
-  const title = String(record.name ?? record.title ?? record.id ?? id);
+  const title = defaultReferenceLabel(record) || String(id);
   const listPath = listPathOf(def);
 
   const gridItemsFor = (sectionIndex: number): DetailGridItem[] =>

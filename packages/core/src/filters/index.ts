@@ -6,7 +6,12 @@
  *  - 树模式（含 or / 嵌套 / 同 field 多叶子）整体编码进 `f` 参数（encodeURIComponent JSON）。
  * contains 大小写不敏感；between 支持数值与日期（ISO 字符串按时间戳比较）。
  */
+
 import { z } from "zod";
+import { isIsoDate } from "../datetime";
+
+// M6-D：字段级 API（filter-bar / facet-sidebar 共用的字段遍历、写入与控件类型推断）
+export * from "./fields";
 
 // ---------------------------------------------------------------------------
 // 类型（docs/core-api.md §1.1 / §2）
@@ -128,7 +133,7 @@ export function defaultOpForDef(def: FilterDef): FilterOperator {
 // 客户端求值器
 // ---------------------------------------------------------------------------
 
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ].*)?$/;
+// ISO 日期判定经 datetime 单源（M6-B 工具单点化；resource 的类型推断后续同源收口）
 
 function getByPath(row: unknown, field: string): unknown {
   return field.split(".").reduce<unknown>((acc, key) => {
@@ -144,7 +149,7 @@ function comparable(v: unknown): number | undefined {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "boolean") return v ? 1 : 0;
   if (typeof v === "string") {
-    if (ISO_DATE_RE.test(v)) {
+    if (isIsoDate(v)) {
       const t = Date.parse(v.includes("T") || v.includes(" ") ? v : `${v}T00:00:00`);
       return Number.isNaN(t) ? undefined : t;
     }

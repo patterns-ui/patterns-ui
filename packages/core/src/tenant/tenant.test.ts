@@ -43,12 +43,21 @@ describe("replaceTenantPrefix", () => {
 });
 
 describe("rememberTenant / getRememberedTenant", () => {
-  it("round-trips through localStorage", () => {
+  it("round-trips through localStorage（createStorage 信封格式，M6-B）", () => {
     stubLocalStorage();
     expect(getRememberedTenant()).toBeNull();
     rememberTenant("acme-web");
     expect(getRememberedTenant()).toBe("acme-web");
-    expect(localStorage.getItem(TENANT_STORAGE_KEY)).toBe("acme-web");
+    expect(JSON.parse(localStorage.getItem(TENANT_STORAGE_KEY) ?? "{}")).toEqual({
+      v: 1,
+      d: "acme-web",
+    });
+  });
+
+  it("旧格式（信封前裸字符串）无感迁移", () => {
+    stubLocalStorage();
+    localStorage.setItem(TENANT_STORAGE_KEY, "torchwood");
+    expect(getRememberedTenant()).toBe("torchwood");
   });
 
   it("tolerates a missing localStorage (no browser)", () => {

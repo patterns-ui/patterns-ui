@@ -1,5 +1,5 @@
 import { createRootRoute, Link, Outlet } from "@tanstack/react-router";
-import { Error404 } from "@/components/blocks/shared/error-pages/error-404";
+import { ErrorPage } from "@/components/blocks/shared/error-pages/error-page";
 import { RouteErrorBoundary } from "@/components/blocks/shared/error-pages/route-error-boundary";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "@/components/ui/sonner";
@@ -12,7 +12,8 @@ export const Route = createRootRoute({
     </>
   ),
   notFoundComponent: () => (
-    <Error404
+    <ErrorPage
+      code={404}
       action={
         <Button size="sm" render={<Link to="/" />}>
           返回首页

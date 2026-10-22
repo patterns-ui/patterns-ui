@@ -11,7 +11,7 @@
  */
 import { createFormHookContexts } from "@tanstack/react-form";
 import { cn } from "cn";
-import { type ReactNode, useId } from "react";
+import { createContext, type ReactNode, useContext, useId } from "react";
 import {
   Field,
   FieldContent,
@@ -22,6 +22,24 @@ import {
 
 export const { fieldContext, useFieldContext, useFormContext, formContext } =
   createFormHookContexts();
+
+// ---------------------------------------------------------------------------
+// 控件 a11y ids（M6-D §2.3 债务：label 绑定 + 错误/描述关联）
+// ---------------------------------------------------------------------------
+
+/** FieldShell 生成的控件 a11y 绑定（widget 主控件 id 与 label htmlFor 一致；describedBy 关联描述与错误） */
+export interface FieldControlIds {
+  controlId: string;
+  /** aria-describedby 值（描述 + 错误 id 空格连接；两者皆无则 undefined） */
+  describedBy: string | undefined;
+}
+
+const FieldControlIdsContext = createContext<FieldControlIds | null>(null);
+
+/** widget 内取本字段的控件 id / aria-describedby（须在 FieldShell children 内调用；多控件场景主控件取 id、全部控件挂 describedBy） */
+export function useFieldControlIds(): FieldControlIds | null {
+  return useContext(FieldControlIdsContext);
+}
 
 /** TanStack Form 错误值 → 文案（string | { message }） */
 export function fieldMessage(error: unknown): string {
@@ -88,15 +106,22 @@ export function FieldShell({
   className,
   inline = false,
 }: FieldShellProps) {
-  const id = useId();
+  const uid = useId();
+  const controlId = htmlFor ?? uid;
+  const descriptionId = description ? `${uid}-description` : undefined;
+  const errorId = `${uid}-error`;
+  const hasError = errors !== undefined && errors.length > 0;
+  const describedBy =
+    [description ? descriptionId : null, hasError ? errorId : null].filter(Boolean).join(" ") ||
+    undefined;
   return (
     <Field
-      data-invalid={errors !== undefined && errors.length > 0 ? true : undefined}
+      data-invalid={hasError ? true : undefined}
       orientation={inline ? "horizontal" : "vertical"}
       className={cn("gap-2", className)}
     >
       {label ? (
-        <FieldLabel htmlFor={htmlFor ?? id}>
+        <FieldLabel htmlFor={controlId}>
           {label}
           {required ? (
             <span aria-hidden="true" className="text-destructive">
@@ -105,11 +130,15 @@ export function FieldShell({
           ) : null}
         </FieldLabel>
       ) : null}
-      <FieldContent>
-        {children}
-        {description ? <FieldDescription>{description}</FieldDescription> : null}
-        <FieldError errors={errors?.map((message) => ({ message }))} />
-      </FieldContent>
+      <FieldControlIdsContext.Provider value={{ controlId, describedBy }}>
+        <FieldContent>
+          {children}
+          {description ? (
+            <FieldDescription id={descriptionId}>{description}</FieldDescription>
+          ) : null}
+          <FieldError id={errorId} errors={errors?.map((message) => ({ message }))} />
+        </FieldContent>
+      </FieldControlIdsContext.Provider>
     </Field>
   );
 }

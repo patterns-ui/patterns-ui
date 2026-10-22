@@ -4,8 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>demo — @patterns-ui</title>
-    <!-- 防闪（FOUC）阻塞脚本：与 core theme 的 themeBlockingScript() 输出保持一致
-         （localStorage 'fc:theme'/'fc:preset' → data-theme/data-preset + color-scheme） -->
+    <!-- 防闪（FOUC）阻塞脚本：core theme themeBlockingScript() 的内联镜像（无法 import，
+         手工保持一致）。
+         三处同步（M6-B）：core 生成器（packages/core/src/theme/index.tsx）↔ 本镜像 ↔
+         demo guards G6 事实比对（key/默认值/DOM 属性/信封解析）。
+         key 常量：fc:theme = core THEME_STORAGE_KEY、fc:preset = core PRESET_STORAGE_KEY；
+         默认值 dark/default = core DEFAULT_THEME/DEFAULT_PRESET。
+         preset 自 M6-B 起经 createStorage 持久化（{v,d} 信封），读取兼容旧裸字符串。 -->
     <script>
       (() => {
         try {
@@ -13,7 +18,14 @@
           if (t === "system") {
             t = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
           }
-          var p = localStorage.getItem("fc:preset") || "default";
+          var p = localStorage.getItem("fc:preset");
+          try {
+            var o = JSON.parse(p);
+            if (o && typeof o.d === "string") {
+              p = o.d;
+            }
+          } catch (_e) {}
+          p = p || "default";
           var d = document.documentElement;
           d.setAttribute("data-theme", t);
           d.setAttribute("data-preset", p);

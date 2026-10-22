@@ -5,6 +5,7 @@
  * 待处理邀请区（撤销）+ 新邀请 form-dialog（邮箱 + 角色，zod 校验 + 422 回填）。
  * 数据走 client 约定（宿主提供 fetch 适配）；交互编排（弹窗时序）在本块。
  */
+import { listKey } from "@patterns-ui/core/data";
 import {
   createListColumnHelper,
   type ListColumnDef,
@@ -29,6 +30,7 @@ import {
   DataTable,
   type RowActionItem,
 } from "@/components/blocks/list/data-table/data-table";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -92,8 +94,9 @@ type InviteValues = z.output<typeof inviteSchema>;
 
 type MemberRow = TeamMember;
 
-const MEMBERS_KEY = ["team", "members"];
-const INVITATIONS_KEY = ["team", "invitations"];
+/** 列表 queryKey 走 core/data 公共出口（形状 [name, tenantId?, "list", params]），不再手拼数组 */
+const MEMBERS_KEY = listKey("team-members", {});
+const INVITATIONS_KEY = listKey("team-invitations", {});
 
 export function TeamPage({ client, currentUserId, className }: TeamPageProps) {
   const queryClient = useQueryClient();
@@ -241,13 +244,10 @@ export function TeamPage({ client, currentUserId, className }: TeamPageProps) {
   return (
     <div className={cn("flex flex-col gap-6 pb-6", className)} data-slot="team-page">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[22px] font-semibold tracking-tight">Team</h1>
-          <p className="text-muted-foreground text-[13px]">
-            {members.length} 位成员 · {pendingInvitations.length}{" "}
-            个待处理邀请。角色变更即时生效（PATCH）。
-          </p>
-        </div>
+        <PageHeader
+          title="Team"
+          description={`${members.length} 位成员 · ${pendingInvitations.length} 个待处理邀请。角色变更即时生效（PATCH）。`}
+        />
         <Button onClick={() => setInviteOpen(true)}>
           <UserPlus data-icon="inline-start" />
           邀请成员

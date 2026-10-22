@@ -1,6 +1,12 @@
 import type { FacetResult } from "@patterns-ui/core/data";
-import type { FilterDef, FilterLeaf, FilterTree } from "@patterns-ui/core/filters";
-import { isFilterLeaf } from "@patterns-ui/core/filters";
+import {
+  type FilterDef,
+  type FilterTree,
+  filterLabel,
+  inValuesForField,
+  removeField,
+  withFieldLeaf,
+} from "@patterns-ui/core/filters";
 import { cn } from "cn";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -17,45 +23,10 @@ export interface FacetSidebarProps {
   className?: string;
 }
 
-/** 当前字段的 in 叶子值集合（无则空） */
-function inValues(tree: FilterTree | undefined, field: string): string[] {
-  const leaf = collectLeaves(tree).find((l) => l.field === field && l.op === "in");
-  return Array.isArray(leaf?.value) ? (leaf.value as string[]) : [];
-}
-
-function collectLeaves(tree: FilterTree | undefined): FilterLeaf[] {
-  if (tree === undefined) return [];
-  if (isFilterLeaf(tree)) return [tree];
-  return tree.children.flatMap((c) => collectLeaves(c));
-}
-
-/** 写入字段的 in 叶子（替换既有 in/nin 同字段叶子） */
-function withInLeaf(
-  tree: FilterTree | undefined,
-  leaf: FilterLeaf,
-  field: string,
-): FilterTree | undefined {
-  const others = collectRemove(tree, field);
-  if (leaf.value === undefined || (Array.isArray(leaf.value) && leaf.value.length === 0)) {
-    return others;
-  }
-  if (others === undefined) return leaf;
-  if (isFilterLeaf(others)) return { combinator: "and", children: [others, leaf] };
-  return { combinator: others.combinator, children: [...others.children, leaf] };
-}
-
-function collectRemove(tree: FilterTree | undefined, field: string): FilterTree | undefined {
-  if (tree === undefined) return undefined;
-  if (isFilterLeaf(tree)) return tree.field === field ? undefined : tree;
-  const children = tree.children
-    .map((c) => collectRemove(c, field))
-    .filter((c): c is FilterTree => c !== undefined);
-  if (children.length === 0) return undefined;
-  if (children.length === 1) return children[0];
-  return { combinator: tree.combinator, children };
-}
-
-/** facet 侧栏：按字段分组多选 + 计数（勾选即写入 in 过滤） */
+/**
+ * facet 侧栏：按字段分组多选 + 计数（勾选即写入 in 过滤）。
+ * 字段级读取/写入（in 值集合、同字段叶子替换/移除）走 core/filters 字段级 API（M6-D 下沉）。
+ */
 export function FacetSidebar({ facetData, list, defs, className }: FacetSidebarProps) {
   if (facetData === undefined || facetData.length === 0) {
     return (
@@ -67,8 +38,8 @@ export function FacetSidebar({ facetData, list, defs, className }: FacetSidebarP
   return (
     <div className={cn("w-52 shrink-0 space-y-5", className)} data-slot="facet-sidebar">
       {facetData.map((facet) => {
-        const selected = inValues(list.state.filters, facet.field);
-        const label = defs?.find((d) => d.field === facet.field)?.label ?? facet.field;
+        const selected = inValuesForField(list.state.filters, facet.field);
+        const label = defs ? filterLabel(defs, facet.field) : facet.field;
         return (
           <div key={facet.field} className="space-y-1.5">
             <p className="text-muted-foreground px-1 text-xs font-medium tracking-wider uppercase">
@@ -84,16 +55,20 @@ export function FacetSidebar({ facetData, list, defs, className }: FacetSidebarP
                   >
                     <Checkbox
                       checked={checked}
+                      aria-label={`${label}: ${bucket.value}`}
                       onCheckedChange={() => {
                         const next = checked
                           ? selected.filter((v) => v !== bucket.value)
                           : [...selected, bucket.value];
+                        // 空选集 → 移除字段叶子；否则替换写入 in 叶子
                         list.applyFilters(
-                          withInLeaf(
-                            list.state.filters,
-                            { field: facet.field, op: "in", value: next },
-                            facet.field,
-                          ),
+                          next.length === 0
+                            ? removeField(list.state.filters, facet.field)
+                            : withFieldLeaf(list.state.filters, {
+                                field: facet.field,
+                                op: "in",
+                                value: next,
+                              }),
                         );
                       }}
                     />

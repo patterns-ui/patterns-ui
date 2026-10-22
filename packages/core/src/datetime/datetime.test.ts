@@ -164,10 +164,10 @@ describe("prefs persistence", () => {
     writeDateTimePrefs({ timeZone: "Asia/Tokyo" });
     writeDateTimePrefs({ hour12: true }); // 合并而非覆盖
     expect(map.get(DATETIME_STORAGE_KEY)).toBe(
-      JSON.stringify({ timeZone: "Asia/Tokyo", hour12: true }),
+      JSON.stringify({ v: 1, d: { timeZone: "Asia/Tokyo", hour12: true } }),
     );
 
-    // 模拟新页面加载：重新 prime 后偏好恢复
+    // 模拟新页面加载：重新 prime 后偏好恢复（信封前裸 JSON 旧格式同样经 migrate 恢复）
     map.set(DATETIME_STORAGE_KEY, JSON.stringify({ timeZone: "Europe/Berlin" }));
     primeDateTimePrefs();
     expect(formatAbsolute("2026-01-15T12:00:00Z", { absolutePattern: "datetime" })).not.toContain(

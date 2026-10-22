@@ -318,8 +318,8 @@ describe("useResourceForm", () => {
       await new Promise((r) => setTimeout(r, 40));
     });
     expect(JSON.parse(localStorage.getItem(key) ?? "{}")).toEqual({
-      name: "draft-name",
-      env: "prod",
+      v: 1,
+      d: { name: "draft-name", env: "prod" },
     });
 
     // 重挂载（新 hook 实例）→ 恢复草稿

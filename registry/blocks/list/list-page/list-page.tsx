@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { cn } from "cn";
 import { ArrowRight, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 
 export interface ListPageProps {
   title: string;
@@ -62,10 +63,7 @@ export function ListPage({
   return (
     <div className={cn("flex flex-col gap-5 pb-6", className)} data-slot="list-page">
       <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-[22px] font-semibold tracking-tight">{title}</h1>
-          {description ? <p className="text-muted-foreground text-[13px]">{description}</p> : null}
-        </div>
+        <PageHeader title={title} description={description} />
         {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
       </header>
 

@@ -1,14 +1,8 @@
 import { LoaderCircle } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { AuthCardLayout } from "@/components/blocks/auth/auth-card-layout/auth-card-layout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -24,7 +18,7 @@ export interface SignInPageProps {
 }
 
 /**
- * 登录页：品牌位 + 邮箱密码表单 + 错误展示。
+ * 登录页：品牌位 + 邮箱密码表单 + 错误展示（卡片壳见 AuthCardLayout）。
  * onSubmit 抛错 → 表单内联展示（如 HttpError(401) 的「邮箱或密码错误」）；next 回跳由宿主处理。
  */
 export function SignInPage({
@@ -54,51 +48,41 @@ export function SignInPage({
   }
 
   return (
-    <main className="bg-background flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          {brand}
-          <CardTitle className="text-[22px] font-semibold tracking-tight">{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="signin-email">邮箱</Label>
-              <Input
-                id="signin-email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="signin-password">密码</Label>
-              <Input
-                id="signin-password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            {error ? (
-              <p role="alert" className="text-destructive text-sm">
-                {error}
-              </p>
-            ) : null}
-            <Button type="submit" disabled={pending} className="w-full">
-              {pending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
-              {pending ? "登录中…" : submitLabel}
-            </Button>
-          </form>
-        </CardContent>
-        {footer ? <CardFooter className="justify-center text-sm">{footer}</CardFooter> : null}
-      </Card>
-    </main>
+    <AuthCardLayout title={title} description={description} brand={brand} footer={footer}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="signin-email">邮箱</Label>
+          <Input
+            id="signin-email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="signin-password">密码</Label>
+          <Input
+            id="signin-password"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+        {error ? (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" disabled={pending} className="w-full">
+          {pending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
+          {pending ? "登录中…" : submitLabel}
+        </Button>
+      </form>
+    </AuthCardLayout>
   );
 }

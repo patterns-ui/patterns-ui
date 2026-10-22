@@ -49,6 +49,7 @@ import {
 } from "@tanstack/react-table";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FacetResult, ListParams, Page, Resource } from "../data";
+import { useDebouncedCallback } from "../debounce";
 import {
   andTrees,
   applyFilterTree,
@@ -58,8 +59,10 @@ import {
   type FilterTree,
   type SortSpec,
 } from "../filters";
+import { createStorage } from "../storage";
 
 export type { FacetResult, ListParams, Page } from "../data";
+export { useDebouncedCallback } from "../debounce";
 export type { FilterDef, FilterTree, SortDirection, SortSpec } from "../filters";
 
 // ---------------------------------------------------------------------------
@@ -161,10 +164,15 @@ export interface ListSearchSchemaConfig {
   search?: boolean;
   filters?: FilterDef[];
   sort?: { multi?: boolean };
-  pagination?: { pageSizeOptions?: number[] };
+  /**
+   * pageSizeOptions 只声明 URL 合法档位（缺省 DEFAULT_PAGE_SIZE_OPTIONS）；
+   * defaultPageSize（def.list.pageSize 直灌，M6-C 单源）即使不在档位内也合法。
+   */
+  pagination?: { pageSizeOptions?: number[]; defaultPageSize?: number };
 }
 
 export const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+/** 未配置 def.list.pageSize / pagination.initialPageSize 时的缺省页大小（唯一默认值定义点） */
 export const DEFAULT_PAGE_SIZE = 20;
 export const DEFAULT_SEARCH_DEBOUNCE_MS = 250;
 export const DEFAULT_CLIENT_FETCH_SIZE = 500;
@@ -178,7 +186,17 @@ import { z } from "zod";
 export function createListSearchSchema(
   cfg: ListSearchSchemaConfig = {},
 ): z.ZodObject<Record<string, z.ZodType>> {
-  const pageSizeOptions = cfg.pagination?.pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS;
+  // 合法 size = UI 档位 ∪ 缺省页大小（defaultPageSize 可不在档位内——def.list.pageSize 是唯一真相）
+  const allowedSizes = [...(cfg.pagination?.pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS)];
+  const defaultPageSize = cfg.pagination?.defaultPageSize;
+  if (
+    defaultPageSize !== undefined &&
+    defaultPageSize > 0 &&
+    !allowedSizes.includes(defaultPageSize)
+  ) {
+    allowedSizes.push(defaultPageSize);
+    allowedSizes.sort((a, b) => a - b);
+  }
   const shape: Record<string, z.ZodType> = {
     // optional + catch(undefined)：缺省/坏值 → undefined（序列化时键被丢弃，URL 不带默认值噪音）
     f: z.string().optional().catch(undefined),
@@ -187,10 +205,7 @@ export function createListSearchSchema(
     size: z.coerce
       .number()
       .int()
-      .refine(
-        (n) => pageSizeOptions.includes(n),
-        `size must be one of ${pageSizeOptions.join("/")}`,
-      )
+      .refine((n) => allowedSizes.includes(n), `size must be one of ${allowedSizes.join("/")}`)
       .optional()
       .catch(undefined),
     view: z.string().optional().catch(undefined),
@@ -202,6 +217,15 @@ export function createListSearchSchema(
     shape[def.field] = z.string().optional().catch(undefined);
   }
   return z.object(shape);
+}
+
+/**
+ * UI 档位表补入缺省页大小（升序去重）。分页条下拉等展示位用它把 def.list.pageSize
+ * 纳入选项；档位本身只是展示集合，不反向成为缺省值/请求 size 的来源（M6-C）。
+ */
+export function withPageSizeOption(options: number[], size: number | undefined): number[] {
+  if (size === undefined || options.includes(size)) return options;
+  return [...options, size].sort((a, b) => a - b);
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +291,11 @@ export interface UseResourceTableOptions<TData extends RowData> {
   search?: { enabled?: boolean; fields?: string[]; debounceMs?: number };
   /** multi 默认 true */
   sort?: { initial?: SortSpec[]; multi?: boolean };
+  /**
+   * 页大小单源（M6-C）：initialPageSize 是缺省页大小（def.list.pageSize 直灌）——
+   * 内存模式的初始值，也是 URL 无 size 参数时的缺省；未配置回落 DEFAULT_PAGE_SIZE（唯一默认值定义点）。
+   * pageSizeOptions 仅是 UI 档位（分页条下拉），合法但不再反向成为缺省值/请求 size 的来源。
+   */
   pagination?: { initialPageSize?: number; pageSizeOptions?: number[] };
   /** 不可被 UI 修改，进 query 不进 URL 可见区（编码时合并） */
   permanentFilters?: FilterTree;
@@ -329,12 +358,18 @@ interface InternalState {
   size: number;
 }
 
-function clampSize(n: unknown, options: number[]): number {
+/**
+ * 页大小钳制（单源语义，M6-C）：合法 = UI 档位 ∪ 缺省值；缺省值可不在档位内。
+ * 兜底永远是 defaultSize（initialPageSize ?? DEFAULT_PAGE_SIZE）——不再回落 options[0]，
+ * pageSizeOptions 不再反向成为数据源。
+ */
+function clampSize(n: unknown, options: number[], defaultSize: number): number {
   const num = typeof n === "number" ? n : Number(n);
-  if (Number.isFinite(num) && options.includes(num)) return num;
-  return options.includes(DEFAULT_PAGE_SIZE)
-    ? DEFAULT_PAGE_SIZE
-    : (options[0] ?? DEFAULT_PAGE_SIZE);
+  // num > 0：负值/零即使在档位或等于缺省值也不合法（防 def 配置负 pageSize 被直灌）
+  if (Number.isFinite(num) && num > 0 && (options.includes(num) || num === defaultSize)) {
+    return num;
+  }
+  return defaultSize;
 }
 
 function searchTreeFor<TData>(
@@ -380,6 +415,11 @@ export function useResourceTable<TData extends RowData>(
   } = options;
 
   const pageSizeOptions = paginationCfg.pageSizeOptions ?? DEFAULT_PAGE_SIZE_OPTIONS;
+  /** 缺省页大小（单源）：initialPageSize（def.list.pageSize 直灌）→ DEFAULT_PAGE_SIZE；非正值回落默认 */
+  const defaultPageSize =
+    paginationCfg.initialPageSize !== undefined && paginationCfg.initialPageSize > 0
+      ? paginationCfg.initialPageSize
+      : DEFAULT_PAGE_SIZE;
   const initialSort = sortCfg.initial ?? [];
   const multiSort = sortCfg.multi ?? true;
   const debounceMs = searchCfg.debounceMs ?? DEFAULT_SEARCH_DEBOUNCE_MS;
@@ -394,8 +434,9 @@ export function useResourceTable<TData extends RowData>(
         q: typeof router.search.q === "string" ? router.search.q : "",
         tree: decodeFiltersFromParams(router.search, defs),
         sort: parseSortParam(router.search.sort, multiSort),
-        page: typeof router.search.page === "number" ? router.search.page : 1,
-        size: clampSize(router.search.size, pageSizeOptions),
+        page:
+          typeof router.search.page === "number" ? Math.max(1, Math.floor(router.search.page)) : 1,
+        size: clampSize(router.search.size, pageSizeOptions, defaultPageSize),
       }
     : undefined;
 
@@ -404,7 +445,7 @@ export function useResourceTable<TData extends RowData>(
     tree: undefined,
     sort: initialSort,
     page: 1,
-    size: clampSize(paginationCfg.initialPageSize, pageSizeOptions),
+    size: clampSize(paginationCfg.initialPageSize, pageSizeOptions, defaultPageSize),
   });
 
   const state: InternalState = urlState ?? memState;
@@ -426,10 +467,11 @@ export function useResourceTable<TData extends RowData>(
       out.q = next.q !== "" ? next.q : undefined;
       out.sort = next.sort.length > 0 ? formatSortParam(next.sort) : undefined;
       out.page = next.page > 1 ? next.page : undefined;
-      out.size = next.size !== clampSize(undefined, pageSizeOptions) ? next.size : undefined;
+      // URL 不带缺省值噪音：等于缺省页大小时省略 size（缺省单源 = defaultPageSize）
+      out.size = next.size !== defaultPageSize ? next.size : undefined;
       return out;
     },
-    [filterParamKeys, defs, pageSizeOptions],
+    [filterParamKeys, defs, defaultPageSize],
   );
 
   const commit = useCallback(
@@ -453,13 +495,16 @@ export function useResourceTable<TData extends RowData>(
     [commit],
   );
 
-  // 搜索防抖：searchDraft 即时更新，debounceMs 后写入状态源
+  // 搜索防抖：searchDraft 即时更新，debounceMs 后写入状态源（useDebouncedCallback 单源，M6-B）
   const [searchDraft, setSearchDraft] = useState(state.q);
+  const commitSearchDebounced = useDebouncedCallback(
+    (q: string) => commitWithReset({ q }),
+    debounceMs,
+  );
   useEffect(() => {
     if (searchDraft === stateRef.current.q) return;
-    const timer = setTimeout(() => commitWithReset({ q: searchDraft }), debounceMs);
-    return () => clearTimeout(timer);
-  }, [searchDraft, debounceMs, commitWithReset]);
+    commitSearchDebounced(searchDraft);
+  }, [searchDraft, commitSearchDebounced]);
 
   const applyFilters = useCallback(
     (tree?: FilterTree) => commitWithReset({ tree }),
@@ -477,8 +522,8 @@ export function useResourceTable<TData extends RowData>(
   );
   const setPage = useCallback((n: number) => commit({ page: Math.max(1, n) }), [commit]);
   const setPageSize = useCallback(
-    (n: number) => commitWithReset({ size: clampSize(n, pageSizeOptions) }),
-    [commitWithReset, pageSizeOptions],
+    (n: number) => commitWithReset({ size: clampSize(n, pageSizeOptions, defaultPageSize) }),
+    [commitWithReset, pageSizeOptions, defaultPageSize],
   );
   const reset = useCallback(() => {
     setSearchDraft(""); // 同步清空搜索草稿，防止防抖定时器把旧词写回
@@ -733,31 +778,25 @@ export function savedViewsKey(resourceKey: string): string {
   return `fc:view:${resourceKey}`;
 }
 
+const savedViewsSchema = z.array(
+  z.object({ id: z.string(), name: z.string(), search: z.string() }),
+);
+
+/** 命名视图存储（createStorage 单源；旧裸 JSON 数组经 migrate 无损沿用） */
+function savedViewsStorage(resourceKey: string) {
+  return createStorage(savedViewsKey(resourceKey), savedViewsSchema, {
+    version: 1,
+    // 信封前格式 = SavedView[] 裸 JSON 数组：直接沿用，字段校验交给 schema（等价旧手写过滤）
+    migrate: (raw) => raw,
+  });
+}
+
 export function readSavedViews(resourceKey: string): SavedView[] {
-  try {
-    const raw = globalThis.localStorage?.getItem(savedViewsKey(resourceKey));
-    if (raw === null || raw === undefined) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (v): v is SavedView =>
-        typeof v === "object" &&
-        v !== null &&
-        typeof (v as SavedView).id === "string" &&
-        typeof (v as SavedView).name === "string" &&
-        typeof (v as SavedView).search === "string",
-    );
-  } catch {
-    return [];
-  }
+  return savedViewsStorage(resourceKey).read() ?? [];
 }
 
 export function writeSavedViews(resourceKey: string, views: SavedView[]): void {
-  try {
-    globalThis.localStorage?.setItem(savedViewsKey(resourceKey), JSON.stringify(views));
-  } catch {
-    /* 非浏览器环境 / 隐私模式：静默降级 */
-  }
+  savedViewsStorage(resourceKey).write(views);
 }
 
 export interface UseSavedViewsResult {

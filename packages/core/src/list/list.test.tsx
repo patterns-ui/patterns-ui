@@ -546,7 +546,7 @@ describe("useSavedViews", () => {
 
     await act(async () => api().remove(savedId));
     expect(api().views.length).toBe(0);
-    expect(store.get("fc:view:services")).toBe("[]");
+    expect(JSON.parse(store.get("fc:view:services") ?? "{}")).toEqual({ v: 1, d: [] });
 
     vi.unstubAllGlobals();
   });

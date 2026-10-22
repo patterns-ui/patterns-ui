@@ -9,6 +9,7 @@
 import type { ResourceClient, ResourceOf } from "@patterns-ui/core/data";
 import { createResource } from "@patterns-ui/core/data";
 import { type ListColumnDef, useResourceTable } from "@patterns-ui/core/list";
+import { defaultReferenceLabel } from "@patterns-ui/core/reference";
 import type { ResourceDef } from "@patterns-ui/core/resource";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useMemo } from "react";
@@ -155,7 +156,7 @@ export function ResourceListView<TData extends AnyRow>({
     if (variant !== "grid") return [];
     return rows.map((row) => {
       const record = row as Record<string, unknown>;
-      const title = String(record.name ?? record.title ?? record.id ?? "");
+      const title = defaultReferenceLabel(record);
       return {
         title,
         description: record.description !== undefined ? String(record.description) : undefined,

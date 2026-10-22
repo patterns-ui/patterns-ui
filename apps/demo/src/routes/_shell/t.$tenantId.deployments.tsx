@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Rocket } from "lucide-react";
 import { EmptyState } from "@/components/blocks/shared/empty-state/empty-state";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import { Button } from "@/components/ui/button";
 
 function DeploymentsPage() {
@@ -8,10 +9,7 @@ function DeploymentsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-tight">Deployments</h1>
-        <p className="text-muted-foreground text-[13px]">服务的发布记录与进度。</p>
-      </div>
+      <PageHeader title="Deployments" description="服务的发布记录与进度。" />
       <EmptyState
         icon={Rocket}
         title="还没有部署记录"

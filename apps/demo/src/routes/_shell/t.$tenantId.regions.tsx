@@ -14,6 +14,7 @@ import { CellStatus } from "@/components/blocks/cells/cell-status/cell-status";
 import { CellTime } from "@/components/blocks/cells/cell-time/cell-time";
 import { DataTable } from "@/components/blocks/list/data-table/data-table";
 import { AsyncState } from "@/components/blocks/shared/async-state/async-state";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import type { MockMetricPoint, MockRegion } from "@/mocks/db";
 import { metricsClient, regionsClient } from "@/resources-m4";
 
@@ -216,12 +217,7 @@ function MetricsVirtual() {
 function RegionsPage() {
   return (
     <div className="flex flex-col gap-6 pb-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-tight">Regions</h1>
-        <p className="text-muted-foreground text-[13px]">
-          各区域与可用区的服务分布、负载与健康状态。
-        </p>
-      </header>
+      <PageHeader title="Regions" description="各区域与可用区的服务分布、负载与健康状态。" />
       <section className="bg-card overflow-hidden rounded-xl border p-4">
         <RegionsTree />
       </section>

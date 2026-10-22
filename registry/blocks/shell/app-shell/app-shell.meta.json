@@ -1,0 +1,10 @@
+{
+  "name": "app-shell",
+  "type": "registry:block",
+  "title": "App Shell",
+  "description": "应用壳（基座 + variant）：floating 悬浮 / inset 卡面（默认）/ fullbleed 满幅工作台；内容区 min-w-0 防宽表格撑破视口，折叠态 cookie 持久化。",
+  "categories": ["shell"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "side-nav"],
+  "targetDir": "components/blocks/shell/app-shell"
+}

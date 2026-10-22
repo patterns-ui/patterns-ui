@@ -193,12 +193,13 @@ describe("G6 index.html 防闪脚本与 core themeBlockingScript 等价", () => 
     "utf8",
   );
 
-  it("localStorage key、默认值、DOM 属性与 core 常量一致", async () => {
+  it("localStorage key、默认值、DOM 属性、preset 信封解析与 core 常量一致", async () => {
     const htmlFacts = blockingScriptFacts(html);
     const coreFacts = themeSourceFacts(themeSource);
     expect(new Set(htmlFacts.storageKeys)).toEqual(new Set(coreFacts.storageKeys));
     expect(new Set(htmlFacts.defaults)).toEqual(new Set(coreFacts.defaults));
     expect(new Set(htmlFacts.attributes)).toEqual(new Set(coreFacts.attributes));
+    expect(htmlFacts.parsesEnvelope).toBe(coreFacts.parsesEnvelope);
   });
 
   it("反例：key 漂移（fc:theme → fc:mode）会被事实比对抓到", async () => {
@@ -207,5 +208,13 @@ describe("G6 index.html 防闪脚本与 core themeBlockingScript 等价", () => 
     );
     const coreFacts = themeSourceFacts(themeSource);
     expect(new Set(drifted.storageKeys)).not.toEqual(new Set(coreFacts.storageKeys));
+  });
+
+  it("反例：preset 信封解析缺失（漂移回旧裸字符串读取）会被事实比对抓到", async () => {
+    const legacy = blockingScriptFacts(
+      '<script>(() => { var t = localStorage.getItem("fc:theme") || "dark"; var p = localStorage.getItem("fc:preset") || "default"; })();</script>',
+    );
+    const coreFacts = themeSourceFacts(themeSource);
+    expect(legacy.parsesEnvelope).not.toBe(coreFacts.parsesEnvelope);
   });
 });

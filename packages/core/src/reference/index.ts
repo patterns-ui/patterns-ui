@@ -2,11 +2,11 @@
  * core/reference —— 关联数据（docs/core-api.md §4）。
  *
  * useReference：ids 去重 → 优先 client.getMany → 否则 list+in 过滤分块（每块 50）兜底。
- * queryKey 约定：[name, tenantId?, 'many', idsSorted]。
+ * queryKey 经 data 的 manyKey 工厂构造（单源）：[name, tenantId?, 'many', idsSorted]。
  */
 import { type UseQueryResult, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import { type AnyResource, getManyViaList, type ListParams, type Page } from "../data";
+import { type AnyResource, getManyViaList, type ListParams, manyKey, type Page } from "../data";
 import { useTenantOptional } from "../tenant";
 
 export interface UseReferenceResult<TData> {
@@ -41,13 +41,10 @@ export function useReference<TData>(
   const tenantId = useTenantOptional()?.tenantId;
   const scope = resource.tenantScoped ? tenantId : undefined;
   const uniqueSorted = useMemo(() => [...new Set(ids)].sort(), [ids]);
+  // queryKey 与失效语义均走 data 的 manyKey 工厂（单源；跨模块一致性由契约测试锁定）
   const key = useMemo(
-    () => [
-      ...(resource.tenantScoped ? [resource.name, scope] : [resource.name]),
-      "many",
-      uniqueSorted,
-    ],
-    [resource.name, resource.tenantScoped, scope, uniqueSorted],
+    () => manyKey(resource.name, ids, { tenantId: scope }),
+    [resource.name, scope, ids],
   );
 
   const query = useQuery({

@@ -1,9 +1,11 @@
 import type { FilterDef } from "@patterns-ui/core/filters";
 import {
   createListColumnHelper,
-  createListSearchSchema,
+  DEFAULT_PAGE_SIZE_OPTIONS,
   useResourceTable,
+  withPageSizeOption,
 } from "@patterns-ui/core/list";
+import { defineResource, resourceListRouteOptions } from "@patterns-ui/core/resource";
 import { useNewItemsSignal } from "@patterns-ui/core/task";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Columns3, Eye, Plus, SquarePen } from "lucide-react";
@@ -67,6 +69,20 @@ const FILTER_DEFS: FilterDef[] = [
 ];
 
 const helper = createListColumnHelper<MockService>();
+
+/**
+ * services 资源 def（L4，M6-C fixture）：本页 list 配置的单源。
+ * list.pageSize=30 直灌 useResourceTable（缺省页大小）与路由 schema（?size=30 合法）——
+ * 页大小唯一真相在 def，不再与 UI 档位（pageSizeOptions）双源钳制。
+ * 列仍由页面自管（行操作闭包依赖租户参数与 mutation hooks），故 columns 留空。
+ */
+const servicesDef = defineResource<MockService>({
+  name: "services",
+  client: servicesResource.client,
+  columns: [],
+  filters: FILTER_DEFS,
+  list: { mode: "server-offset", pageSize: 30, facets: ["env", "status"] },
+});
 
 function ServicesPage() {
   const [autoIntervalMs, setAutoIntervalMs] = useState<number | false>(false);
@@ -172,15 +188,17 @@ function ServicesPage() {
 
   const list = useResourceTable<MockService>({
     resource: servicesResource,
-    mode: "server-offset",
+    // def.list 配置直灌（M6-C 单源）：mode/facets/pageSize 全部以 def 为准
+    mode: servicesDef.list?.mode ?? "server-offset",
     columns,
-    filters: FILTER_DEFS,
-    facets: ["env", "status"],
+    filters: servicesDef.filters,
+    facets: servicesDef.list?.facets,
     search: { fields: ["name", "id"] },
     sort: { initial: [{ field: "name", direction: "asc" }], multi: true },
     queryOptions: { staleTime: 15_000, refetchInterval: autoIntervalMs },
     // 分组列受控（group=1 → ['env']）；分组是查询语义 → URL
     grouping: { columns: groupOn ? ["env"] : [] },
+    pagination: { initialPageSize: servicesDef.list?.pageSize },
   });
 
   const signal = useNewItemsSignal(list.query, { key: (row) => (row as MockService).id });
@@ -328,14 +346,20 @@ function ServicesPage() {
         <PaginationBar
           list={{ ...list, hasNextPage: undefined }}
           mode="offset"
-          pageSizeOptions={[10, 20, 50, 100]}
+          // UI 档位仅是展示集合：补入 def 缺省页大小（30），档位不反向决定请求 size
+          pageSizeOptions={withPageSizeOption(
+            DEFAULT_PAGE_SIZE_OPTIONS,
+            servicesDef.list?.pageSize,
+          )}
         />
       }
     />
   );
 }
 
-const baseSearchSchema = createListSearchSchema({ filters: FILTER_DEFS });
+// 路由 search schema 以 def 为源（M6-C）：filters/sort/size 档位由 resourceListRouteOptions 生成，
+// def.list.pageSize=30 直灌为缺省档（?size=30 合法、URL 无 size 时缺省 30）
+const baseSearchSchema = resourceListRouteOptions(servicesDef).validateSearch;
 const searchSchema = z.object({
   ...baseSearchSchema.shape,
   /** 分组开关（group=on → 按 env 分组 + replicas sum 聚合；避免数字串被 router JSON 化） */

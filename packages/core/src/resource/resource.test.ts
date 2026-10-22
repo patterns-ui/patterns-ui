@@ -6,7 +6,7 @@
  * navFromResources（分组/排序/canAccess fail-closed）。
  */
 import { QueryClient } from "@tanstack/react-query";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { type AuthSnapshot, getAuthSnapshot } from "../auth";
 import type { Page, ResourceClient } from "../data";
@@ -17,6 +17,7 @@ import {
   inferColumns,
   inferFormFields,
   navFromResources,
+  printGuess,
   resourceDetailRouteOptions,
   resourceListRouteOptions,
 } from "./index";
@@ -101,7 +102,10 @@ describe("defineResource", () => {
 
   it("缺 name/client 抛错", () => {
     expect(() => defineResource({ name: "", client: makeClient(SAMPLE), columns: [] })).toThrow();
-    expect(() => defineResource({ name: "x", client: {} as never, columns: [] })).toThrow();
+    // client 形状退化使 TData 落到 RowData 联合缺省：该分支 getId 必填（编译期约束），补上以走运行时校验
+    expect(() =>
+      defineResource({ name: "x", client: {} as never, columns: [], getId: () => "x" }),
+    ).toThrow();
   });
 });
 
@@ -367,5 +371,76 @@ describe("navFromResources", () => {
       role: "member",
     });
     expect(member.map((g) => g.group)).toEqual(["Build", "Data"]);
+  });
+});
+
+describe("M6-C：pageSize 单源（def.list.pageSize 唯一真相）", () => {
+  it("def.list.pageSize 直灌路由 schema：?size=def 值合法；非档位坏值兜底 undefined", () => {
+    const def = defineResource({
+      name: "services",
+      client: makeClient(SAMPLE),
+      columns: [],
+      list: { pageSize: 30 },
+    });
+    const schema = resourceListRouteOptions(def).validateSearch as unknown as z.ZodObject<
+      Record<string, z.ZodType>
+    >;
+    const size = schema.shape.size as z.ZodType;
+    expect(size.parse(30)).toBe(30); // def 值即使不在 UI 档位（10/20/50/100）也合法
+    expect(size.parse("30")).toBe(30); // coerce 后合法
+    expect(size.parse(7)).toBeUndefined(); // 非档位且非缺省 → catch 兜底
+    // 未配置 def.list.pageSize：缺省档位照旧（10/20/50/100），30 不合法
+    const plainSchema = resourceListRouteOptions(
+      defineResource({ name: "services", client: makeClient(SAMPLE), columns: [] }),
+    ).validateSearch as unknown as z.ZodObject<Record<string, z.ZodType>>;
+    const plainSize = plainSchema.shape.size as z.ZodType;
+    expect(plainSize.parse(30)).toBeUndefined();
+    expect(plainSize.parse(20)).toBe(20);
+  });
+
+  it("printGuess 样本拉取 pageSize 用 def.list.pageSize，缺省 DEFAULT_PAGE_SIZE=20", async () => {
+    // isDev() 在 NODE_ENV=test 下为 false 会直接跳过 Guesser：stub 成 development 走真实路径
+    vi.stubEnv("NODE_ENV", "development");
+    const calls: number[] = [];
+    const recordingClient: ResourceClient<Row, unknown, unknown> = {
+      list: async (params) => {
+        calls.push(params.pageSize);
+        return { rows: SAMPLE, total: SAMPLE.length };
+      },
+      get: async (id: string) => {
+        const row = SAMPLE.find((r) => r.id === id);
+        if (!row) throw new Error("not found");
+        return row;
+      },
+    };
+    await printGuess(
+      defineResource({ name: "svc", client: recordingClient, columns: [], list: { pageSize: 30 } }),
+    );
+    await printGuess(defineResource({ name: "svc2", client: recordingClient, columns: [] }));
+    vi.unstubAllEnvs();
+    expect(calls).toEqual([30, 20]); // 配置值 → 30；未配置 → 唯一默认值 20（不再硬编码 25）
+  });
+});
+
+describe("getId 编译期约束（M6-C）", () => {
+  it("defineResource 归一缺省 getId=row.id；显式 getId 保留", () => {
+    const def = defineResource({ name: "services", client: makeClient(SAMPLE), columns: [] });
+    expect(def.getId?.(SAMPLE[0] ?? ({} as Row))).toBe(SAMPLE[0]?.id);
+    const explicit = defineResource({
+      name: "things",
+      client: makeClient(SAMPLE),
+      columns: [],
+      getId: (row) => row.name,
+    });
+    expect(explicit.getId?.(SAMPLE[0] ?? ({} as Row))).toBe("gateway");
+  });
+
+  it("行类型无 string id 且未声明 getId → 编译期报错（silent fallback 不再留在类型层之下）", () => {
+    const codeClient: ResourceClient<{ code: number; label: string }, unknown, unknown> = {
+      list: async (): Promise<Page<{ code: number; label: string }>> => ({ rows: [], total: 0 }),
+      get: async () => ({ code: 1, label: "x" }),
+    };
+    // @ts-expect-error RequireGetId：TData 无 id: string，getId 必填
+    defineResource({ name: "things", client: codeClient, columns: [] });
   });
 });

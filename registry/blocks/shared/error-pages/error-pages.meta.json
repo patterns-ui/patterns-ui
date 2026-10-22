@@ -2,9 +2,9 @@
   "name": "error-pages",
   "type": "registry:block",
   "title": "Error Pages",
-  "description": "错误页四件套：Error403 / Error404 / Error500 / RouteErrorBoundary（HttpError 分档 + reset 重试 + 返回首页）。",
+  "description": "错误页单模板：ErrorPage（code 参数化：403/404/500 变体映射表 + 自定义 title/message/action）+ RouteErrorBoundary（HttpError 分档 + reset 重试 + 返回首页）。",
   "categories": ["shared", "error-pages"],
   "dependencies": [],
-  "registryDependencies": ["button"],
+  "registryDependencies": ["button", "page-header"],
   "targetDir": "components/blocks/shared/error-pages"
 }

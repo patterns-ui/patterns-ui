@@ -74,12 +74,16 @@ export function findHardcodedColors(code: string, file = "<memory>"): Violation[
 
 /**
  * G6 防闪脚本一致性：从 index.html 提取首个内联 <script> 的关键事实
- * （localStorage key 集、默认值、写入的 DOM 属性），与 core theme 源码比对。
+ * （localStorage key 集、默认值、写入的 DOM 属性、preset 信封解析），与 core theme 源码比对。
+ * M6-B：preset 经 createStorage 持久化（{v,d} 信封）后，脚本须同时兼容裸字符串与
+ * 信封两种读取形态 —— 信封解析的存在性纳入事实比对（防止镜像脚本漂移回旧格式）。
  */
 export interface BlockingScriptFacts {
   storageKeys: string[];
   defaults: string[];
   attributes: string[];
+  /** preset 读取是否解 createStorage {v,d} 信封（JSON.parse + .d 取值） */
+  parsesEnvelope: boolean;
 }
 
 export function blockingScriptFacts(html: string): BlockingScriptFacts {
@@ -89,7 +93,8 @@ export function blockingScriptFacts(html: string): BlockingScriptFacts {
   );
   const defaults = [...script.matchAll(/\|\|\s*"([^"]+)"/g)].map((m) => m[1] ?? "");
   const attributes = [...script.matchAll(/setAttribute\("([^"]+)"/g)].map((m) => m[1] ?? "");
-  return { storageKeys, defaults, attributes };
+  const parsesEnvelope = /JSON\.parse/.test(script) && /\.d\b/.test(script);
+  return { storageKeys, defaults, attributes, parsesEnvelope };
 }
 
 /** 从 core theme 源码文本提取同一组事实（不 import，避免依赖构建产物） */
@@ -100,5 +105,7 @@ export function themeSourceFacts(source: string): BlockingScriptFacts {
     storageKeys: [pick("THEME_STORAGE_KEY"), pick("PRESET_STORAGE_KEY")].filter(Boolean),
     defaults: [pick("DEFAULT_THEME"), pick("DEFAULT_PRESET")].filter(Boolean),
     attributes: ["data-theme", "data-preset"], // themeBlockingScript 固定写这两个属性
+    // themeBlockingScript 生成器含 createStorage 信封解包段（M6-B）
+    parsesEnvelope: source.includes("JSON.parse"),
   };
 }

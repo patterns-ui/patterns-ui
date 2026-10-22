@@ -6,7 +6,9 @@
  * Intl.DateTimeFormat 按 (tz, opts) 键缓存；DST 由 Intl 正确处理。
  */
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { z } from "zod";
 import { useMounted } from "../mounted";
+import { createStorage } from "../storage";
 
 export { useMounted };
 
@@ -22,20 +24,27 @@ const EMPTY_PREFS: DateTimePrefs = {};
 
 // ---------------------------------------------------------------------------
 // 偏好存储：模块级 store（多组件共享同一份，setPrefs 即时广播）。
-// localStorage 读写全部 try/catch 收敛；首次读取发生在 effect（prime）内。
+// 持久化经 createStorage 单源（信封 + zod 校验）；首次读取发生在 effect（prime）内。
 // ---------------------------------------------------------------------------
+
+const dateTimePrefsSchema = z.object({
+  timeZone: z.string().optional(),
+  hour12: z.boolean().optional(),
+  absolutePattern: z.enum(["full", "date", "datetime"]).optional(),
+});
+
+/** 偏好存储（旧裸 JSON 对象经 migrate 无损沿用；坏值弃用回落默认时区） */
+function prefsStorage() {
+  return createStorage(DATETIME_STORAGE_KEY, dateTimePrefsSchema, {
+    version: 1,
+    // 信封前格式 = DateTimePrefs 裸 JSON 对象：直接沿用（字段校验交给 schema）
+    migrate: (raw) => raw,
+  });
+}
 
 let prefsCache: DateTimePrefs = EMPTY_PREFS;
 let primed = false;
 const listeners = new Set<() => void>();
-
-function localStorageRef(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
-}
 
 function emit(): void {
   for (const listener of listeners) listener();
@@ -47,28 +56,17 @@ export function primeDateTimePrefs(): void {
     return;
   }
   primed = true;
-  try {
-    const raw = localStorageRef()?.getItem(DATETIME_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as DateTimePrefs;
-      if (parsed && typeof parsed === "object") {
-        prefsCache = parsed;
-        emit();
-      }
-    }
-  } catch {
-    /* 坏值静默忽略，保持默认 */
+  const restored = prefsStorage().read();
+  if (restored) {
+    prefsCache = restored;
+    emit();
   }
 }
 
 /** 直接写入偏好（合并语义）并持久化；事件/effect 内调用 */
 export function writeDateTimePrefs(patch: Partial<DateTimePrefs>): void {
   prefsCache = { ...prefsCache, ...patch };
-  try {
-    localStorageRef()?.setItem(DATETIME_STORAGE_KEY, JSON.stringify(prefsCache));
-  } catch {
-    /* 非浏览器环境 / 隐私模式：内存态仍生效 */
-  }
+  prefsStorage().write(prefsCache);
   emit();
 }
 
@@ -138,6 +136,17 @@ function getFormatter(prefs: DateTimePrefs): Intl.DateTimeFormat {
 function toDate(value: string | number | Date): Date | undefined {
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+// ---------------------------------------------------------------------------
+// ISO 日期字符串判定（M6-B 工具单点化：filters 的日期比较与 resource 的类型推断共用）
+// ---------------------------------------------------------------------------
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ].*)?$/;
+
+/** ISO 日期形状判定（`YYYY-MM-DD` 或带 `T`/空格 时间部分；时间单源 datetime 收敛） */
+export function isIsoDate(value: string): boolean {
+  return ISO_DATE_RE.test(value);
 }
 
 export function formatAbsolute(value: string | number | Date, prefs: DateTimePrefs): string {

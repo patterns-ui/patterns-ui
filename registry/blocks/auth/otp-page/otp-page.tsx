@@ -1,15 +1,9 @@
 import { cn } from "cn";
 import { LoaderCircle } from "lucide-react";
-import { type ReactNode, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useRef, useState } from "react";
+import { AuthCardLayout } from "@/components/blocks/auth/auth-card-layout/auth-card-layout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export interface OtpPageProps {
@@ -24,7 +18,8 @@ export interface OtpPageProps {
 }
 
 /**
- * 验证码 / MFA 页：N 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。
+ * 验证码 / MFA 页：N 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交；
+ * 卡片壳见 AuthCardLayout）。
  */
 export function OtpPage({
   length = 6,
@@ -103,58 +98,49 @@ export function OtpPage({
   }
 
   return (
-    <main className="bg-background flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          {brand}
-          <CardTitle className="text-[22px] font-semibold tracking-tight">{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (code.length === length && !code.includes("")) {
-                void submit(code);
-              }
-            }}
-            className="flex flex-col items-center gap-4"
-          >
-            <fieldset className="flex gap-2" aria-label={`${length} 位验证码`}>
-              {digits.map((digit, index) => (
-                <Input
-                  key={index}
-                  ref={(el) => {
-                    inputsRef.current[index] = el;
-                  }}
-                  inputMode="numeric"
-                  autoComplete={index === 0 ? "one-time-code" : "off"}
-                  maxLength={length}
-                  value={digit}
-                  autoFocus={index === 0}
-                  disabled={pending}
-                  className={cn(
-                    "size-11 text-center text-base font-medium tabular-nums",
-                    error && "aria-invalid:border-destructive",
-                  )}
-                  onChange={(e) => setDigit(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                />
-              ))}
-            </fieldset>
-            {error ? (
-              <p role="alert" className="text-destructive text-sm">
-                {error}
-              </p>
-            ) : null}
-            <Button type="submit" className="w-full" disabled={pending || code.includes("")}>
-              {pending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
-              {pending ? "验证中…" : "验证"}
-            </Button>
-          </form>
-        </CardContent>
-        {footer ? <CardFooter className="justify-center text-sm">{footer}</CardFooter> : null}
-      </Card>
-    </main>
+    <AuthCardLayout title={title} description={description} brand={brand} footer={footer}>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (code.length === length && !code.includes("")) {
+            void submit(code);
+          }
+        }}
+        className="flex flex-col items-center gap-4"
+      >
+        <fieldset className="flex gap-2" aria-label={`${length} 位验证码`}>
+          {digits.map((digit, index) => (
+            <Input
+              key={index}
+              ref={(el) => {
+                inputsRef.current[index] = el;
+              }}
+              inputMode="numeric"
+              autoComplete={index === 0 ? "one-time-code" : "off"}
+              maxLength={length}
+              value={digit}
+              autoFocus={index === 0}
+              disabled={pending}
+              aria-label={`第 ${index + 1} 位验证码`}
+              className={cn(
+                "size-11 text-center text-base font-medium tabular-nums",
+                error && "aria-invalid:border-destructive",
+              )}
+              onChange={(e) => setDigit(index, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+            />
+          ))}
+        </fieldset>
+        {error ? (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        ) : null}
+        <Button type="submit" className="w-full" disabled={pending || code.includes("")}>
+          {pending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
+          {pending ? "验证中…" : "验证"}
+        </Button>
+      </form>
+    </AuthCardLayout>
   );
 }

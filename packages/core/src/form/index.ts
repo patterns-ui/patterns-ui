@@ -6,8 +6,13 @@
  */
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import { HttpError, type MutationOpts, type ResourceOf } from "../data";
+import { useDebouncedCallback } from "../debounce";
 import { useMounted } from "../mounted";
+import { createStorage } from "../storage";
+
+export { useDebouncedCallback } from "../debounce";
 
 // ---------------------------------------------------------------------------
 // 类型
@@ -75,29 +80,20 @@ export interface UseResourceFormResult<TData> {
 
 const DEFAULT_DRAFT_DEBOUNCE_MS = 800;
 
-function draftStorage(): Storage | undefined {
-  try {
-    return globalThis.localStorage;
-  } catch {
-    return undefined;
-  }
+/** 草稿载荷：任意键值对象（TanStack Form values 的 Partial 序列化形态） */
+const draftSchema = z.record(z.string(), z.unknown());
+
+/** 草稿存储（createStorage 单源；旧裸 JSON 对象经 migrate 无损沿用） */
+function draftStorage(key: string) {
+  return createStorage(key, draftSchema, {
+    version: 1,
+    // 信封前格式 = Partial<TData> 裸 JSON 对象：直接沿用（键值校验交给 schema）
+    migrate: (raw) => raw,
+  });
 }
 
 function readDraft<TData>(key: string): Partial<TData> | null {
-  let raw: string | null = null;
-  try {
-    raw = draftStorage()?.getItem(key) ?? null;
-  } catch {
-    return null;
-  }
-  if (raw === null) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== "object") return null;
-    return parsed as Partial<TData>;
-  } catch {
-    return null;
-  }
+  return (draftStorage(key).read() as Partial<TData> | undefined) ?? null;
 }
 
 /** 从抛出的错误提取服务端错误：422/400 取 body.{fields,form?}；409 → 固定冲突文案 */
@@ -194,38 +190,22 @@ export function useResourceForm<TData>(
   const draftRestored = draftActive && (mode === "create" || record !== undefined);
 
   // -------------------------------------------------------------------------
-  // 草稿防抖写
+  // 草稿防抖写（useDebouncedCallback 单源，M6-B；clearDraft cancel 防已清草稿被在途写回）
   // -------------------------------------------------------------------------
-  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const persistDraft = useDebouncedCallback((values: Partial<TData>) => {
+    draftStorage(key).write(values as Record<string, unknown>);
+  }, debounceMs);
   const clearDraft = useCallback(() => {
-    if (timerRef.current !== undefined) clearTimeout(timerRef.current);
-    timerRef.current = undefined;
-    try {
-      draftStorage()?.removeItem(key);
-    } catch {
-      /* ignore */
-    }
-  }, [key]);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== undefined) clearTimeout(timerRef.current);
-    };
-  }, []);
+    persistDraft.cancel();
+    draftStorage(key).remove();
+  }, [key, persistDraft]);
 
   const saveDraft = useCallback(
     (values: Partial<TData>) => {
       if (!autosaveEnabled || !mounted) return;
-      if (timerRef.current !== undefined) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => {
-        try {
-          draftStorage()?.setItem(key, JSON.stringify(values));
-        } catch {
-          /* 配额/隐私模式：静默放弃草稿 */
-        }
-      }, debounceMs);
+      persistDraft(values);
     },
-    [autosaveEnabled, debounceMs, key, mounted],
+    [autosaveEnabled, mounted, persistDraft],
   );
 
   const discardDraft = useCallback(() => {

@@ -1,5 +1,6 @@
 import { useTenant } from "@patterns-ui/core/tenant";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import { StatStrip } from "@/components/blocks/shared/stat-strip/stat-strip";
 import { Button } from "@/components/ui/button";
 import { servicesResource } from "@/resources";
@@ -27,17 +28,13 @@ function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <p className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-          Overview
-        </p>
-        <h1 className="text-[22px] font-semibold tracking-tight">
-          {tenant?.name ?? (isLoading ? "加载中…" : tenantId)}
-        </h1>
-        <p className="text-muted-foreground text-[13px]">
-          {tenant ? ((tenant as { description?: string }).description ?? "租户概览") : "租户概览"}
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Overview"
+        title={tenant?.name ?? (isLoading ? "加载中…" : tenantId)}
+        description={
+          tenant ? ((tenant as { description?: string }).description ?? "租户概览") : "租户概览"
+        }
+      />
 
       <StatStrip
         stats={[

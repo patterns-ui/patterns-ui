@@ -6,7 +6,6 @@
  * 时区/主题直连 core datetime/theme 偏好（localStorage，不进 URL）。
  */
 import { type ThemeMode, useTheme } from "@patterns-ui/core/theme";
-import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { Building2, KeyRound, LogOut, Palette, UserCog } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -17,6 +16,7 @@ import {
   SubmitButton,
   useAppForm,
 } from "@/components/blocks/form/typed-form-field/typed-form-field";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import { UserAvatar } from "@/components/blocks/shared/user-avatar/user-avatar";
 import { InlineEditField } from "@/components/blocks/show/inline-edit-field/inline-edit-field";
 import { Badge } from "@/components/ui/badge";
@@ -90,12 +90,10 @@ export function SettingsPage({
       className={cn("mx-auto flex w-full max-w-3xl flex-col gap-6 pb-8", className)}
       data-slot="settings-page"
     >
-      <header className="flex flex-col gap-1">
-        <h1 className="text-[22px] font-semibold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground text-[13px]">
-          组织、个人、安全与外观偏好；偏好类设置存于本机（localStorage），不进 URL。
-        </p>
-      </header>
+      <PageHeader
+        title="Settings"
+        description="组织、个人、安全与外观偏好；偏好类设置存于本机（localStorage），不进 URL。"
+      />
 
       {org ? (
         <SettingsSection
@@ -185,7 +183,6 @@ function ProfileSection({
     { ok: true } | { ok: false; fieldErrors?: Record<string, string>; formError?: string }
   >;
 }) {
-  const queryClient = useQueryClient();
   const zones = useMemo(timeZones, []);
   // 时区偏好读 core datetime（独立于 profile 字段提交；也随表单一并保存）
   const form = useAppForm({
@@ -200,7 +197,6 @@ function ProfileSection({
       const result = await onSave(value);
       if (result.ok) {
         toast.success("个人设置已保存");
-        void queryClient.invalidateQueries({ queryKey: ["me"] });
       } else {
         formApi.setErrorMap({
           onSubmit: { fields: result.fieldErrors ?? {}, form: result.formError },

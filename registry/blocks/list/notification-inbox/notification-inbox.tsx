@@ -5,7 +5,13 @@
  * PATCH 单条已读（update(id, {read:true})）、POST 全部已读（bulkUpdate 约定或 host 自接）。
  * 通知行形状（约定字段）：{ id, type, title, body?, read, createdAt, actor? }。
  */
-import type { ListParams, Page, ResourceClient } from "@patterns-ui/core/data";
+import {
+  type ListParams,
+  listKey,
+  listKeyPrefix,
+  type Page,
+  type ResourceClient,
+} from "@patterns-ui/core/data";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import { AlertTriangle, CheckCheck, CreditCard, type LucideIcon, Rocket } from "lucide-react";
@@ -53,6 +59,14 @@ export interface NotificationInboxProps {
 
 const INBOX_KEY = "notification-inbox";
 
+/** 收件箱列表 queryKey（走 core/data 公共出口；形状 [name, tenantId?, "list", params]） */
+const inboxKey = (pageSize: number) => listKey(INBOX_KEY, pageSize);
+
+/**
+ * 列表族失效前缀（core/data 公共出口）：命中任意 pageSize 的收件箱查询（含未读数 badge 查询）。
+ */
+const inboxKeyPrefix = () => listKeyPrefix(INBOX_KEY);
+
 export function NotificationInbox({
   client,
   pageSize = 30,
@@ -64,7 +78,7 @@ export function NotificationInbox({
   const [markingAll, setMarkingAll] = useState(false);
 
   const query = useQuery({
-    queryKey: [INBOX_KEY, "list", pageSize],
+    queryKey: inboxKey(pageSize),
     queryFn: () => client.list({ pageSize, sort: [{ field: "createdAt", direction: "desc" }] }),
   });
 
@@ -81,7 +95,7 @@ export function NotificationInbox({
       return row;
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [INBOX_KEY, "list"] });
+      void queryClient.invalidateQueries({ queryKey: inboxKeyPrefix() });
     },
   });
 
@@ -94,7 +108,7 @@ export function NotificationInbox({
       } else if (client.update) {
         await Promise.all(unreadIds.map((id) => client.update?.(id, { read: true })));
       }
-      await queryClient.invalidateQueries({ queryKey: [INBOX_KEY, "list"] });
+      await queryClient.invalidateQueries({ queryKey: inboxKeyPrefix() });
     } finally {
       setMarkingAll(false);
     }
@@ -206,12 +220,12 @@ export function NotificationInbox({
   );
 }
 
-/** 未读数查询（top-bar badge 用；与收件箱同一 queryKey 前缀共享缓存） */
+/** 未读数查询（top-bar badge 用；与收件箱同一 queryKey 共享缓存） */
 export function useUnreadCount(client: {
   list(params: ListParams): Promise<Page<NotificationRow>>;
 }): number {
   const query = useQuery({
-    queryKey: [INBOX_KEY, "list", 30],
+    queryKey: inboxKey(30),
     queryFn: () => client.list({ pageSize: 30 }),
     // 与 NotificationInbox 相同 key → 缓存共享；staleTime 抑制重复请求
     staleTime: 15_000,

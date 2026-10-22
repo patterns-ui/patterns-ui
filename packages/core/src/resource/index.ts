@@ -12,6 +12,7 @@ import type { ResourceClient } from "../data";
 import type { FilterDef } from "../filters";
 import {
   createListSearchSchema,
+  DEFAULT_PAGE_SIZE,
   type ListColumnDef,
   type ListColumnMeta,
   type ListMode,
@@ -61,7 +62,20 @@ export interface ResourceNavDef {
   order?: number;
 }
 
-export interface ResourceDef<TData extends RowData = RowData> {
+/** 行主键读取的显名形态（泛型体内穿透用；id 字段的存在性由下方编译期约束保证） */
+interface RowWithId {
+  id: string;
+}
+
+/**
+ * getId 编译期约束（M6-C）：行类型不带 `id: string` 主键时，def 必须显式声明 getId，
+ * 否则类型层直接报错——运行时「回退 String(row.id)」的 silent fallback 不再藏在类型层之下。
+ */
+type RequireGetId<TData extends RowData> = TData extends RowWithId
+  ? unknown
+  : { getId: (row: TData) => string };
+
+export interface ResourceDefShape<TData extends RowData> {
   /** 复数 kebab：'services'（URL 段与 queryKey 前缀） */
   name: string;
   /** 'service'（用于文案；缺省按英文复数规则退化） */
@@ -71,7 +85,10 @@ export interface ResourceDef<TData extends RowData = RowData> {
   client: ResourceClient<TData, unknown, unknown>;
   /** 手写列定义或经 inferColumns 生成（meta.cell 标记由 blocks cellFor 消费） */
   columns: ListColumnDef<TData>[];
+  /** 行主键（缺省读 row.id——TData 带 string id 或已显式声明 getId 二者必有其一，编译期保证） */
+  getId?: (row: TData) => string;
   filters?: FilterDef[];
+  /** list.pageSize 是页大小唯一真相：直灌 useResourceTable 缺省与路由 schema（M6-C 单源） */
   list?: { mode?: ListMode; pageSize?: number; facets?: string[] };
   form?: ResourceFormDef;
   show?: ResourceShowDef;
@@ -83,6 +100,10 @@ export interface ResourceDef<TData extends RowData = RowData> {
   /** queryKey 是否含租户段（与 createResource 约定一致；默认 true） */
   tenantScoped?: boolean;
 }
+
+/** def 声明形态：shape + getId 编译期强制（见 RequireGetId） */
+export type ResourceDef<TData extends RowData = RowData> = ResourceDefShape<TData> &
+  RequireGetId<TData>;
 
 function capitalize(word: string): string {
   return word.charAt(0).toUpperCase() + word.slice(1);
@@ -102,7 +123,13 @@ function naiveSingular(name: string): string {
 // biome-ignore lint/suspicious/noExplicitAny: 混合 TData 资源注册表的统一形态（core-api §13）；禁止在具体逻辑内新开 any
 export type AnyResourceDef = ResourceDef<any>;
 
-/** 声明资源：补默认值（singular/label/tenantScoped）并做最小校验；不生成路由树 */
+/** 缺省主键读取：row.id（存在性由 ResourceDef 的编译期约束保证，非 silent fallback） */
+function idOf<TData extends RowData>(row: TData): string {
+  // TData 泛型体内不可见具体形状；RowWithId & RowData 是显名窄化形态（单点、有注释）
+  return (row as RowWithId & RowData).id;
+}
+
+/** 声明资源：补默认值（singular/label/tenantScoped/getId）并做最小校验；不生成路由树 */
 export function defineResource<TData extends RowData>(def: ResourceDef<TData>): ResourceDef<TData> {
   if (!def.name || typeof def.name !== "string") {
     throw new Error("defineResource: name is required (plural kebab-case)");
@@ -119,6 +146,8 @@ export function defineResource<TData extends RowData>(def: ResourceDef<TData>): 
     ...def,
     singular: def.singular ?? naiveSingular(def.name),
     label: def.label ?? capitalize(def.name),
+    // 归一主键读取：缺省 row.id（编译期保证存在）或显式 getId——消费方（createResource 装配等）无需自带回退
+    getId: def.getId ?? idOf,
   };
 }
 
@@ -161,9 +190,10 @@ export function resourceListRouteOptions(def: AnyResourceDef): ResourceListRoute
     search: true,
     filters: def.filters,
     sort: { multi: true },
-    pagination: def.list?.pageSize
-      ? { pageSizeOptions: [10, 20, 50, 100, def.list.pageSize] }
-      : undefined,
+    // def.list.pageSize 直灌为缺省档（M6-C 单源）：URL 无 size → 缺省；?size=缺省值 合法。
+    // 不再把 def 值 reverse-merge 进 pageSizeOptions——UI 档位不反向成为数据源。
+    pagination:
+      def.list?.pageSize !== undefined ? { defaultPageSize: def.list.pageSize } : undefined,
   }).shape;
   const withParent: Record<string, z.ZodType> = { ...shape };
   if (def.parent) {
@@ -393,6 +423,14 @@ function unwrapSchema(node: unknown): unknown {
   return current;
 }
 
+/** zod v4 对象 schema 的形状面（ZodObject 的公共 shape 属性；内省入口的显名窄化形态） */
+type ZodObjectLike = z.ZodTypeAny & { shape?: Record<string, unknown> };
+
+/** dev 判定的环境面（import.meta.env 仅 vite 宿主存在；显名形态替代裸断言） */
+interface ImportMetaEnvLike {
+  env?: { DEV?: boolean };
+}
+
 function schemaCtorName(node: unknown): string {
   const ctor = (node as { constructor?: { name?: string } } | null)?.constructor;
   return ctor?.name ?? "";
@@ -458,6 +496,16 @@ function fieldFromZod(name: string, node: unknown): InferredFormField {
 }
 
 /**
+ * zod 私有 API（`_zod.def` / `innerType` / 构造器名）内省是易变启发式（§2.3 上浮债）：
+ * 生产构建不执行（包进 dev-only）；dev/test 照常——单测需要覆盖该启发式，
+ * 故不直接复用 isDev()（其语义为「非 test 的开发态」）。
+ */
+function zodIntrospectionEnabled(): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string> } }).process?.env;
+  return env?.NODE_ENV !== "production";
+}
+
+/**
  * zod schema（ZodObject 形状）或样本行 → 表单字段推断。
  * schema 优先走字段级 zod 类型映射；数组形态回落到 inferColumns 的类型推断。
  */
@@ -498,7 +546,14 @@ export function inferFormFields(
       }
     }
   } else {
-    const shape = (schemaOrSample as unknown as { shape?: Record<string, unknown> }).shape;
+    // zod 私有 API 内省为 dev-only（M6-C）：生产构建跳过（返回空 + 说明），不发请求不抛错
+    if (!zodIntrospectionEnabled()) {
+      return {
+        fields: [],
+        report: "// inferFormFields: zod 形状内省为 dev-only（生产构建跳过；传入样本行数组仍可用）",
+      };
+    }
+    const shape = (schemaOrSample as ZodObjectLike).shape;
     if (shape === undefined || typeof shape !== "object") {
       return {
         fields: [],
@@ -531,7 +586,7 @@ export function inferFormFields(
 function isDev(): boolean {
   const env = (globalThis as { process?: { env?: Record<string, string> } }).process?.env;
   if (env?.NODE_ENV === "production") return false;
-  const meta = (import.meta as unknown as { env?: { DEV?: boolean } }).env;
+  const meta = (import.meta as ImportMetaEnvLike).env;
   if (meta?.DEV === true) return true;
   return env?.NODE_ENV !== "test";
 }
@@ -543,7 +598,8 @@ function isDev(): boolean {
 export async function printGuess(def: AnyResourceDef): Promise<void> {
   if (!isDev()) return;
   try {
-    const page = await def.client.list({ pageSize: 25 });
+    // 样本拉取页大小同样以 def.list.pageSize 为唯一真相（缺省 DEFAULT_PAGE_SIZE=20，M6-C）
+    const page = await def.client.list({ pageSize: def.list?.pageSize ?? DEFAULT_PAGE_SIZE });
     const { columns, report } = inferColumns(page.rows as Record<string, unknown>[]);
     console.info(
       `[resource-guesser] ${def.name}（${page.rows.length} 行样本，${columns.length} 列）\n${report}`,

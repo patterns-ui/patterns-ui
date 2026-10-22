@@ -5,20 +5,22 @@ import {
   useDateTimePrefs,
   useNow,
 } from "@patterns-ui/core/datetime";
+import { createStorage } from "@patterns-ui/core/storage";
 import { cn } from "cn";
 import { useEffect, useState } from "react";
-
-const MODE_KEY = "fc:cell-time-mode";
+import { z } from "zod";
 
 type CellTimeMode = "relative" | "absolute";
 
+/** 显示模式偏好存储（偏好语义 fc:cell-time-mode；createStorage 单源，M6-B。
+ *  旧裸字符串经 migrate 归一：非 "absolute" 一律回落 "relative"） */
+const modeStorage = createStorage("fc:cell-time-mode", z.enum(["relative", "absolute"]), {
+  version: 1,
+  migrate: (raw) => (raw === "absolute" ? "absolute" : "relative"),
+});
+
 function readMode(): CellTimeMode {
-  try {
-    const raw = globalThis.localStorage?.getItem(MODE_KEY);
-    return raw === "absolute" ? "absolute" : "relative";
-  } catch {
-    return "relative";
-  }
+  return modeStorage.read() ?? "relative";
 }
 
 /** mode 的读取收敛（首次 render 用 relative，effect 内按偏好校正；SSR 安全） */
@@ -63,11 +65,7 @@ export function CellTime({ value, className }: CellTimeProps) {
 ${formatAbsolute(iso, absolutePrefs)}`}
       onClick={() => {
         const next: CellTimeMode = mode === "relative" ? "absolute" : "relative";
-        try {
-          globalThis.localStorage?.setItem(MODE_KEY, next);
-        } catch {
-          /* 非浏览器环境 */
-        }
+        modeStorage.write(next);
         setMode(next);
       }}
       className={cn(

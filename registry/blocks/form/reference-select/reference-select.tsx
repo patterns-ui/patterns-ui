@@ -4,7 +4,11 @@
  */
 
 import type { ResourceOf } from "@patterns-ui/core/data";
-import { type ReferenceSource, useReferenceLabel } from "@patterns-ui/core/reference";
+import {
+  defaultReferenceLabel,
+  type ReferenceSource,
+  useReferenceLabel,
+} from "@patterns-ui/core/reference";
 import { cn } from "cn";
 import { ChevronsUpDown, Plus, Search } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
@@ -177,7 +181,7 @@ export function ReferenceSelect<TData = Record<string, unknown>>(
                 const record = row as Record<string, unknown>;
                 const label = getIdLabel
                   ? getIdLabel(row)
-                  : String(record.name ?? record.title ?? id);
+                  : defaultReferenceLabel(record) || String(id);
                 return (
                   <Label
                     key={id}

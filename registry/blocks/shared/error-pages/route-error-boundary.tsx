@@ -3,9 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Error403 } from "./error-403";
-import { Error404 } from "./error-404";
-import { Error500 } from "./error-500";
+import { ErrorPage } from "./error-page";
 
 export interface RouteErrorBoundaryProps {
   error: unknown;
@@ -33,10 +31,9 @@ function defaultMessage(error: unknown): ReactNode {
 
 /**
  * 路由级错误边界（TanStack Router errorComponent / defaultErrorComponent 适配）：
- * HttpError 403/404 分档渲染对应页面，其余（含 5xx 与未知）渲染 500 + 错误信息 + 重试。
+ * HttpError 403/404 分档渲染对应错误页，其余（含 5xx 与未知）渲染 500 + 错误信息 + 重试。
  */
 export function RouteErrorBoundary({ error, reset }: RouteErrorBoundaryProps) {
-  const status = errorStatus(error);
   const actions = (
     <div className="flex items-center gap-2">
       {reset ? (
@@ -52,11 +49,5 @@ export function RouteErrorBoundary({ error, reset }: RouteErrorBoundaryProps) {
     </div>
   );
 
-  if (status === 403) {
-    return <Error403 message={defaultMessage(error)} action={actions} />;
-  }
-  if (status === 404) {
-    return <Error404 message={defaultMessage(error)} action={actions} />;
-  }
-  return <Error500 message={defaultMessage(error) ?? undefined} action={actions} />;
+  return <ErrorPage code={errorStatus(error)} message={defaultMessage(error)} action={actions} />;
 }

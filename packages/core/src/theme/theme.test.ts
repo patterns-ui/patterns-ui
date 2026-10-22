@@ -20,6 +20,9 @@ describe("themeBlockingScript", () => {
     expect(script).toContain("matchMedia");
     // colorScheme 同步（滚动条/表单控件跟主题）
     expect(script).toContain("d.style.colorScheme=t");
+    // preset 经 createStorage 信封持久化（M6-B）：脚本须解包 {v,d}（兼容旧裸字符串）
+    expect(script).toContain("JSON.parse(p)");
+    expect(script).toContain("p=o.d");
   });
 
   it("supports custom storage keys", () => {

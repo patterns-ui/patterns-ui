@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { collectFieldErrors, FieldShell, useFieldContext } from "./contexts";
+import { collectFieldErrors, FieldShell, useFieldContext, useFieldControlIds } from "./contexts";
 
 // ---------------------------------------------------------------------------
 // 公共 props
@@ -60,6 +60,7 @@ export interface TextWidgetProps extends WidgetBaseProps {
 export function TextWidget(props: TextWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -69,11 +70,13 @@ export function TextWidget(props: TextWidgetProps) {
       className={props.className}
     >
       <Input
+        id={ids?.controlId}
         type={props.type ?? "text"}
         value={field.state.value ?? ""}
         placeholder={props.placeholder}
         disabled={props.disabled}
         aria-invalid={invalid || undefined}
+        aria-describedby={ids?.describedBy}
         className={props.mono ? "font-mono text-sm" : undefined}
         onBlur={field.handleBlur}
         onChange={(e) => field.handleChange(e.target.value)}
@@ -90,6 +93,7 @@ export interface TextareaWidgetProps extends WidgetBaseProps {
 export function TextareaWidget(props: TextareaWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -99,11 +103,13 @@ export function TextareaWidget(props: TextareaWidgetProps) {
       className={props.className}
     >
       <Textarea
+        id={ids?.controlId}
         rows={props.rows ?? 4}
         value={field.state.value ?? ""}
         placeholder={props.placeholder}
         disabled={props.disabled}
         aria-invalid={invalid || undefined}
+        aria-describedby={ids?.describedBy}
         className={props.mono ? "font-mono text-sm" : undefined}
         onBlur={field.handleBlur}
         onChange={(e) => field.handleChange(e.target.value)}
@@ -123,6 +129,7 @@ export interface NumberWidgetProps extends WidgetBaseProps {
 export function NumberWidget(props: NumberWidgetProps) {
   const field = useFieldContext<number>();
   const { errors, invalid } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -133,6 +140,7 @@ export function NumberWidget(props: NumberWidgetProps) {
     >
       <div className="flex items-center gap-2">
         <Input
+          id={ids?.controlId}
           type="number"
           value={field.state.value ?? ""}
           min={props.min}
@@ -141,6 +149,7 @@ export function NumberWidget(props: NumberWidgetProps) {
           placeholder={props.placeholder}
           disabled={props.disabled}
           aria-invalid={invalid || undefined}
+          aria-describedby={ids?.describedBy}
           className="w-36"
           onBlur={field.handleBlur}
           onChange={(e) => {
@@ -167,6 +176,7 @@ export interface SelectWidgetProps extends WidgetBaseProps {
 export function SelectWidget(props: SelectWidgetProps) {
   const field = useFieldContext<string>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -181,7 +191,12 @@ export function SelectWidget(props: SelectWidgetProps) {
         disabled={props.disabled}
         items={props.options}
       >
-        <SelectTrigger className="w-full" aria-invalid={errors.length > 0 || undefined}>
+        <SelectTrigger
+          id={ids?.controlId}
+          className="w-full"
+          aria-invalid={errors.length > 0 || undefined}
+          aria-describedby={ids?.describedBy}
+        >
           <SelectValue placeholder={props.placeholder ?? "请选择"} />
         </SelectTrigger>
         <SelectContent>
@@ -208,6 +223,7 @@ export interface MultiSelectWidgetProps extends WidgetBaseProps {
 export function MultiSelectWidget(props: MultiSelectWidgetProps) {
   const field = useFieldContext<string[]>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const [open, setOpen] = useState(false);
   const value = field.state.value ?? [];
   const labelOf = (v: string) => props.options.find((o) => o.value === v)?.label ?? v;
@@ -227,9 +243,11 @@ export function MultiSelectWidget(props: MultiSelectWidgetProps) {
           render={
             <button
               type="button"
+              id={ids?.controlId}
               disabled={props.disabled}
               className="border-input bg-transparent aria-invalid:border-destructive flex min-h-8 w-full flex-wrap items-center gap-1 rounded-lg border px-2 py-1 text-left text-sm"
               aria-invalid={errors.length > 0 || undefined}
+              aria-describedby={ids?.describedBy}
             >
               {value.length === 0 ? (
                 <span className="text-muted-foreground">{props.placeholder ?? "选择若干项"}</span>
@@ -276,6 +294,7 @@ export interface TagsWidgetProps extends WidgetBaseProps {
 export function TagsWidget(props: TagsWidgetProps) {
   const field = useFieldContext<string[]>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const value = field.state.value ?? [];
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -311,9 +330,11 @@ export function TagsWidget(props: TagsWidgetProps) {
           </Badge>
         ))}
         <input
+          id={ids?.controlId}
           value={draft}
           placeholder={value.length === 0 ? (props.placeholder ?? "输入后回车添加") : ""}
           disabled={props.disabled}
+          aria-describedby={ids?.describedBy}
           className="placeholder:text-muted-foreground min-w-24 flex-1 bg-transparent text-sm outline-none"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -347,6 +368,7 @@ export interface SwitchWidgetProps extends WidgetBaseProps {
 export function SwitchWidget(props: SwitchWidgetProps) {
   const field = useFieldContext<boolean>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -357,10 +379,12 @@ export function SwitchWidget(props: SwitchWidgetProps) {
     >
       <div className="flex items-center gap-2">
         <Switch
+          id={ids?.controlId}
           checked={field.state.value === true}
           disabled={props.disabled}
           onCheckedChange={(v) => field.handleChange(v === true)}
           onBlur={field.handleBlur}
+          aria-describedby={ids?.describedBy}
         />
         <span className="text-muted-foreground text-sm">
           {field.state.value === true ? (props.onLabel ?? "启用") : (props.offLabel ?? "未启用")}
@@ -382,6 +406,7 @@ export interface DateWidgetProps extends WidgetBaseProps {
 export function DateWidget(props: DateWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
+  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -391,10 +416,12 @@ export function DateWidget(props: DateWidgetProps) {
       className={props.className}
     >
       <Input
+        id={ids?.controlId}
         type={props.variant === "datetime" ? "datetime-local" : "date"}
         value={field.state.value ?? ""}
         disabled={props.disabled}
         aria-invalid={invalid || undefined}
+        aria-describedby={ids?.describedBy}
         className="w-60"
         onBlur={field.handleBlur}
         onChange={(e) => field.handleChange(e.target.value)}
@@ -411,6 +438,7 @@ export interface DateRangeValue {
 export function DateRangeWidget(props: WidgetBaseProps) {
   const field = useFieldContext<DateRangeValue>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const value = field.state.value ?? {};
   return (
     <FieldShell
@@ -421,9 +449,12 @@ export function DateRangeWidget(props: WidgetBaseProps) {
       className={props.className}
     >
       <div className="flex items-center gap-2">
+        {/* 双控件：label htmlFor 绑首控件（开始日期），两控件都挂 aria-describedby 关联描述/错误 */}
         <Input
+          id={ids?.controlId}
           type="date"
           aria-label="开始日期"
+          aria-describedby={ids?.describedBy}
           value={value.from ?? ""}
           disabled={props.disabled}
           className="w-44"
@@ -433,6 +464,7 @@ export function DateRangeWidget(props: WidgetBaseProps) {
         <Input
           type="date"
           aria-label="结束日期"
+          aria-describedby={ids?.describedBy}
           value={value.to ?? ""}
           disabled={props.disabled}
           className="w-44"
@@ -447,6 +479,7 @@ export function DateRangeWidget(props: WidgetBaseProps) {
 export function SecretWidget(props: WidgetBaseProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
+  const ids = useFieldControlIds();
   const [visible, setVisible] = useState(false);
   return (
     <FieldShell
@@ -458,12 +491,14 @@ export function SecretWidget(props: WidgetBaseProps) {
     >
       <div className="flex gap-2">
         <Input
+          id={ids?.controlId}
           type={visible ? "text" : "password"}
           value={field.state.value ?? ""}
           placeholder={props.placeholder}
           disabled={props.disabled}
           autoComplete="new-password"
           aria-invalid={invalid || undefined}
+          aria-describedby={ids?.describedBy}
           className="font-mono text-sm"
           onBlur={field.handleBlur}
           onChange={(e) => field.handleChange(e.target.value)}
@@ -499,6 +534,7 @@ export interface KvPairsWidgetProps extends WidgetBaseProps {
 export function KvPairsWidget(props: KvPairsWidgetProps) {
   const field = useFieldContext<KvPair[]>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const rows = field.state.value ?? [];
   const setRow = (index: number, patch: Partial<KvPair>) => {
     field.handleChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -515,10 +551,13 @@ export function KvPairsWidget(props: KvPairsWidgetProps) {
         {rows.length === 0 ? <p className="text-muted-foreground text-sm">暂无条目。</p> : null}
         {rows.map((row, index) => (
           <div key={index} className="flex items-center gap-2">
+            {/* 多控件：首行键输入绑 label（id），全部行内输入挂 aria-describedby（各自已有 aria-label） */}
             <Input
+              id={index === 0 ? ids?.controlId : undefined}
               value={row.key}
               placeholder={props.keyPlaceholder ?? "KEY"}
               aria-label="键"
+              aria-describedby={ids?.describedBy}
               className="font-mono text-sm"
               onChange={(e) => setRow(index, { key: e.target.value })}
             />
@@ -527,6 +566,7 @@ export function KvPairsWidget(props: KvPairsWidgetProps) {
               value={row.value}
               placeholder={props.valuePlaceholder ?? "value"}
               aria-label="值"
+              aria-describedby={ids?.describedBy}
               className="font-mono text-sm"
               onChange={(e) => setRow(index, { value: e.target.value })}
             />
@@ -545,6 +585,8 @@ export function KvPairsWidget(props: KvPairsWidgetProps) {
           type="button"
           variant="outline"
           size="sm"
+          id={rows.length === 0 ? ids?.controlId : undefined}
+          aria-describedby={ids?.describedBy}
           onClick={() => field.handleChange([...rows, { key: "", value: "" }])}
         >
           <Plus /> 添加条目
@@ -578,6 +620,7 @@ let uploadSeq = 0;
 export function UploadWidget(props: UploadWidgetProps) {
   const field = useFieldContext<UploadedFile[]>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const files = field.state.value ?? [];
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -617,6 +660,8 @@ export function UploadWidget(props: UploadWidgetProps) {
       <div className="space-y-2">
         <button
           type="button"
+          id={ids?.controlId}
+          aria-describedby={ids?.describedBy}
           className={cn(
             "border-input hover:border-ring text-muted-foreground flex w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-sm transition-colors",
             dragOver && "border-ring bg-muted/40",
@@ -691,6 +736,7 @@ export interface JsonWidgetProps extends WidgetBaseProps {
 export function JsonWidget(props: JsonWidgetProps) {
   const field = useFieldContext<string>();
   const fieldErrors = useFieldState(field);
+  const ids = useFieldControlIds();
   const value = field.state.value ?? "";
   const [parseError, setParseError] = useState<string | null>(null);
   const validate = useMemo(() => {
@@ -714,11 +760,13 @@ export function JsonWidget(props: JsonWidgetProps) {
     >
       <div className="space-y-2">
         <Textarea
+          id={ids?.controlId}
           rows={props.rows ?? 6}
           value={value}
           placeholder={props.placeholder ?? '{\n  "key": "value"\n}'}
           disabled={props.disabled}
           aria-invalid={errors.length > 0 || undefined}
+          aria-describedby={ids?.describedBy}
           className="font-mono text-sm"
           onBlur={field.handleBlur}
           onChange={(e) => {
@@ -765,6 +813,7 @@ export interface RepeatableRowsWidgetProps extends WidgetBaseProps {
 export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
   const field = useFieldContext<Record<string, unknown>[]>();
   const { errors } = useFieldState(field);
+  const ids = useFieldControlIds();
   const rows = field.state.value ?? [];
   const setCell = (index: number, key: string, value: unknown) => {
     field.handleChange(rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
@@ -801,7 +850,7 @@ export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
                   gridTemplateColumns: `${props.columns.map((c) => c.width ?? "1fr").join(" ")} auto`,
                 }}
               >
-                {props.columns.map((col) => (
+                {props.columns.map((col, colIndex) => (
                   <span key={col.key} className="min-w-0">
                     {col.type === "select" ? (
                       <Select
@@ -809,7 +858,12 @@ export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
                         onValueChange={(v) => setCell(index, col.key, v)}
                         items={col.options ?? []}
                       >
-                        <SelectTrigger size="sm" className="w-full">
+                        <SelectTrigger
+                          size="sm"
+                          className="w-full"
+                          aria-label={col.label}
+                          aria-describedby={ids?.describedBy}
+                        >
                           <SelectValue placeholder={col.placeholder ?? "选择"} />
                         </SelectTrigger>
                         <SelectContent>
@@ -822,7 +876,10 @@ export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
                       </Select>
                     ) : (
                       <Input
+                        id={index === 0 && colIndex === 0 ? ids?.controlId : undefined}
                         type={col.type === "number" ? "number" : "text"}
+                        aria-label={col.label}
+                        aria-describedby={ids?.describedBy}
                         value={
                           row[col.key] === undefined || row[col.key] === null
                             ? ""
@@ -861,6 +918,8 @@ export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
           type="button"
           variant="outline"
           size="sm"
+          id={rows.length === 0 ? ids?.controlId : undefined}
+          aria-describedby={ids?.describedBy}
           onClick={() => field.handleChange([...rows, { ...props.newRow }])}
         >
           <Plus /> {props.addLabel ?? "添加行"}

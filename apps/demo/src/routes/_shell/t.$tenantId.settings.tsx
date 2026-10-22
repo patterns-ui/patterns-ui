@@ -1,6 +1,6 @@
 import { useAuth } from "@patterns-ui/core/auth";
 import type { HttpError } from "@patterns-ui/core/data";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { SettingsPage } from "@/components/blocks/settings/settings-page/settings-page";
@@ -21,6 +21,7 @@ function SettingsDemoPage() {
   const { tenantId } = Route.useParams();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const meQuery = useQuery({
     queryKey: ["me"],
@@ -66,6 +67,8 @@ function SettingsDemoPage() {
               timeZone: input.timeZone,
             }),
           });
+          // 个人资料缓存归本路由所有：保存成功后失效（block 不感知宿主 queryKey）
+          void queryClient.invalidateQueries({ queryKey: ["me"] });
           return { ok: true as const };
         } catch (err) {
           const http = err as HttpError;

@@ -9,13 +9,9 @@ import { ErrorState } from "@/components/blocks/shared/error-state/error-state";
 import { ResourceIcon } from "@/components/blocks/shared/resource-icon/resource-icon";
 import { StatusBadge } from "@/components/blocks/shared/status-badge/status-badge";
 import { AvatarStack } from "@/components/blocks/shared/user-avatar/user-avatar";
-import { AppShellFloating } from "@/components/blocks/shell/app-shell-floating/app-shell-floating";
-import { AppShellFullbleed } from "@/components/blocks/shell/app-shell-fullbleed/app-shell-fullbleed";
-import { AppShellInset } from "@/components/blocks/shell/app-shell-inset/app-shell-inset";
+import { AppShell } from "@/components/blocks/shell/app-shell/app-shell";
 import { TopBar } from "@/components/blocks/shell/top-bar/top-bar";
-import { SideNavFloating } from "@/components/blocks/sidebar/side-nav-floating/side-nav-floating";
-import { SideNavIcon } from "@/components/blocks/sidebar/side-nav-icon/side-nav-icon";
-import { SideNavInset } from "@/components/blocks/sidebar/side-nav-inset/side-nav-inset";
+import { SideNav } from "@/components/blocks/sidebar/side-nav/side-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { tenantNavGroups } from "@/lib/nav";
@@ -26,8 +22,9 @@ const searchSchema = z.object({
 });
 
 /**
- * 组件预览页（不进 nav）：全屏舞台切换 3 套 shell × 3 套 sidebar（search param 选择），
- * 并陈列 status-badge / empty / error 等状态件。底部控制条切换变体。
+ * 组件预览页（不进 nav）：全屏舞台切换壳 × 侧栏各 3 种 variant（search param 选择，
+ * M6-D 收敛后为基座 block 的 variant prop），并陈列 status-badge / empty / error 等状态件。
+ * 底部控制条切换变体。
  */
 function PreviewPage() {
   const { tenantId } = Route.useParams();
@@ -36,12 +33,10 @@ function PreviewPage() {
   const { shell, sidebar } = Route.useSearch();
   const groups = useMemo(() => tenantNavGroups(tenantId), [tenantId]);
 
-  const sidebarNode = useMemo(() => {
-    const props = { groups, user, onLogout: () => {} };
-    if (sidebar === "floating") return <SideNavFloating {...props} />;
-    if (sidebar === "icon") return <SideNavIcon {...props} />;
-    return <SideNavInset {...props} />;
-  }, [groups, user, sidebar]);
+  const sidebarNode = useMemo(
+    () => <SideNav variant={sidebar} groups={groups} user={user} onLogout={() => {}} />,
+    [groups, user, sidebar],
+  );
 
   const topbar = (
     <TopBar onOpenSearch={() => {}} user={user ?? { name: "…" }} onLogout={() => {}} />
@@ -106,21 +101,11 @@ function PreviewPage() {
   );
 
   return (
-    <div className="bg-background fixed inset-0 z-40 flex flex-col">
+    <div className="bg-background fixed inset-0 z-40 flex flex-col" data-slot="preview-stage">
       <div className="min-h-0 flex-1">
-        {shell === "floating" ? (
-          <AppShellFloating sidebar={sidebarNode} topbar={topbar}>
-            {content}
-          </AppShellFloating>
-        ) : shell === "fullbleed" ? (
-          <AppShellFullbleed sidebar={sidebarNode} topbar={topbar}>
-            {content}
-          </AppShellFullbleed>
-        ) : (
-          <AppShellInset sidebar={sidebarNode} topbar={topbar}>
-            {content}
-          </AppShellInset>
-        )}
+        <AppShell variant={shell} sidebar={sidebarNode} topbar={topbar}>
+          {content}
+        </AppShell>
       </div>
       <div className="bg-background fixed bottom-0 z-30 flex w-full items-center justify-center gap-1 border-t p-2">
         {(["inset", "floating", "fullbleed"] as const).map((s) => (

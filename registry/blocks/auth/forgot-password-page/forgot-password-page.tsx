@@ -1,14 +1,8 @@
 import { CircleCheck, LoaderCircle, Mail } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import { AuthCardLayout } from "@/components/blocks/auth/auth-card-layout/auth-card-layout";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -21,7 +15,8 @@ export interface ForgotPasswordPageProps {
 }
 
 /**
- * 忘记密码页：提交邮箱后进入「发送成功」终态（不暴露邮箱是否存在）。
+ * 忘记密码页：提交邮箱后进入「发送成功」终态（不暴露邮箱是否存在；
+ * 卡片壳见 AuthCardLayout）。
  */
 export function ForgotPasswordPage({
   onSubmit,
@@ -50,54 +45,41 @@ export function ForgotPasswordPage({
   }
 
   return (
-    <main className="bg-background flex min-h-svh items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          {brand}
-          <CardTitle className="text-[22px] font-semibold tracking-tight">{title}</CardTitle>
-          {description ? <CardDescription>{description}</CardDescription> : null}
-        </CardHeader>
-        <CardContent>
-          {sent ? (
-            <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <span className="bg-status-info-bg text-status-info flex size-10 items-center justify-center rounded-full">
-                <Mail className="size-5" />
-              </span>
-              <CircleCheck className="text-status-success size-5" />
-              <p className="text-sm text-muted-foreground">
-                如果该邮箱已注册，重置链接已发送至 <span className="text-foreground">{email}</span>
-                。
-              </p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="forgot-email">邮箱</Label>
-                <Input
-                  id="forgot-email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              {error ? (
-                <p role="alert" className="text-destructive text-sm">
-                  {error}
-                </p>
-              ) : null}
-              <Button type="submit" disabled={pending} className="w-full">
-                {pending ? (
-                  <LoaderCircle className="animate-spin" data-icon="inline-start" />
-                ) : null}
-                {pending ? "发送中…" : "发送重置链接"}
-              </Button>
-            </form>
-          )}
-        </CardContent>
-        {footer ? <CardFooter className="justify-center text-sm">{footer}</CardFooter> : null}
-      </Card>
-    </main>
+    <AuthCardLayout title={title} description={description} brand={brand} footer={footer}>
+      {sent ? (
+        <div className="flex flex-col items-center gap-3 py-4 text-center">
+          <span className="bg-status-info-bg text-status-info flex size-10 items-center justify-center rounded-full">
+            <Mail className="size-5" />
+          </span>
+          <CircleCheck className="text-status-success size-5" />
+          <p className="text-sm text-muted-foreground">
+            如果该邮箱已注册，重置链接已发送至 <span className="text-foreground">{email}</span>。
+          </p>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="forgot-email">邮箱</Label>
+            <Input
+              id="forgot-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          {error ? (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={pending} className="w-full">
+            {pending ? <LoaderCircle className="animate-spin" data-icon="inline-start" /> : null}
+            {pending ? "发送中…" : "发送重置链接"}
+          </Button>
+        </form>
+      )}
+    </AuthCardLayout>
   );
 }

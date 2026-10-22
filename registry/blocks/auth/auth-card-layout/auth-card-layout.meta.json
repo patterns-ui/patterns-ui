@@ -1,0 +1,10 @@
+{
+  "name": "auth-card-layout",
+  "type": "registry:block",
+  "title": "Auth Card Layout",
+  "description": "auth 卡片壳：居中 main + max-w-sm 卡片 + 居中 header（brand/title/description）+ footer；登录/注册/忘记密码/OTP 四页共用。",
+  "categories": ["auth"],
+  "dependencies": [],
+  "registryDependencies": ["card", "page-header"],
+  "targetDir": "components/blocks/auth/auth-card-layout"
+}

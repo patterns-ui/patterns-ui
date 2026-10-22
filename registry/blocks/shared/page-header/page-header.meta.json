@@ -1,0 +1,10 @@
+{
+  "name": "page-header",
+  "type": "registry:block",
+  "title": "Page Header",
+  "description": "页头原语：eyebrow? + h1（22px 标题排版单一事实源）+ description；pageTitleClass 供卡片标题等同款排版复用。",
+  "categories": ["shared"],
+  "dependencies": [],
+  "registryDependencies": [],
+  "targetDir": "components/blocks/shared/page-header"
+}

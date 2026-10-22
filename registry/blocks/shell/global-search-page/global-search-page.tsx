@@ -4,12 +4,15 @@
  * ⌘K 命令面板回车进入（?q= 进 URL）；每个资源一个 section（label + 结果列表），
  * 命中段 <mark> 高亮；输入防抖（默认 250ms）后并发查询各资源。
  */
+import { listKey } from "@patterns-ui/core/data";
+import { useDebouncedCallback } from "@patterns-ui/core/list";
 import { useQueries } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { cn } from "cn";
 import { Loader2, type LucideIcon, SearchX } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmptyState } from "@/components/blocks/shared/empty-state/empty-state";
+import { PageHeader } from "@/components/blocks/shared/page-header/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export interface GlobalSearchResultItem {
@@ -58,15 +61,17 @@ export function GlobalSearchPage({
     setDraft(urlQ);
   }, [urlQ]);
 
+  // 防抖单点（core useDebouncedCallback）：草稿变更 250ms 后写回 ?q=
+  const commitDraft = useDebouncedCallback((value: string) => {
+    void navigate({
+      search: ((prev: Record<string, unknown>) => ({ ...prev, q: value || undefined })) as never,
+    });
+  }, debounceMs);
+
   useEffect(() => {
     if (draft === urlQ) return;
-    const timer = setTimeout(() => {
-      void navigate({
-        search: ((prev: Record<string, unknown>) => ({ ...prev, q: draft || undefined })) as never,
-      });
-    }, debounceMs);
-    return () => clearTimeout(timer);
-  }, [draft, urlQ, debounceMs, navigate]);
+    commitDraft(draft);
+  }, [draft, urlQ, commitDraft]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -80,12 +85,10 @@ export function GlobalSearchPage({
 
   return (
     <div className={cn("mx-auto w-full max-w-3xl", className)} data-slot="global-search-page">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-[22px] font-semibold tracking-tight">搜索</h1>
-        <p className="text-muted-foreground text-[13px]">
-          跨资源搜索（各资源 top {limit}）；关键词保留在 URL（?q=），可直接分享。
-        </p>
-      </div>
+      <PageHeader
+        title="搜索"
+        description={`跨资源搜索（各资源 top ${limit}）；关键词保留在 URL（?q=），可直接分享。`}
+      />
 
       <form
         className="relative mt-4"
@@ -237,11 +240,11 @@ export function splitHighlight(text: string, q: string): HighlightPart[] {
   return parts;
 }
 
-/** 并发查询各资源（useQueries：动态并行查询的官方形态） */
+/** 并发查询各资源（useQueries：动态并行查询的官方形态；queryKey 走 core/data 公共出口） */
 function useGlobalSearchQueries(resources: GlobalSearchResourceDef[], q: string) {
   return useQueries({
     queries: resources.map((resource) => ({
-      queryKey: ["global-search", resource.name, q],
+      queryKey: listKey("global-search", { resource: resource.name, q }),
       queryFn: () => resource.search(q),
       enabled: q.trim() !== "",
       staleTime: 10_000,

@@ -5,6 +5,7 @@ import type {
   ListTable,
   ListTableFeatures,
 } from "@patterns-ui/core/list";
+import { createStorage } from "@patterns-ui/core/storage";
 import { type Cell, FlexRender, type Row, type RowData } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn } from "cn";
@@ -19,6 +20,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -210,7 +212,7 @@ function RowActionsCell<TData extends RowData>({
 }
 
 // ---------------------------------------------------------------------------
-// 列偏好（localStorage，偏好语义：fc:cols:<resource>）
+// 列偏好（偏好语义：fc:cols:<resource>；createStorage 单源，M6-B）
 // ---------------------------------------------------------------------------
 
 export type TableDensity = "comfortable" | "compact";
@@ -222,21 +224,28 @@ interface ColumnPrefs {
   columnSizing?: Record<string, number>;
 }
 
+/** 列偏好 schema（旧裸 JSON 对象经 migrate 无损沿用；超集键被 schema 剥离） */
+const columnPrefsSchema = z.object({
+  density: z.enum(["comfortable", "compact"]).optional(),
+  columnVisibility: z.record(z.string(), z.boolean()).optional(),
+  columnOrder: z.array(z.string()).optional(),
+  columnSizing: z.record(z.string(), z.number()).optional(),
+});
+
+function prefsStorage(key: string) {
+  return createStorage(`fc:cols:${key}`, columnPrefsSchema, {
+    version: 1,
+    // 信封前格式 = ColumnPrefs 裸 JSON 对象：直接沿用（字段校验交给 schema）
+    migrate: (raw) => raw,
+  });
+}
+
 function readPrefs(key: string): ColumnPrefs {
-  try {
-    const raw = globalThis.localStorage?.getItem(`fc:cols:${key}`);
-    return raw ? (JSON.parse(raw) as ColumnPrefs) : {};
-  } catch {
-    return {};
-  }
+  return prefsStorage(key).read() ?? {};
 }
 
 function writePrefs(key: string, prefs: ColumnPrefs): void {
-  try {
-    globalThis.localStorage?.setItem(`fc:cols:${key}`, JSON.stringify(prefs));
-  } catch {
-    /* 非浏览器环境 */
-  }
+  prefsStorage(key).write(prefs);
 }
 
 // ---------------------------------------------------------------------------

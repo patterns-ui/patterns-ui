@@ -3,16 +3,16 @@ import type { CrumbResolve } from "@patterns-ui/core/router";
 import { TenantProvider, useTenant } from "@patterns-ui/core/tenant";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
-import { AppShellInset } from "@/components/blocks/shell/app-shell-inset/app-shell-inset";
+import { AppShell } from "@/components/blocks/shell/app-shell/app-shell";
 import { CommandPalette } from "@/components/blocks/shell/command-palette/command-palette";
 import { TopBar } from "@/components/blocks/shell/top-bar/top-bar";
-import { SideNavInset } from "@/components/blocks/sidebar/side-nav-inset/side-nav-inset";
+import { SideNav } from "@/components/blocks/sidebar/side-nav/side-nav";
 import { NotificationBell } from "@/components/notification-bell";
 import { tenantNavGroups } from "@/lib/nav";
 import { listTenants, resolveTenant } from "@/lib/tenants";
 
 /**
- * 租户布局：TenantProvider（/t/$tenantId 前缀语义）+ inset 壳 + ⌘K 命令面板。
+ * 租户布局：TenantProvider（/t/$tenantId 前缀语义）+ 壳（默认 inset 变体）+ ⌘K 命令面板。
  * 顶栏只保留产品要素：搜索 / 通知 / 主题 / 账号（主题 preset 在 Settings → 外观切换）。
  */
 function TenantLayout() {
@@ -43,7 +43,7 @@ function TenantLayout() {
   }, [logout, navigate]);
 
   const sidebar = useMemo(
-    () => <SideNavInset groups={groups} user={user} onLogout={() => void handleLogout()} />,
+    () => <SideNav groups={groups} user={user} onLogout={() => void handleLogout()} />,
     [groups, user, handleLogout],
   );
 
@@ -89,7 +89,7 @@ function TenantShellChrome({
 
   return (
     <>
-      <AppShellInset
+      <AppShell
         sidebar={sidebar}
         topbar={
           <TopBar
@@ -102,7 +102,7 @@ function TenantShellChrome({
         }
       >
         <Outlet />
-      </AppShellInset>
+      </AppShell>
       <CommandPalette
         groups={commandGroups}
         open={searchOpen}

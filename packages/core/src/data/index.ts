@@ -14,8 +14,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type { FilterTree, SortSpec } from "../filters";
-import { scheduleUndoable, type UndoableToastControl } from "../mutation";
 import { useTenantOptional } from "../tenant";
+import { detailKey, detailKeyPrefix, listKey, listKeyPrefix, scopeOf } from "./query-keys";
+import { scheduleUndoable, type UndoableToastControl } from "./undoable";
 
 export type {
   FilterLeaf,
@@ -25,6 +26,11 @@ export type {
   SortDirection,
   SortSpec,
 } from "../filters";
+
+// queryKey 工厂公共出口（docs/core-api.md §1 queryKey 约定；M6-B 单源钉死，
+// data/reference 内部与宿主失效逻辑全部走同一实现）。*KeyPrefix 供失效用
+// （前缀匹配任意 params / 任意 id）。
+export { detailKey, detailKeyPrefix, listKey, listKeyPrefix, manyKey } from "./query-keys";
 
 // ---------------------------------------------------------------------------
 // 基础类型（docs/core-api.md §1.1）
@@ -229,11 +235,11 @@ export interface CreateResourceConfig<TData, TCreate, TUpdate> {
   queryOptions?: ResourceQueryOptions;
 }
 
-type Scope = (string | undefined)[];
+type Scope = string | undefined;
 
 interface CachePatch {
   /** 立即对 query cache 应用乐观变更，返回回滚函数 */
-  apply: (queryClient: ReturnType<typeof useQueryClient>, scope: Scope) => () => void;
+  apply: (queryClient: ReturnType<typeof useQueryClient>, tenantId: Scope) => () => void;
 }
 
 export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partial<TData>>(
@@ -245,25 +251,22 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
   const name = cfg.name;
   const client = cfg.client;
 
-  /** [name] 或 [name, tenantId]（queryKey 前缀） */
-  const scopeFor = (tenantId: string | undefined): Scope =>
-    tenantId !== undefined ? [name, tenantId] : [name];
+  /** 生效租户段：tenantScoped 且宿主有租户上下文时才有值（queryKey 经工厂拼装） */
+  const tenantOf = (tenantId: string | undefined): Scope => (tenantScoped ? tenantId : undefined);
 
-  const listKey = (scope: Scope) => [...scope, "list"];
-  const detailKey = (scope: Scope, id: string) => [...scope, "detail", id];
-
-  const invalidateLists = (queryClient: ReturnType<typeof useQueryClient>, scope: Scope): void => {
-    void queryClient.invalidateQueries({ queryKey: listKey(scope) });
+  const invalidateLists = (
+    queryClient: ReturnType<typeof useQueryClient>,
+    tenantId: Scope,
+  ): void => {
+    void queryClient.invalidateQueries({ queryKey: listKeyPrefix(name, tenantId) });
   };
 
   const invalidateDetail = (
     queryClient: ReturnType<typeof useQueryClient>,
-    scope: Scope,
+    tenantId: Scope,
     id?: string,
   ): void => {
-    void queryClient.invalidateQueries({
-      queryKey: id === undefined ? [...scope, "detail"] : detailKey(scope, id),
-    });
+    void queryClient.invalidateQueries({ queryKey: detailKeyPrefix(name, tenantId, id) });
   };
 
   // -------------------------------------------------------------------------
@@ -272,10 +275,12 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
 
   function patchLists(
     queryClient: ReturnType<typeof useQueryClient>,
-    scope: Scope,
+    tenantId: Scope,
     patchRow: (rows: TData[]) => TData[],
   ): () => void {
-    const snapshots = queryClient.getQueriesData<Page<TData>>({ queryKey: listKey(scope) });
+    const snapshots = queryClient.getQueriesData<Page<TData>>({
+      queryKey: listKeyPrefix(name, tenantId),
+    });
     for (const [key, page] of snapshots) {
       if (page === undefined) continue;
       queryClient.setQueryData<Page<TData>>(key, { ...page, rows: patchRow(page.rows) });
@@ -289,9 +294,9 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
   }
 
   const patchForUpdate = (id: string, vars: Partial<TData>): CachePatch => ({
-    apply: (queryClient, scope) => {
+    apply: (queryClient, tenantId) => {
       const rollbackDetail = (() => {
-        const key = detailKey(scope, id);
+        const key = detailKey(name, id, { tenantId });
         const snapshot = queryClient.getQueryData<TData>(key);
         const current = snapshot;
         if (current !== undefined) {
@@ -302,7 +307,7 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
           else queryClient.setQueryData(key, snapshot);
         };
       })();
-      const rollbackLists = patchLists(queryClient, scope, (rows) =>
+      const rollbackLists = patchLists(queryClient, tenantId, (rows) =>
         rows.map((row) => (getId(row) === id ? { ...row, ...vars } : row)),
       );
       return () => {
@@ -313,13 +318,13 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
   });
 
   const patchForDelete = (ids: string[]): CachePatch => ({
-    apply: (queryClient, scope) => {
+    apply: (queryClient, tenantId) => {
       const removed = new Set(ids);
-      const rollbackLists = patchLists(queryClient, scope, (rows) =>
+      const rollbackLists = patchLists(queryClient, tenantId, (rows) =>
         rows.filter((row) => !removed.has(getId(row))),
       );
       const detailSnapshots = ids.map((id) => {
-        const key = detailKey(scope, id);
+        const key = detailKey(name, id, { tenantId });
         return { key, snapshot: queryClient.getQueryData<TData>(key) };
       });
       for (const { key } of detailSnapshots) {
@@ -345,7 +350,7 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
     /** 成功后的失效目标 */
     invalidate: (
       queryClient: ReturnType<typeof useQueryClient>,
-      scope: Scope,
+      tenantId: Scope,
       result: TResult,
     ) => void;
   }
@@ -358,20 +363,20 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
   ): (vars: TVars) => Promise<TResult> {
     const mode = opts?.mutationMode ?? "pessimistic";
     return async (vars: TVars): Promise<TResult> => {
-      const scope = scopeFor(tenantScoped ? tenantId : undefined);
+      const tenant = tenantOf(tenantId);
       const plan = build(vars);
 
       if (mode === "pessimistic" || plan.patch === undefined) {
         const result = await plan.commit();
-        plan.invalidate(queryClient, scope, result);
+        plan.invalidate(queryClient, tenant, result);
         return result;
       }
 
       if (mode === "optimistic") {
-        const rollback = plan.patch.apply(queryClient, scope);
+        const rollback = plan.patch.apply(queryClient, tenant);
         try {
           const result = await plan.commit();
-          plan.invalidate(queryClient, scope, result);
+          plan.invalidate(queryClient, tenant, result);
           return result;
         } catch (err) {
           rollback();
@@ -382,10 +387,10 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
       // undoable：立即乐观变更 → 倒计时（toast 由 onUndoableToast 接住）→ 超时/-dismiss 真提交
       let committed: TResult | undefined;
       const { promise } = scheduleUndoable({
-        optimistic: () => plan.patch?.apply(queryClient, scope) ?? (() => {}),
+        optimistic: () => plan.patch?.apply(queryClient, tenant) ?? (() => {}),
         commit: async () => {
           committed = await plan.commit();
-          plan.invalidate(queryClient, scope, committed);
+          plan.invalidate(queryClient, tenant, committed);
         },
         durationMs: opts?.undoDurationMs ?? 5000,
         onToast: opts?.onUndoableToast ?? (() => {}),
@@ -409,7 +414,7 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
       const tenantId = useResourceTenantId(tenantScoped);
       const { enabled = true, placeholderData, staleTime, refetchInterval, ...listParams } = params;
       return useQuery({
-        queryKey: [...scopeFor(tenantScoped ? tenantId : undefined), "list", listParams],
+        queryKey: listKey(name, listParams, { tenantId: tenantOf(tenantId) }),
         queryFn: () => client.list(listParams),
         enabled,
         placeholderData: placeholderData === "keep" ? keepPreviousData : undefined,
@@ -422,7 +427,7 @@ export function createResource<TData, TCreate = Partial<TData>, TUpdate = Partia
     useOne(id, opts) {
       const tenantId = useResourceTenantId(tenantScoped);
       return useQuery({
-        queryKey: detailKey(scopeFor(tenantScoped ? tenantId : undefined), id ?? ""),
+        queryKey: detailKey(name, id ?? "", { tenantId: tenantOf(tenantId) }),
         queryFn: () => client.get(id as string),
         enabled: id !== undefined && opts?.enabled !== false,
         ...cfg.queryOptions,
@@ -559,7 +564,7 @@ function useResourceTenantId(tenantScoped: boolean): string | undefined {
   return tenantScoped ? ctx?.tenantId : undefined;
 }
 
-/** 便捷：基于当前租户构造 queryKey 前缀（测试/调试用） */
+/** 便捷：基于当前租户构造 queryKey 前缀（测试/调试用；实现与 queryKey 工厂同源） */
 export function resourceScope(name: string, tenantId?: string): string[] {
-  return tenantId !== undefined ? [name, tenantId] : [name];
+  return [...scopeOf(name, tenantId)] as string[];
 }

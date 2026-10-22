@@ -1,0 +1,10 @@
+{
+  "name": "side-nav",
+  "type": "registry:block",
+  "title": "Side Nav",
+  "description": "租户侧栏（基座 + variant）：floating 悬浮 / icon 图标列折叠 / inset 卡面 offcanvas（默认）；header 默认 TenantSwitcher、footer 默认 NavUser（可用 tenantSlot/footerSlot 覆盖）。",
+  "categories": ["sidebar"],
+  "dependencies": [],
+  "registryDependencies": ["sidebar", "nav-group", "nav-user", "tenant-switcher"],
+  "targetDir": "components/blocks/sidebar/side-nav"
+}
