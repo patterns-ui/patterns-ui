@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { pageTitleClass } from "@/components/blocks/shared/page-header/page-header";
 import {
@@ -8,6 +9,64 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+
+/** 品牌位数据形态（definePage auth-flow 的 brand 配置；与 ReactNode 二选一，宿主渲染） */
+export interface AuthBrandSpec {
+  name: string;
+  logoUrl?: string;
+  /** logo 方块字符（缺省取 name 首字母） */
+  logoText?: string;
+}
+
+/** 卡片下链接区数据形态（definePage auth-flow 的 footer 配置；链接是页面结构决策） */
+export interface AuthFooterSpec {
+  /** 链接前置说明文案 */
+  note?: string;
+  links: readonly { label: string; to: string; kind?: "muted" | "primary" }[];
+}
+
+/** 品牌位渲染（数据形态 → 标准品牌行：logo 方块 + 产品名） */
+export function AuthBrandMark({ spec }: { spec: AuthBrandSpec }) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      {spec.logoUrl ? (
+        <img
+          src={spec.logoUrl}
+          alt=""
+          className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg"
+        />
+      ) : (
+        <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg text-sm font-bold">
+          {spec.logoText ?? spec.name.charAt(0)}
+        </span>
+      )}
+      <span className="text-[15px] font-semibold">{spec.name}</span>
+    </div>
+  );
+}
+
+/** 卡片下链接区渲染（数据形态 → 标准链接行：note + muted/primary 链接） */
+export function AuthFooterLinks({ spec }: { spec: AuthFooterSpec }) {
+  return (
+    <div className="flex items-center gap-4">
+      {spec.note ? <span className="text-muted-foreground">{spec.note}</span> : null}
+      {spec.links.map((link) => (
+        <Link
+          key={`${link.to}:${link.label}`}
+          to={link.to as never}
+          search
+          className={
+            link.kind === "primary"
+              ? "text-primary hover:underline"
+              : "text-muted-foreground hover:text-foreground"
+          }
+        >
+          {link.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 export interface AuthCardLayoutProps {
   /** 卡片标题（居中；22px 标题排版单一事实源，同 PageHeader） */

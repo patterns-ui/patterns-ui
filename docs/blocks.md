@@ -56,7 +56,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 ## cells/ —— 语义渲染器（列表与详情共用）
 
-每个 cell 一个小组件；另导出 `cellFor(def)` 映射器（L4 推断消费）。
+每个 cell 一个小组件；另导出 `cellFor(type, opts)` 映射器（L4 推断 / 声明式列共用；opts 含 map/pulseFor/format/unit/options/chars/resolve——M7-A3 增 chars 与 id+resolve 解析形态）。
 
 | block | props | 说明 |
 |---|---|---|
@@ -75,7 +75,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 | block | 说明 | 关键 props | 依赖 |
 |---|---|---|---|
 | `detail-page` | 详情页模板：返回链 + hero(头像/图标+标题+状态+actions) + tabs(深链) + sections/子资源 | `title, backTo, status?, actions?, tabs, heroMeta?` | block: detail-grid, timeline；ui: tabs |
-| `detail-grid` | 键值两列区（复用 cells 渲染） | `items: { label, field, cell? }[], data` | block: cells |
+| `detail-grid` | 键值两列区（复用 cells 渲染；M7-A3 扩 cell 词表：`inline-edit`（cellOptions.type/onSave）/ `reference`（cellOptions.resource/getIdLabel）/ `mono`（cellOptions.prefix），声明式详情项） | `items: { label, field, cell?, cellOptions? }[], data` | block: cells, inline-edit-field, reference-field |
 | `timeline` | 事件时间线（三态：done/running/waiting） | `items: { title, at, state, detail? }[]` | core: /datetime |
 | `reference-field` | 外键显示（异步解析 label） | `resource, id` | core: /reference；block: cell-user 可选 |
 | `inline-edit-field` | 点击即改字段（轻编辑） | `value, onSave, type?` | ui: input |
@@ -100,19 +100,21 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 | block | 说明 | 依赖 |
 |---|---|---|
-| `auth-card-layout` | auth 卡片壳（M6-D 抽取）：居中 main + max-w-sm 卡 + 居中 header（brand/title/description）+ footer，四张 auth 页共用 | ui: card；block: page-header |
+| `auth-card-layout` | auth 卡片壳（M6-D 抽取）：居中 main + max-w-sm 卡 + 居中 header（brand/title/description）+ footer，四张 auth 页共用。M7-A3：brand/footer 接受数据形态（`AuthBrandSpec { name, logoUrl?, logoText? }` / `AuthFooterSpec { note?, links[] }`，渲染为标准品牌行/链接行——definePage auth-flow 配置直达）；导出 `AuthBrandMark`/`AuthFooterLinks` | ui: card；block: page-header |
 | `sign-in-page` | 登录（品牌位 + 表单 + 错误展示 + next 回跳） | block: auth-card-layout, typed-form-field 风格 field；core: /auth |
 | `sign-up-page` | 注册 | 同上 |
 | `forgot-password-page` | 忘记密码（发送成功态） | 同上 |
 | `otp-page` | MFA/验证码输入（6 位分格） | 同上 |
+
+四张 auth 页的 `brand`/`footer` props 均为 `ReactNode ∪ AuthBrandSpec ∪ AuthFooterSpec`（M7-A3：配置数据形态由 block 归一化渲染）。
 | `onboarding` | 带逻辑的引导向导（stepper + 每步表单 + 完成跳转） | block: stepper, typed-form-field |
 
 ## team/ · settings/ —— SaaS 模板页
 
 | block | 说明 | 依赖 |
 |---|---|---|
-| `team-page` | 成员表(角色/状态/2FA) + 邀请流(邮件/角色/链接复制) + 改角色/移除 + 待处理邀请区 | block: data-table, confirm-dialog, cells |
-| `settings-page` | sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,icon?,content}——content 为预置构件（org/profile/security/sessions/appearance，M6 四节的内置形态）或扩展挂载位；缺省 sections = 内置节保持旧行为 | block: form-page 风格分区, typed-form-field；core: /datetime,/theme |
+| `team-page` | 成员表(角色/状态/2FA) + 邀请流(邮件/角色/链接复制) + 改角色/移除 + 待处理邀请区；`appendix?` 页尾附加区（definePage data 注入位，M7-A3） | block: data-table, confirm-dialog, cells |
+| `settings-page` | sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,description?,icon?,content}——content 为预置构件（org/profile/security/sessions/appearance）或扩展挂载位；icon 兼容词表名（building-2/user-cog/key-round/palette，M7-A3）；org 预置节在 org 数据未就绪时隐藏（与缺省同规则）；缺省 sections = 内置节保持旧行为 | block: form-page 风格分区, typed-form-field；core: /datetime,/theme |
 
 ## shared/ —— 基础公共件
 

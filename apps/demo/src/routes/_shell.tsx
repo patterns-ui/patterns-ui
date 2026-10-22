@@ -1,3 +1,6 @@
+/**
+ * 【M7-A3 豁免清单】pathless 布局路由：requireAuth 守卫 + Outlet（无页面内容）。
+ */
 import { requireAuth } from "@patterns-ui/core/auth";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 

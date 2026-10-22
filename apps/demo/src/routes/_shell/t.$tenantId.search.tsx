@@ -1,57 +1,20 @@
+/**
+ * search 路由（M7-A3 批2 薄胶水）：结构在 pages/search.page.ts（definePage，
+ * global-search-page 预设宿主）；跨资源搜索适配器按 tenantId 在此注入。
+ */
+import { PageRenderer } from "@patterns-ui/core/page";
 import { createFileRoute } from "@tanstack/react-router";
-import { Boxes, ScrollText, Users } from "lucide-react";
 import { z } from "zod";
-import { GlobalSearchPage } from "@/components/blocks/shell/global-search-page/global-search-page";
-import { searchAll } from "@/resources-m4";
+import { searchPageConfig, searchResourcesFor } from "@/pages/search.page";
+import { resourceListTable } from "@/pages/tables";
 
-/** 跨资源搜索（⌘K 命令面板输入后回车直达 ?q=） */
 function SearchPage() {
   const { tenantId } = Route.useParams();
-
   return (
-    <GlobalSearchPage
-      debounceMs={250}
-      limit={5}
-      resources={[
-        {
-          name: "services",
-          label: "Services",
-          icon: Boxes,
-          search: async (q) => {
-            const hits = await searchAll(q, tenantId);
-            return hits
-              .filter((hit) => hit.type === "service")
-              .map((hit) => ({
-                id: hit.id,
-                title: hit.title,
-                subtitle: hit.subtitle,
-                to: `/t/${tenantId}/services/${encodeURIComponent(hit.id)}`,
-              }));
-          },
-        },
-        {
-          name: "members",
-          label: "Members",
-          icon: Users,
-          search: async (q) => {
-            const hits = await searchAll(q, tenantId);
-            return hits
-              .filter((hit) => hit.type === "member")
-              .map((hit) => ({ id: hit.id, title: hit.title, subtitle: hit.subtitle }));
-          },
-        },
-        {
-          name: "audit-events",
-          label: "Audit",
-          icon: ScrollText,
-          search: async (q) => {
-            const hits = await searchAll(q, tenantId);
-            return hits
-              .filter((hit) => hit.type === "audit-event")
-              .map((hit) => ({ id: hit.id, title: hit.title, subtitle: hit.subtitle }));
-          },
-        },
-      ]}
+    <PageRenderer
+      page={searchPageConfig}
+      table={resourceListTable}
+      data={{ host: { debounceMs: 250, limit: 5, resources: searchResourcesFor(tenantId) } }}
     />
   );
 }

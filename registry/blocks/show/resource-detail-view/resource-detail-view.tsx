@@ -10,7 +10,10 @@
 
 import { defaultReferenceLabel } from "@patterns-ui/core/reference";
 import type { ResourceDef } from "@patterns-ui/core/resource";
-import { useMemo } from "react";
+import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Boxes, Pencil, Rocket } from "lucide-react";
+import { useMemo, useState } from "react";
+import { cellFor } from "@/components/blocks/cells/cell-for/cell-for";
 import {
   listPathOf,
   resourceOf,
@@ -18,6 +21,8 @@ import {
 import { ErrorState } from "@/components/blocks/shared/error-state/error-state";
 import { DetailGrid, type DetailGridItem } from "@/components/blocks/show/detail-grid/detail-grid";
 import { DetailPage, useDetailTabParam } from "@/components/blocks/show/detail-page/detail-page";
+import { RecordPager } from "@/components/blocks/show/record-pager/record-pager";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /** L4 详情工厂的行约束（与 ResourceDef<TData extends RowData> 的泛型边界对齐） */
@@ -50,9 +55,76 @@ export interface ResourceDetailViewProps<TData extends AnyRow> {
    * 未登记的 tab 走本回调 → dev throw。
    */
   renderCustomTab?: (tabId: string, row: TData) => React.ReactNode;
-  /** hero 右侧动作 */
+  /**
+   * hero 右侧动作（M7-A3 声明式；与 actions ReactNode 二选一——声明式优先）。
+   * link：路由跳转（:tenantId/:id 模板替换）；run：类型化适配器；
+   * open-dialog：打开登记的 dialogs 组件（登记制，同 customTabs）。
+   */
+  heroActions?: readonly ResourceDetailHeroAction<TData>[];
+  /** 旧式 hero 动作逃生位（ReactNode；优先用 heroActions 声明式） */
   actions?: React.ReactNode;
+  /**
+   * hero 声明式配置：icon（宿主图标表名）、subtitleTemplate（{field} 模板替换）、
+   * badgeFields（按列 meta.cell + cellOptions 渲染的徽标字段）
+   */
+  hero?: { icon?: string; subtitleTemplate?: string; badgeFields?: readonly string[] };
+  /** 状态徽标活动态（呼吸点）值集 */
+  statusPulseFor?: readonly string[];
+  /** 相邻跳转（record-pager）：to 模板（:tenantId/:id 替换；pageSize 缺省 20） */
+  pager?: { toTemplate: string; pageSize?: number };
+  /**
+   * 登记对话框表（M7-A3 登记制）：键 = heroActions[].dialog 名；组件收
+   * { open, onOpenChange, row, def }。custom tab 经 ctx.openDialog(name) 触发同一状态源。
+   */
+  dialogs?: Record<string, React.ComponentType<ResourceDetailDialogProps<TData>>>;
+  /** 声明式 inline-edit 的保存适配器（宿主注入：mutation 接线 + toast） */
+  inlineSave?: (field: string, value: string | number, row: TData) => Promise<void>;
   className?: string;
+}
+
+/** hero 动作声明（M7-A3） */
+export interface ResourceDetailHeroAction<TData> {
+  id: string;
+  label: string;
+  kind: "link" | "run" | "open-dialog";
+  /** kind:"link" 的目标模板（:tenantId/:id 替换） */
+  to?: string;
+  /** kind:"run" 的适配器 */
+  run?: (row: TData, ctx: { navigate(to: string): Promise<void>; tenantId?: string }) => void;
+  /** kind:"open-dialog" 的登记名 */
+  dialog?: string;
+  variant?: "default" | "outline";
+  icon?: "pencil" | "rocket" | "boxes";
+}
+
+/** 详情页声明式 spec（M7-A3：id/inlineSave 等运行时值由路由胶水另行注入） */
+export type ResourceDetailViewSpec<TData extends AnyRow> = Omit<
+  ResourceDetailViewProps<TData>,
+  "id" | "inlineSave" | "renderCustomTab"
+> & { description?: string };
+
+/** spec 工厂（pages/*.page.ts 用：上下文类型推断，配置无需显式泛型实参） */
+export function defineResourceDetailPage<TData extends AnyRow>(
+  spec: ResourceDetailViewSpec<TData>,
+): ResourceDetailViewSpec<TData> {
+  return spec;
+}
+
+/** 登记对话框组件 props（M7-A3） */
+export interface ResourceDetailDialogProps<TData extends AnyRow> {
+  open: boolean;
+  onOpenChange(open: boolean): void;
+  row: TData;
+  def?: ResourceDef<TData>;
+}
+
+/** custom tab 组件 props（M7-A2 登记制 + M7-A3 openDialog 注入） */
+export interface ResourceDetailCustomTabProps<TData extends AnyRow> {
+  tabId: string;
+  row: TData;
+  def?: ResourceDef<TData>;
+  /** 打开登记对话框（与 hero 动作同一状态源） */
+  openDialog?(name: string): void;
 }
 
 /** 登记制解析：登记名 → 组件；未登记/不在表 → 明确报错（报错即目录） */
@@ -76,6 +148,18 @@ function resolveCustomTab(
   return Component;
 }
 
+const DETAIL_HERO_ICONS = { pencil: Pencil, rocket: Rocket, boxes: Boxes } as const;
+
+/** 模板路径解析（:tenantId/:id 替换；值经 encodeURIComponent，与路由 params 行为一致） */
+function resolveDetailTemplate(
+  template: string,
+  values: { tenantId?: string; id?: string },
+): string {
+  return template
+    .replace(":tenantId", encodeURIComponent(values.tenantId ?? ""))
+    .replace(":id", encodeURIComponent(values.id ?? ""));
+}
+
 export function ResourceDetailView<TData extends AnyRow>({
   def,
   id,
@@ -85,11 +169,24 @@ export function ResourceDetailView<TData extends AnyRow>({
   customTabs,
   renderCustomTab,
   actions,
+  heroActions,
+  hero,
+  statusPulseFor,
+  pager,
+  dialogs,
+  inlineSave,
   className,
 }: ResourceDetailViewProps<TData>) {
   const resource = useMemo(() => resourceOf(def), [def]);
   const query = resource.useOne(id);
   const { activeTab, setTab } = useDetailTabParam("overview");
+  const navigate = useNavigate();
+  const routeParams = useParams({ strict: false }) as { tenantId?: string };
+  const [openDialogName, setOpenDialogName] = useState<string | null>(null);
+  // record-pager 数据源（pager 配置为模块级常量 → 条件 hook 调用跨渲染稳定）
+  const pagerQuery = resource.useList(
+    pager !== undefined ? { page: 1, pageSize: pager.pageSize ?? 20 } : { page: 1, pageSize: 1 },
+  );
 
   const sections = def.show?.sections ?? [];
   const tabs = def.show?.tabs;
@@ -127,11 +224,20 @@ export function ResourceDetailView<TData extends AnyRow>({
       // DetailGrid cell 类型与 inferColumns 的 meta.cell 共用（enum → enum-badge）
       cell: item.cell === "enum" ? ("enum-badge" as const) : (item.cell as DetailGridItem["cell"]),
       cellOptions: {
+        ...item.cellOptions,
         options:
-          item.cell === "enum" || item.cell === "enum-badge"
-            ? enumOptionsOf(def, item.field)
-            : undefined,
-      },
+          item.cellOptions?.options !== undefined
+            ? item.cellOptions.options
+            : item.cell === "enum" || item.cell === "enum-badge"
+              ? enumOptionsOf(def, item.field)
+              : undefined,
+        // inline-edit 保存适配器：宿主注入（结构在 def、接线在适配器——§3.4）
+        onSave:
+          item.cell === "inline-edit" && inlineSave !== undefined
+            ? (value, data) =>
+                inlineSave(item.field, value, data as TData & Record<string, unknown>)
+            : item.cellOptions?.onSave,
+      } as DetailGridItem["cellOptions"],
     }));
 
   const detailTabs =
@@ -156,7 +262,7 @@ export function ResourceDetailView<TData extends AnyRow>({
                 return renderCustomTab ? (
                   renderCustomTab(tab.id, row)
                 ) : (
-                  <CustomTab tabId={tab.id} row={row} def={def} />
+                  <CustomTab tabId={tab.id} row={row} def={def} openDialog={setOpenDialogName} />
                 );
               })()
             ) : (
@@ -197,25 +303,129 @@ export function ResourceDetailView<TData extends AnyRow>({
   const statusValue = statusField !== undefined ? String(record[statusField] ?? "") : undefined;
   const statusTone =
     statusValue !== undefined && statusMap !== undefined
-      ? (statusMap[statusValue] ?? "neutral")
+      ? ((statusMap[statusValue] as "success" | "warning" | "danger" | "info" | "neutral") ??
+        "neutral")
+      : undefined;
+  const statusPulse =
+    statusPulseFor !== undefined && statusValue !== undefined
+      ? (statusPulseFor as readonly string[]).includes(statusValue)
       : undefined;
 
+  // hero 声明式：subtitle 模板替换 + 徽标（列 meta.cell + cellOptions 渲染）+ 图标表
+  const heroSubtitle =
+    hero?.subtitleTemplate !== undefined
+      ? hero.subtitleTemplate.replace(/\{(\w+)\}/g, (_, field: string) =>
+          String(record[field] ?? ""),
+        )
+      : String(record.id ?? id);
+  const heroBadges = (hero?.badgeFields ?? []).map((field) => {
+    const column = def.columns.find((c) => c.id === field);
+    const meta = column?.meta as
+      | { cell?: string; cellOptions?: Record<string, unknown> }
+      | undefined;
+    const cellType = meta?.cell === "enum" ? "enum-badge" : meta?.cell;
+    const CellComponent =
+      cellType !== undefined
+        ? cellFor(cellType as Parameters<typeof cellFor>[0], meta?.cellOptions ?? {})
+        : undefined;
+    return CellComponent ? <CellComponent key={field} value={record[field]} /> : null;
+  });
+  const heroIcon =
+    hero?.icon !== undefined
+      ? DETAIL_HERO_ICONS[hero.icon as keyof typeof DETAIL_HERO_ICONS]
+      : undefined;
+
+  // hero 动作（声明式优先；旧 actions ReactNode 逃生位保留）
+  const heroActionsNode =
+    heroActions === undefined
+      ? actions
+      : heroActions.map((action) => {
+          const Icon = action.icon !== undefined ? DETAIL_HERO_ICONS[action.icon] : undefined;
+          if (action.kind === "link" && action.to !== undefined) {
+            const to = resolveDetailTemplate(action.to, {
+              tenantId: routeParams.tenantId,
+              id: String(record.id ?? id),
+            });
+            return (
+              <Button
+                key={action.id}
+                variant={action.variant ?? "default"}
+                render={<Link to={to as never} search />}
+              >
+                {Icon ? <Icon /> : null} {action.label}
+              </Button>
+            );
+          }
+          return (
+            <Button
+              key={action.id}
+              variant={action.variant ?? "default"}
+              onClick={() => {
+                if (action.kind === "open-dialog" && action.dialog !== undefined) {
+                  setOpenDialogName(action.dialog);
+                } else if (action.run !== undefined) {
+                  void action.run(row as TData, {
+                    navigate: (to: string) => navigate({ to: to as never }),
+                    tenantId: routeParams.tenantId,
+                  });
+                }
+              }}
+            >
+              {Icon ? <Icon /> : null} {action.label}
+            </Button>
+          );
+        });
+
+  // 登记对话框（与 custom tab 的 openDialog 同一状态源）
+  const DialogComponent =
+    openDialogName !== null && dialogs !== undefined ? dialogs[openDialogName] : undefined;
+
   return (
-    <DetailPage
-      className={className}
-      title={title}
-      heroMeta={{ subtitle: String(record.id ?? id) }}
-      status={
-        statusValue !== undefined && statusTone !== undefined
-          ? { tone: statusTone, label: statusValue }
-          : undefined
-      }
-      actions={actions}
-      backTo={{ to: `${backPrefix}${listPath.replace(/^\//, "")}`, label: def.label ?? def.name }}
-      activeTab={activeTab}
-      onTabChange={setTab}
-      tabs={detailTabs}
-    />
+    <>
+      <DetailPage
+        className={className}
+        title={title}
+        heroMeta={{
+          icon: heroIcon,
+          subtitle: heroSubtitle,
+          badges: heroBadges.length > 0 ? heroBadges : undefined,
+        }}
+        status={
+          statusValue !== undefined && statusTone !== undefined
+            ? { tone: statusTone, label: statusValue, pulse: statusPulse }
+            : undefined
+        }
+        actions={heroActionsNode}
+        backTo={{ to: `${backPrefix}${listPath.replace(/^\//, "")}`, label: def.label ?? def.name }}
+        lead={
+          pager !== undefined ? (
+            <RecordPager
+              rows={pagerQuery.data?.rows as { id: string }[] | undefined}
+              currentId={String(record.id ?? id)}
+              to={(nextId) =>
+                resolveDetailTemplate(pager.toTemplate, {
+                  tenantId: routeParams.tenantId,
+                  id: nextId,
+                })
+              }
+            />
+          ) : undefined
+        }
+        activeTab={activeTab}
+        onTabChange={setTab}
+        tabs={detailTabs}
+      />
+      {DialogComponent !== undefined ? (
+        <DialogComponent
+          open={openDialogName !== null}
+          onOpenChange={(open: boolean) => {
+            if (!open) setOpenDialogName(null);
+          }}
+          row={row as TData}
+          def={def}
+        />
+      ) : null}
+    </>
   );
 }
 

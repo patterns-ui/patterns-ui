@@ -76,6 +76,8 @@ export interface TeamPageProps {
   client: TeamPageClient;
   /** 当前登录成员 id（不可改/不可移除自己与 owner） */
   currentUserId?: string;
+  /** 页尾附加区（宿主环境说明 / 演示入口等；definePage data 注入位） */
+  appendix?: React.ReactNode;
   className?: string;
 }
 
@@ -98,7 +100,7 @@ type MemberRow = TeamMember;
 const MEMBERS_KEY = listKey("team-members", {});
 const INVITATIONS_KEY = listKey("team-invitations", {});
 
-export function TeamPage({ client, currentUserId, className }: TeamPageProps) {
+export function TeamPage({ client, currentUserId, appendix, className }: TeamPageProps) {
   const queryClient = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [removing, setRemoving] = useState<MemberRow | null>(null);
@@ -242,95 +244,98 @@ export function TeamPage({ client, currentUserId, className }: TeamPageProps) {
   });
 
   return (
-    <div className={cn("flex flex-col gap-6 pb-6", className)} data-slot="team-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title="Team"
-          description={`${members.length} 位成员 · ${pendingInvitations.length} 个待处理邀请。角色变更即时生效（PATCH）。`}
-        />
-        <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus data-icon="inline-start" />
-          邀请成员
-        </Button>
-      </header>
-
-      <section className="bg-card overflow-hidden rounded-xl border">
-        <DataTable<MemberRow>
-          table={table}
-          stickyLast
-          preferencesKey="team-members"
-          mobile="cards"
-        />
-      </section>
-
-      <section className="bg-card overflow-hidden rounded-xl border">
-        <header className="flex items-center justify-between border-b px-5 py-3.5">
-          <h2 className="text-sm font-medium">待处理邀请</h2>
-          <span className="text-muted-foreground text-xs tabular-nums">
-            {pendingInvitations.length} 个
-          </span>
+    <>
+      <div className={cn("flex flex-col gap-6 pb-6", className)} data-slot="team-page">
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <PageHeader
+            title="Team"
+            description={`${members.length} 位成员 · ${pendingInvitations.length} 个待处理邀请。角色变更即时生效（PATCH）。`}
+          />
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus data-icon="inline-start" />
+            邀请成员
+          </Button>
         </header>
-        {pendingInvitations.length === 0 ? (
-          <p className="text-muted-foreground px-5 py-8 text-center text-sm">
-            没有待处理邀请 —— 点击「邀请成员」发送第一封邀请。
-          </p>
-        ) : (
-          <ul className="divide-border divide-y">
-            {pendingInvitations.map((invite) => (
-              <li key={invite.id} className="flex items-center gap-3 px-5 py-3 text-sm">
-                <span className="min-w-0 flex-1 truncate">{invite.email}</span>
-                <RoleBadge role={invite.role} />
-                <CellTime value={invite.createdAt} className="text-muted-foreground" />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  disabled={revokeMutation.isPending}
-                  onClick={() => revokeMutation.mutate(invite.id)}
-                >
-                  撤销
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
 
-      <InviteDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        pending={inviteMutation.isPending}
-        onSubmit={async (values, formApi) => {
-          try {
-            await inviteMutation.mutateAsync(values);
-          } catch (err) {
-            // 错误信封解析走 core parseError 单源（M7-A2）：422 fields 回填、其余进表单级
-            const parsed = parseError(err);
-            formApi.setErrorMap({
-              onSubmit: {
-                fields: parsed.fieldErrors ?? {},
-                form: parsed.fieldErrors ? undefined : parsed.message || "邀请失败",
-              },
-            });
-          }
-        }}
-      />
+        <section className="bg-card overflow-hidden rounded-xl border">
+          <DataTable<MemberRow>
+            table={table}
+            stickyLast
+            preferencesKey="team-members"
+            mobile="cards"
+          />
+        </section>
 
-      <ConfirmDialog
-        open={removing !== null}
-        onOpenChange={(open) => {
-          if (!open) setRemoving(null);
-        }}
-        title={`移除 ${removing?.name ?? ""}？`}
-        description="该成员将立即失去对本租户的访问权限；其历史审计记录保留。"
-        danger
-        confirmLabel="移除成员"
-        pending={removeMutation.isPending}
-        onConfirm={async () => {
-          if (removing) await removeMutation.mutateAsync(removing.id);
-        }}
-      />
-    </div>
+        <section className="bg-card overflow-hidden rounded-xl border">
+          <header className="flex items-center justify-between border-b px-5 py-3.5">
+            <h2 className="text-sm font-medium">待处理邀请</h2>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              {pendingInvitations.length} 个
+            </span>
+          </header>
+          {pendingInvitations.length === 0 ? (
+            <p className="text-muted-foreground px-5 py-8 text-center text-sm">
+              没有待处理邀请 —— 点击「邀请成员」发送第一封邀请。
+            </p>
+          ) : (
+            <ul className="divide-border divide-y">
+              {pendingInvitations.map((invite) => (
+                <li key={invite.id} className="flex items-center gap-3 px-5 py-3 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{invite.email}</span>
+                  <RoleBadge role={invite.role} />
+                  <CellTime value={invite.createdAt} className="text-muted-foreground" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-muted-foreground"
+                    disabled={revokeMutation.isPending}
+                    onClick={() => revokeMutation.mutate(invite.id)}
+                  >
+                    撤销
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <InviteDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          pending={inviteMutation.isPending}
+          onSubmit={async (values, formApi) => {
+            try {
+              await inviteMutation.mutateAsync(values);
+            } catch (err) {
+              // 错误信封解析走 core parseError 单源（M7-A2）：422 fields 回填、其余进表单级
+              const parsed = parseError(err);
+              formApi.setErrorMap({
+                onSubmit: {
+                  fields: parsed.fieldErrors ?? {},
+                  form: parsed.fieldErrors ? undefined : parsed.message || "邀请失败",
+                },
+              });
+            }
+          }}
+        />
+
+        <ConfirmDialog
+          open={removing !== null}
+          onOpenChange={(open) => {
+            if (!open) setRemoving(null);
+          }}
+          title={`移除 ${removing?.name ?? ""}？`}
+          description="该成员将立即失去对本租户的访问权限；其历史审计记录保留。"
+          danger
+          confirmLabel="移除成员"
+          pending={removeMutation.isPending}
+          onConfirm={async () => {
+            if (removing) await removeMutation.mutateAsync(removing.id);
+          }}
+        />
+      </div>
+      {appendix}
+    </>
   );
 }
 

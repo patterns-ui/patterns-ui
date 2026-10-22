@@ -2,7 +2,13 @@ import { cn } from "cn";
 import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { useRef, useState } from "react";
-import { AuthCardLayout } from "@/components/blocks/auth/auth-card-layout/auth-card-layout";
+import {
+  AuthBrandMark,
+  type AuthBrandSpec,
+  AuthCardLayout,
+  AuthFooterLinks,
+  type AuthFooterSpec,
+} from "@/components/blocks/auth/auth-card-layout/auth-card-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -13,14 +19,29 @@ export interface OtpPageProps {
   onSubmit: (code: string) => Promise<void>;
   title?: string;
   description?: string;
-  brand?: ReactNode;
-  footer?: ReactNode;
+  brand?: ReactNode | AuthBrandSpec;
+  footer?: ReactNode | AuthFooterSpec;
 }
 
 /**
  * 验证码 / MFA 页：N 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交；
  * 卡片壳见 AuthCardLayout）。
  */
+
+/** brand/footer 归一化：ReactNode 原样；数据形态（definePage 配置）渲染为标准品牌行/链接行 */
+function normalizeAuthSlot(
+  value: ReactNode | AuthBrandSpec | AuthFooterSpec | undefined,
+): ReactNode {
+  if (value === undefined || value === null) return value;
+  if (typeof value === "object" && "name" in value && typeof value.name === "string") {
+    return <AuthBrandMark spec={value} />;
+  }
+  if (typeof value === "object" && "links" in value && Array.isArray(value.links)) {
+    return <AuthFooterLinks spec={value} />;
+  }
+  return value as ReactNode;
+}
+
 export function OtpPage({
   length = 6,
   onSubmit,
@@ -98,7 +119,12 @@ export function OtpPage({
   }
 
   return (
-    <AuthCardLayout title={title} description={description} brand={brand} footer={footer}>
+    <AuthCardLayout
+      title={title}
+      description={description}
+      brand={normalizeAuthSlot(brand)}
+      footer={normalizeAuthSlot(footer)}
+    >
       <form
         onSubmit={(e) => {
           e.preventDefault();

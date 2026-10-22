@@ -35,6 +35,12 @@ export const PAGE_SLOT_FILLS = {
     "new-items-banner",
     /** 过滤感知导出（export-button）：toolbar slot 导出位。 */
     "export-button",
+    /** 成员模式预设页（team-page）：resource-list 的模式预设宿主（成员表 + 邀请流）。 */
+    "team-page",
+    /** 通知收件箱预设页（notification-inbox）：resource-list 的模式预设宿主。 */
+    "notification-inbox",
+    /** 全局搜索结果页（global-search-page）：resource-list 的模式预设宿主（跨资源命中列表）。 */
+    "global-search-page",
   ],
   "resource-detail": [
     /** 键值两列网格区（detail-grid）：sections tab 的内容件。 */
@@ -117,7 +123,8 @@ export const SLOT_NAMES_BY_ARCHETYPE = {
   "resource-form": ["host", "fields", "layout", "submit"],
   settings: ["host", "sections"],
   overview: ["host", "statCards", "charts", "activity"],
-  // brand 是 auth 卡片壳的数据键（非注入位），随 slot 清单一并纳入越界防护域
-  "auth-flow": ["host", "steps", "form", "success", "brand"],
+  // brand 是 auth 卡片壳的数据键（非注入位），随 slot 清单一并纳入越界防护域；
+  // footer 是卡片下链接区数据键（A3：链接是页面结构决策，进配置）
+  "auth-flow": ["host", "steps", "form", "success", "brand", "footer"],
   wizard: ["host", "steps", "transitions", "actions"],
 } as const satisfies { readonly [A in Archetype]: readonly string[] };

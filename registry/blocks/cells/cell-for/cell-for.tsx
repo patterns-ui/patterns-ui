@@ -41,6 +41,10 @@ export interface CellForOptions {
   labels?: [string, string];
   /** cell-tags：最多展示数 */
   max?: number;
+  /** cell-id：截断位数（缺省组件默认） */
+  chars?: number;
+  /** cell-user：id + resolve 解析形态（外键列声明式渲染；resolve 为类型化适配器） */
+  resolve?: (id: string) => { name: string; avatarUrl?: string } | undefined;
 }
 
 /** cellFor 产出的统一 cell 组件 props（value 来自列 accessor） */
@@ -61,12 +65,19 @@ export function cellFor(
   opts: CellForOptions = {},
 ): ComponentType<CellForValueProps> {
   const components: Record<CellForType, (p: { value: unknown }) => ReactNode> = {
-    id: ({ value }) => <CellId value={typeof value === "string" ? value : String(value ?? "")} />,
+    id: ({ value }) => (
+      <CellId value={typeof value === "string" ? value : String(value ?? "")} chars={opts.chars} />
+    ),
     time: ({ value }) => <CellTime value={value as string | number | Date | undefined} />,
     status: ({ value }) => (
       <CellStatus value={value as string | undefined} map={opts.map} pulseFor={opts.pulseFor} />
     ),
-    user: ({ value }) => <CellUser user={value as never} />,
+    user: ({ value }) =>
+      opts.resolve !== undefined ? (
+        <CellUser id={String(value ?? "")} resolve={opts.resolve} />
+      ) : (
+        <CellUser user={value as never} />
+      ),
     boolean: ({ value }) => (
       <CellBoolean value={value as boolean | undefined} labels={opts.labels} />
     ),

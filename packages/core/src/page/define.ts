@@ -40,13 +40,14 @@ export interface ResourceListViewSlot {
 }
 
 export interface ResourceListPageConfig extends PageConfigBase {
-  host: "list-page";
+  /** 宿主：list-page 或模式预设 list 宿主（team-page/notification-inbox/global-search-page） */
+  host: PageBlockNameFor<"resource-list">;
   /** toolbar slot（批量操作条 / 刷新条等） */
   toolbar?: PageBlockNameFor<"resource-list">;
   /** filters slot（过滤工具条 / facet 栏） */
   filters?: PageBlockNameFor<"resource-list">;
-  /** view slot（必填：数据视图） */
-  view: ResourceListViewSlot;
+  /** view slot（host="list-page" 时必填：数据视图；模式预设宿主自带视图，可省） */
+  view?: ResourceListViewSlot;
   /** 行动作声明（动作词表） */
   rowActions?: readonly RowActionConfig[];
   /** empty slot（空态填充） */
@@ -112,6 +113,8 @@ export type SettingsSectionPreset = "org" | "profile" | "security" | "sessions" 
 export interface SettingsSectionConfig {
   id: string;
   label: string;
+  /** 节描述（settings-page 节头右侧展示；缺省无） */
+  description?: string;
   /** 图标名（宿主图标表解析；core 不含 UI） */
   icon?: string;
   /** 节内容：预置构件 或 词表 block 挂载位（扩展节：计费/集成等） */
@@ -130,7 +133,8 @@ export interface SettingsPageConfig extends PageConfigBase {
 export interface OverviewStatCardConfig {
   id: string;
   label: string;
-  value: string | number;
+  /** 静态值可省：动态计数（facets/query 派生）经 PageRenderer data 注入（M7-A3） */
+  value?: string | number;
   trend?: string;
   tone?: "default" | "danger";
 }
@@ -165,15 +169,28 @@ export interface AuthFlowStepConfig {
   onDone?: readonly Action[];
 }
 
+/** 卡片下链接区（声明式：链接是页面结构决策，进配置；宿主渲染） */
+export interface AuthFooterLinkConfig {
+  label: string;
+  to: string;
+  /** 视觉档（对应既有 muted/primary 两类链接样式） */
+  kind?: "muted" | "primary";
+}
+
 export interface AuthFlowPageConfig extends PageConfigBase {
-  /** 宿主 = auth 卡片壳 */
-  host: "auth-card-layout";
-  brand?: { name: string; logoUrl?: string };
-  steps: readonly AuthFlowStepConfig[];
+  /**
+   * 宿主：auth-card-layout 壳，或内嵌该壳的表单页 block（sign-in-page/sign-up-page/
+   * otp-page/forgot-password-page——内嵌页不重复渲染壳，单表单页 steps 可省）
+   */
+  host: PageBlockNameFor<"auth-flow">;
+  brand?: { name: string; logoUrl?: string; logoText?: string };
+  steps?: readonly AuthFlowStepConfig[];
   /** form slot（整页表单形态的承载 block；与 steps 二选一） */
   form?: PageBlockNameFor<"auth-flow">;
   /** 成功终态（success slot：数据 + 动作序列） */
   success?: { title?: string; description?: string; actions?: readonly Action[] };
+  /** 卡片下链接区（note 为链接前置说明文案） */
+  footer?: { note?: string; links: readonly AuthFooterLinkConfig[] };
 }
 
 // ---------------------------------------------------------------------------

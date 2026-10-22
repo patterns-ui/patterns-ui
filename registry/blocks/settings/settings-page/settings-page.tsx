@@ -49,12 +49,23 @@ export type SettingsSectionPreset = "org" | "profile" | "security" | "sessions" 
 /** 节内容型别：预置构件（消费同名 props 数据/回调）或扩展挂载位（宿主 ReactNode） */
 export type SettingsSectionContent = { preset: SettingsSectionPreset } | { node: React.ReactNode };
 
-/** 设置节声明（sections[] 驱动；可扩展——计费/集成等扩展节可挂载） */
+/** 图标名表（封闭，只追加）：definePage settings 配置的 icon 字符串名 → lucide 组件 */
+const SECTION_ICONS = {
+  "building-2": Building2,
+  "user-cog": UserCog,
+  "key-round": KeyRound,
+  palette: Palette,
+} as const;
+
+export type SettingsSectionIconName = keyof typeof SECTION_ICONS;
+
+/** 设置节声明（sections[] 驱动；可扩展——计费/集成等扩展节可挂载；icon 兼容词表名） */
 export interface SettingsSectionSpec {
   id: string;
   label: string;
   description?: string;
-  icon?: React.ReactNode;
+  /** 图标：ReactNode 或词表名（definePage 配置的数据形态） */
+  icon?: React.ReactNode | SettingsSectionIconName;
   content: SettingsSectionContent;
 }
 
@@ -141,6 +152,13 @@ export function defaultSettingsSections(org: SettingsOrg | undefined): SettingsS
   ];
 }
 
+/** 节图标解析：词表名 → lucide 组件节点；ReactNode 原样 */
+function sectionIconOf(icon: SettingsSectionSpec["icon"]): React.ReactNode {
+  if (typeof icon !== "string") return icon;
+  const Icon = SECTION_ICONS[icon as SettingsSectionIconName];
+  return Icon ? <Icon className="size-4" /> : undefined;
+}
+
 /** 未知预置节登记名的报错（报错即目录） */
 function presetContent(preset: string, props: SettingsPageProps): React.ReactNode {
   switch (preset) {
@@ -172,7 +190,11 @@ export function SettingsPage({
   onSignOutAllSessions,
   className,
 }: SettingsPageProps) {
-  const specs = sections ?? defaultSettingsSections(org);
+  // org 预置节与缺省 sections 同规则：org 数据未就绪/缺失时隐藏（数据可选节）
+  const declared = sections?.filter(
+    (spec) => !("preset" in spec.content && spec.content.preset === "org" && org === undefined),
+  );
+  const specs = declared ?? defaultSettingsSections(org);
   return (
     <div
       className={cn("mx-auto flex w-full max-w-3xl flex-col gap-6 pb-8", className)}
@@ -186,7 +208,7 @@ export function SettingsPage({
       {specs.map((spec) => (
         <SettingsSection
           key={spec.id}
-          icon={spec.icon}
+          icon={sectionIconOf(spec.icon)}
           title={spec.label}
           description={spec.description}
         >

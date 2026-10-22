@@ -134,19 +134,31 @@ export function planPage<A extends Archetype>(
 }
 
 /**
+ * 运行时适配器数据（A3）：宿主与 slot 组件的附加 props——client 回调、hooks 产物等
+ * 运行期才有值的数据经此注入（配置仍是纯数据/纯结构；不传 = A2 行为不变）。
+ */
+export interface PageRenderData {
+  /** 宿主附加 props（与 plan.props 浅合并，data 优先——运行时值覆盖静态缺省） */
+  host?: Record<string, unknown>;
+  /** slot 附加 props：按 slot 名分发到该 slot 的全部组件（多组件同名 slot 共享） */
+  slots?: Record<string, Record<string, unknown>>;
+}
+
+/**
  * 渲染器（编译目标）：Host 收派生 props + 声明序 children（已解析 slot 组件）。
  * 宿主按 props.slots 记录做按位装配（A3 迁移时各宿主 block 增设对应消费位）。
  */
 export function renderPage<A extends Archetype>(
   page: PageConfig<A>,
   table: BlockTable<A>,
+  data?: PageRenderData,
 ): ReactNode {
   const plan = planPage(page, table);
   const Host = plan.host.Component;
   return (
-    <Host {...plan.props}>
-      {plan.slots.map(({ name, Component }) => (
-        <Component key={name} data-block={name} />
+    <Host {...plan.props} {...data?.host}>
+      {plan.slots.map(({ slot, name, Component }) => (
+        <Component key={name} data-block={name} {...data?.slots?.[slot]} />
       ))}
     </Host>
   );
@@ -156,7 +168,14 @@ export function renderPage<A extends Archetype>(
 export function PageRenderer<A extends Archetype>(props: {
   page: PageConfig<A>;
   table: BlockTable<A>;
+  data?: PageRenderData;
   className?: string;
 }): ReactNode {
-  return renderPage(props.page, props.table);
+  return renderPage(props.page, props.table, {
+    host:
+      props.className === undefined
+        ? props.data?.host
+        : { ...props.data?.host, className: props.className },
+    slots: props.data?.slots,
+  });
 }

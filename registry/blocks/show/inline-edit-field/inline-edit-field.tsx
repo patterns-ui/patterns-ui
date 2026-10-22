@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 export interface InlineEditFieldProps {
   value: string | number | undefined;
   /** 保存（异步）；抛错则回退显示原值（错误处理由调用方 toast） */
-  onSave: (next: string) => Promise<void> | void;
+  onSave?: (next: string) => Promise<void> | void;
   /** 编辑控件类型，默认 text */
   type?: "text" | "number";
   placeholder?: string;
@@ -56,7 +56,7 @@ export function InlineEditField({
   const save = async () => {
     setSaving(true);
     try {
-      await onSave(draft);
+      await onSave?.(draft);
       setEditing(false);
     } finally {
       setSaving(false);

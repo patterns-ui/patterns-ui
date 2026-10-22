@@ -86,14 +86,15 @@ describe("G2 禁手拼资源 queryKey（useQuery/useMutation 直调）", () => {
   /**
    * 白名单（按现有代码实际情况，逐一有理由）：
    *  - src/resources.ts / src/resources-m4.ts：createResource 注册地（本守卫保护的约定来源）
-   *  - src/routes/_shell/t.$tenantId.regions.tsx：树形演示页静态读取（ResourceClient.list 直调，
-   *    树表无 URL 查询语义，非资源列表）
+   *  - src/components/pages/regions.tsx（M7-A3 前在 routes/_shell/t.$tenantId.regions.tsx）：
+   *    树形演示页静态读取（ResourceClient.list 直调，树表无 URL 查询语义，非资源列表）
    *  - src/routes/_shell/t.$tenantId.settings.tsx：/api/me 与 /api/orgs 单例读取
    *    （非资源集合，无失效联动诉求）
    */
   const QUERY_ALLOWED = (rel: string) =>
     rel === "src/resources.ts" ||
     rel === "src/resources-m4.ts" ||
+    rel.endsWith("components/pages/regions.tsx") ||
     rel.endsWith("t.$tenantId.regions.tsx") ||
     rel.endsWith("t.$tenantId.settings.tsx");
 

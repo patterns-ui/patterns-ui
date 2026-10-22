@@ -1,3 +1,7 @@
+/**
+ * 【M7-A3 豁免清单】工具页：组件预览舞台（壳 × 侧栏 variant 切换 + 状态件陈列），
+ * 面向开发对照而非业务页面，不做配置化迁移。
+ */
 import { useAuth } from "@patterns-ui/core/auth";
 import { useTenant } from "@patterns-ui/core/tenant";
 import { createFileRoute, Link } from "@tanstack/react-router";

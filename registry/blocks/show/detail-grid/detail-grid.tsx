@@ -8,15 +8,33 @@ import {
   type CellForType,
   cellFor,
 } from "@/components/blocks/cells/cell-for/cell-for";
+import { InlineEditField } from "@/components/blocks/show/inline-edit-field/inline-edit-field";
+import { ReferenceField } from "@/components/blocks/show/reference-field/reference-field";
+
+/** DetailGrid 扩展 cell 名（M7-A3 声明式详情：cellFor 家族外的三个键值区渲染器） */
+export type DetailGridCellType = CellForType | "inline-edit" | "reference" | "mono";
+
+/** 扩展 cell 的选项（cellFor 家族键 + inline-edit/reference/mono 消费键） */
+export type DetailGridCellOptions = CellForOptions & {
+  /** inline-edit：编辑类型 */
+  type?: "text" | "number";
+  /** mono：前缀 */
+  prefix?: string;
+  /** reference：外键 label 读取（参数为资源行记录的松形态） */
+  getIdLabel?: (row: Record<string, unknown>) => string;
+  resource?: { useOne?: unknown } & Record<string, unknown>;
+  /** inline-edit：保存适配器（value, data）——宿主注入（含 mutation 接线） */
+  onSave?: (value: string | number, data: Record<string, unknown>) => Promise<void>;
+};
 
 export interface DetailGridItem {
   label: string;
   /** 取值字段名（从 data 读取） */
   field: string;
   /** cells 渲染器类型（缺省原样输出） */
-  cell?: CellForType;
+  cell?: DetailGridCellType;
   /** cell 渲染选项（cellFor 参数） */
-  cellOptions?: CellForOptions;
+  cellOptions?: DetailGridCellOptions;
   /** 完全自定义渲染（优先于 cell） */
   render?: (value: unknown, data: Record<string, unknown>) => ReactNode;
   /** 值为空时占位 */
@@ -64,6 +82,36 @@ export function DetailGrid({
           let content: ReactNode;
           if (item.render) {
             content = item.render(value, data ?? {});
+          } else if (item.cell === "inline-edit") {
+            const save = item.cellOptions?.onSave;
+            content = (
+              <InlineEditField
+                value={value as string | number}
+                type={item.cellOptions?.type}
+                onSave={
+                  save === undefined
+                    ? undefined
+                    : async (next) => {
+                        await save(next, data ?? {});
+                      }
+                }
+              />
+            );
+          } else if (item.cell === "reference") {
+            content = (
+              <ReferenceField
+                resource={item.cellOptions?.resource as never}
+                id={String(value ?? "")}
+                getIdLabel={item.cellOptions?.getIdLabel as never}
+              />
+            );
+          } else if (item.cell === "mono") {
+            content = (
+              <span className="font-mono text-xs">
+                {item.cellOptions?.prefix ?? ""}
+                {String(value ?? "")}
+              </span>
+            );
           } else if (item.cell) {
             if (!cellCache.has(item.cell)) {
               cellCache.set(item.cell, cellFor(item.cell, item.cellOptions));

@@ -1,3 +1,7 @@
+/**
+ * 【M7-A3 豁免清单】租户布局路由：TenantProvider + AppShell + ⌘K 命令面板（壳组装，
+ * 非七原型页面——壳属 ③④ 象限的宿主层）。
+ */
 import { useAuth } from "@patterns-ui/core/auth";
 import type { CrumbResolve } from "@patterns-ui/core/router";
 import { TenantProvider, useTenant } from "@patterns-ui/core/tenant";

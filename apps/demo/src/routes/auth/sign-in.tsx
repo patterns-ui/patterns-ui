@@ -1,6 +1,9 @@
+/** 页面配置迁移（M7-A3 批3）：结构在 pages/auth.page.ts，本文件是薄胶水（登录接线 + 渲染出口）。 */
 import { useAuth } from "@patterns-ui/core/auth";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { SignInPage } from "@/components/blocks/auth/sign-in-page/sign-in-page";
+import { PageRenderer } from "@patterns-ui/core/page";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { makeSignInSubmit, signInPage } from "@/pages/sign-in.page";
+import { authFlowTable } from "@/pages/tables";
 
 function validateSignInSearch(search: Record<string, unknown>): { next?: string } {
   return { next: typeof search.next === "string" ? search.next : undefined };
@@ -12,30 +15,18 @@ function SignInRoute() {
   const { next } = Route.useSearch();
 
   return (
-    <SignInPage
-      brand={
-        <div className="flex items-center gap-2 py-1">
-          <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-lg text-sm font-bold">
-            F
-          </span>
-          <span className="text-[15px] font-semibold">Fleetly Console</span>
-        </div>
-      }
-      description="测试账号：demo@fleetly.dev，密码任意"
-      onSubmit={async (credentials) => {
-        await login(credentials);
-        await navigate({ to: (next ?? "/") as never });
+    <PageRenderer
+      page={signInPage}
+      table={authFlowTable}
+      data={{
+        host: {
+          onSubmit: makeSignInSubmit({
+            login,
+            navigate: (to) => navigate({ to: to as never }),
+            next,
+          }),
+        },
       }}
-      footer={
-        <div className="flex items-center gap-4">
-          <Link to="/auth/forgot" className="text-muted-foreground hover:text-foreground">
-            忘记密码？
-          </Link>
-          <Link to="/auth/sign-up" className="text-primary hover:underline">
-            注册账号
-          </Link>
-        </div>
-      }
     />
   );
 }

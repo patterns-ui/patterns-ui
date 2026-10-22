@@ -633,9 +633,12 @@ export function useCrumbs(resolve?: {
 ```ts
 export interface ResourceFormDef { schema: StandardSchema; sections?: { title: string; description?: string; fields: string[] }[]; host?: 'page'|'sheet'|'dialog' }
 export interface ResourceShowDef {
-  sections?: { title: string; items: { label: string; field: string; cell?: string }[] }[]
+  sections?: { title: string; items: { label: string; field: string; cell?: string; cellOptions?: ResourceShowCellOptions }[] }[]
   tabs?: ResourceShowTab[]
 }
+// ResourceShowCellOptions（M7-A3）：详情键值区声明式渲染参数——cellFor 家族键
+//（map/pulseFor/format/unit/options/chars/resolve）+ DetailGrid 消费键
+//（inline-edit: type；mono: prefix；reference: getIdLabel/resource 实例——适配器为类型化非闭包引用）。
 export interface ResourceShowTab {
   id: string; label: string
   kind: 'sections'|'sub-resource'|'custom'
@@ -809,12 +812,12 @@ export interface PageConfig<A extends Archetype> { archetype: A; config: PageCon
 
 | 原型 | slot 结构（config 字段） | 关键类型 |
 |---|---|---|
-| resource-list | `host`(必填 "list-page") / `toolbar` / `filters` / `view`(必填：table·grid；kanban/calendar M8 追加) / `rowActions` / `empty` | `ResourceListPageConfig`（view = `{ name:"data-table"; variant?:"table"|"grid" }`；rowActions = 动作声明数组） |
+| resource-list | `host`(必填；list-page 或模式预设 list 宿主 team-page·notification-inbox·global-search-page) / `toolbar` / `filters` / `view`(table·grid；list-page 宿主下必填，模式预设宿主可省——预设自带视图) / `rowActions` / `empty` | `ResourceListPageConfig`（view = `{ name:"data-table"; variant?:"table"|"grid" }`；rowActions = 动作声明数组） |
 | resource-detail | `host`(必填 "detail-page") / `header` / `tabs`(sections·subResource·custom) / `timeline` / `comments`(M8) | `ResourceDetailPageConfig`（custom tab 走 §13 登记制） |
 | resource-form | `host`(必填 form-dialog·form-sheet·page) / `fields`(必填 "typed-form-field") / `layout`("single"·"sections") / `submit`(Action[]) | `ResourceFormPageConfig` |
-| settings | `host`(必填 "settings-page") / `sections[]`（可扩展：preset 节构件 ∪ 词表 block 挂载位） | `SettingsPageConfig`（preset = org/profile/security/sessions/appearance） |
-| overview | `host` / `statCards` / `charts` / `activity` | `OverviewPageConfig`（宿主 M8 dashboard-page 落地前 host 域仅 stat-strip） |
-| auth-flow | `host`(必填 "auth-card-layout") / `steps`(内嵌 step，如 OTP) / `form` / `success` | `AuthFlowPageConfig`（步骤 schema = zod；onDone = Action[]） |
+| settings | `host`(必填 "settings-page") / `sections[]`（可扩展：preset 节构件 ∪ 词表 block 挂载位） | `SettingsPageConfig`（preset = org/profile/security/sessions/appearance；节含 `description?` 与 `icon?` 字符串名，宿主图标表解析） |
+| overview | `host` / `statCards` / `charts` / `activity` | `OverviewPageConfig`（宿主 M8 dashboard-page 落地前 host 域仅 stat-strip；statCards.value 可省——动态计数经 PageRenderer data 注入） |
+| auth-flow | `host`(必填；auth-card-layout 壳或内嵌它的表单页 block sign-in-page·sign-up-page·otp-page·forgot-password-page——后者不重复渲染壳) / `steps`(内嵌 step，如 OTP；单表单页可省) / `form` / `success` / `footer`(卡片下链接区：`{ note?, links: [{ label, to, kind }] }`) | `AuthFlowPageConfig`（步骤 schema = zod；onDone = Action[]；brand = `{ name, logoText? }` 数据形态，宿主渲染品牌位） |
 | wizard | `host`(必填 "stepper") / `steps[]` / `transitions` / `actions`(完成序列) | `WizardPageConfig`（转移校验可异步） |
 
 运行时校验（dev 可见，报错含合法值清单）：archetype 非法 → 列 `ARCHETYPES`；host 缺失 → 报「缺 host」；渲染期 slot 越界 → 列该原型合法 slot 清单（`SLOT_NAMES_BY_ARCHETYPE`）。
@@ -838,9 +841,16 @@ export interface PageRenderPlan {
 }
 export function planPage(page: PageConfig<Archetype>, table: BlockTable<Archetype>): PageRenderPlan
 
+/** 运行时适配器数据（A3）：宿主与 slot 组件的附加 props——client 回调、hooks 产物等
+ *  运行期才有值的数据经此注入（配置仍是纯数据；A2 签名加法扩展，不传 = 行为不变） */
+export interface PageRenderData {
+  host?: Record<string, unknown>
+  slots?: Record<string, Record<string, unknown>>   // 按 slot 名分发到该 slot 的组件
+}
+
 /** 渲染器（编译目标，配置即源码）：Host 收 props + slots 记录 + 声明序 children */
-export function renderPage(page: PageConfig<Archetype>, table: BlockTable<Archetype>): ReactNode
-export function PageRenderer(props: { page: PageConfig<Archetype>; table: BlockTable<Archetype>; className?: string }): ReactNode
+export function renderPage(page: PageConfig<Archetype>, table: BlockTable<Archetype>, data?: PageRenderData): ReactNode
+export function PageRenderer(props: { page: PageConfig<Archetype>; table: BlockTable<Archetype>; data?: PageRenderData; className?: string }): ReactNode
 ```
 
 渲染器把解析出的 slot 组件以**声明序 children** 传给宿主，同时以 `slots: Record<slot, ComponentType>` prop 提供按位装配能力（宿主自行决定各 slot 落位——A3 迁移时各宿主 block 增设对应消费位）。`planPage` 对配置做运行时兜底：未知 slot 名 → throw 带 archetype 与合法 slot 清单；未知 block 名 → resolveBlock 的目录式报错。

@@ -1,3 +1,7 @@
+/**
+ * 【M7-A3 豁免清单】参照页：手写 M2 列表实现，作为库回归对照保留（产品入口是 /audit
+ * 的 defineResource 装配版）——双实现对照本身是其存在目的。
+ */
 import type { FilterDef } from "@patterns-ui/core/filters";
 import {
   createListColumnHelper,

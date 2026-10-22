@@ -6,6 +6,7 @@
 > - v1（2026-10-22）：初稿。
 > - v2（2026-10-22）：经四路独立审查（事实核查 / 设计批判 / 落地可行性 / 外部机制验证）修订。主要变化：修正 6 处事实错误与计数；原型表重构（error/empty 降为横切三态、宿主为 prop、补 tabs/subResource slot、wizard/auth 判别式）；新增名字解析×tree-shaking 决策记录；新增 M7-D 分发型执行层；M7 拆为 A1–D 共 10 个任务并全部验收可测化；M8 改为一交付物一任务；新增 §8 非功能需求；AI Elements 消费对象改为 shadcn 官方（Vercel 版已宣布弃用）；skills 分发降级为双通道表述。
 > - v3（2026-10-22）：一致性审查收口。新增 §1.2 元模式层（两层模式、16 项元模式清单、分页适配示例、协议变异轴全景）与 §10 四项定案落实；M7 任务计数修正 10→11；补齐悬空归属（M7-A2 增分页 mode/错误信封出口、M7-B1 增 slot 结构校验、M7-B4/D 增补、M7-C2 增 adapter 校验与 pattern 字段剥离备注、M6-D 增 typed-form-field 绑定、M6-E 增 core-api/architecture/milestones 漂移项）；settings 节化统一归 M7-A2；"第 9 原型"残留修正为第 8；带圈数字专用指四象限。
+> - v4（2026-10-23，M7-A3 落地）：页面迁移实数修正与验收命令落形。25 个路由文件（原记 24：`_shell` 豁免项实覆盖 `_shell.tsx` + `_shell/index.tsx` 两文件；`403` 为 ErrorPage 错误小页不属七原型）= 18 页三批配置化（资源 8——原记 9 无第 9 页；模式 6；auth 4）+ 7 文件豁免；验收命令 `grep -L 'return <' apps/demo/src/pages/*.ts` 与「0 JSX 配置」意图相悖（.ts 本就不能含 JSX 且 -L 语义反了），改写为 `grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空 + `ls apps/demo/src/pages/*.page.ts | wc -l` = 18；§3.3(1) 目录表述更新为 pages/*.page.ts + 薄路由胶水。
 
 状态：已评审定案（2026-10-22，四项开放问题拍板结果见 §10）。**断言基于 2026-10-22 对源码的逐条复核**（复审方法：四路独立审查对照 `packages/core/src`、`registry/**`、`apps/demo/src`、`.github/workflows`）。
 
@@ -158,7 +159,7 @@
 
 ### 3.3 封闭词表的实现（名字间接层）
 
-1. **配置写名字**：页面只写 `.resource.ts` / `page.ts` 纯配置（0 JSX）；字段→组件默认映射，override 只能写词表内的名字。
+1. **配置写名字**：页面配置集中在 `apps/demo/src/pages/*.page.ts` 纯配置（0 JSX：defineResource/definePage/defineFlow 产物 + 类型化适配器引用；注入子表单点在 `pages/tables.ts`，按原型分组完整 BlockTable）。路由文件（`src/routes/`）是薄胶水——引用配置 + 运行时渲染出口（视图工厂或 PageRenderer；TanStack Router 仍需 tsx 路由文件，路由胶水不是「页面」）；字段→组件默认映射，override 只能写词表内的名字。
 2. **类型查名字**：构建生成 `blocks.generated.ts`——各词表为**显式注解**的字面量联合类型（防 TS2742 跨包推断失败）+ JSDoc；生成物提交进 git（TanStack Router `routeTree.gen.ts` 同模式，IDE/CI 无需先跑生成器）。写错名字 → typecheck 报错列出全部合法值（**报错信息即目录**）。落形态（M7-A1 定案）：各词表生成 `X_NAMES = [...] as const` 元组 + `XName = (typeof X_NAMES)[number]` 派生联合——元组内为显式字面量、无推断歧义（防 TS2742 目的等同达成），而派生联合在报错信息里**展开全部合法值**（别名直写的字面量联合只显示别名与最近候选，TS2820，不满足"报错信息即目录"）；每个名字行上方带 JSDoc 注释 + `X_DOCS: Record<XName, string>` 描述映射常量（单源均为 meta description，供 patterns.md/AGENTS.md 生成器与 ui:check 工具消费）。
 3. **运行时解析名字**：core 提供 name → component 解析出口。
 
@@ -232,7 +233,7 @@
 
 - **A1〔中〕生成器与类型层**：`blocks.generated.ts` 生成器（显式注解、JSDoc、提交进 git）；registry meta 增 `archetype` 字段；生成物单测（JSDoc 与 meta description 一致、类型可编译）。
 - **A2〔中大〕运行时层**：按原型分组的注入子表 + `definePage<Archetype>` 类型收窄 + name→component 解析出口；`definePage`（slot 组装）/`defineFlow`（步骤流 + **action 词表初版**：navigate/toast/refresh/invalidate/refetch/close/reload/copy/waitDialog/loading 共 10 个，可扩）；detail `kind:"custom"` 改登记制（必须登记 sandbox 名）；**解析器/渲染器/状态机单测（含名字缺失、slot 越界失败路径）**；settings-page 节化改造（sections[] 可扩展）；分页 mode 升格为 def 一等契约节点（page/offset/keyset 封闭词表，与 core-api §3 ListMode 语义对齐并同步改写该节）；错误信封解析出口统一（parseError 单源，替换 form/team-page/error-state 三处自解析）。
-- **A3〔大〕页面迁移**：demo 24 个路由，19 个分三批配置化——资源 9 页（services×4、audit、api-keys、regions、deployments…）用现有 defineResource；模式页 6 个（settings、team、notifications、onboarding、search、index）等 definePage/defineFlow；auth×4。其余 5 个进**豁免清单**（`preview`、`dev.audit-legacy` 工具/参照页；`__root`/`_shell`/`t.$tenantId` 布局路由），文件头注释声明。
+- **A3〔大〕页面迁移**：demo 25 个路由文件，18 个分三批配置化——资源 8 页（services×4、audit、api-keys、regions、deployments）走现有 defineResource + resource-list-view/resource-detail-view/表单视图工厂（工厂缺的能力——toolbar 槽、导出、选择、banner、刷新档位、行/头动作、分组开关等——按 slot 结构声明化收编进工厂，页面组装下沉为 def/工厂参数；扩工厂是本批主要工作量）；模式页 6 个（settings、team、notifications、onboarding、search、index）definePage/defineFlow 配置化（宿主 = 对应模式 preset block：settings-page/team-page/notification-inbox/global-search-page…；页面逻辑——client 接线、mutations——以类型化适配器引用进配置，禁 JSX/无类型闭包，§3.4）；auth×4 definePage("auth-flow")。其余 **7 个文件**进**豁免清单**（`403`——ErrorPage 参数化错误小页，不属七原型无法 definePage；`preview`、`dev.audit-legacy`——工具/参照页；`__root`、`_shell.tsx`、`_shell/index.tsx`、`_shell/t.$tenantId.tsx`——布局路由与重定向桩），每个豁免路由文件头部注释声明理由。
 - **B1〔中〕@patterns-ui/eslint-plugin**：四规则（pages 无 JSX / 禁裸 table·dialog 原语 / 禁 hex 与 arbitrary tailwind 值 / registry 冻结）+ `--fix`。**工具链决策**：自定义规则走 eslint（biome 不支持自定义规则），作用域仅 pages/registry 目录，biome 保持全仓其余职责。**冻结语义**：路径/name/targetDir 三不变、内容可变（哈希不冻结）。另含：同 archetype 的 item slot 结构一致性 CI 校验（消费 meta.archetype，承接 §3.2）。插件按 npm 包形态开发（flat config preset），规则不依赖仓内路径（服务 M7-D）。
 - **B2〔中〕截图基线 + chaos 前置**：三态 = **loading/empty/error**（mock `?demo-error=` 与空过滤构造）；确定性前提：冻结时钟（relative-time 不随墙钟漂移）、禁动画、mock 每 worker 重置；`screenshots/baseline/**` 入库，`toHaveScreenshot(maxDiffPixelRatio: 0.02)`，失败上传 diff artifact。**chaos 开关从 C 挪此**：`?demo-error=` 派发器统一进 mock 入口，覆盖全部 handler 文件（现状仅 2/9）。
 - **B3〔中〕一致性分数**：口径 = 可枚举检查项计数（手写拷贝数 / 页面 JSX 文件数 / 词表覆盖页面比例 / sandbox 使用率——§2.3 债务清单的机械化子集，**非平均值**，新增页面不稀释）；`scripts/consistency-score.mjs` + 首份 `scores.json` 基线入库；`ui:score --check` 只许升。
@@ -245,7 +246,7 @@
 **验收清单**
 
 - [ ] 写 `cell-statuz` typecheck 报错并列出全部合法 cell 名（A1）；A2 单测含失败路径全绿（A2）
-- [ ] `grep -L 'return <' apps/demo/src/pages/*.ts` 为空且豁免清单文件头有注释（A3）
+- [ ] `grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空（pages/ 纯配置：0 JSX 元素，0 大写泛型实参——配置走类型推断与词表名）且 `ls apps/demo/src/pages/*.page.ts | wc -l` = 18、豁免清单文件头有注释（A3）
 - [ ] 故意写 `<table>` 与 `#ff0000`，lint 拦截且 `--fix` 可用（B1）；同 archetype 的 item slot 结构 CI 校验绿（B1）
 - [ ] `pnpm ui:shots --check` 与 `pnpm ui:score --check` 在 CI 绿，首份 `scores.json` 基线入库（B2/B3）
 - [ ] **agent 验收两层**：自动层 = 新 agent 会话按 agent-acceptance.md 标准任务产出 PR，通过 eslint 全规则 + 三方核对 + sandbox 零新增 + 三态截图；人工层只判配置可读性（C3）

@@ -13,6 +13,7 @@ import {
   type BlockTable,
   defineFlow,
   definePage,
+  PAGE_BLOCKS_BY_ARCHETYPE,
   PageRenderer,
   planPage,
   renderPage,
@@ -283,5 +284,60 @@ describe("类型层：七原型配置面", () => {
       "resource-form",
       "wizard",
     ] satisfies Archetype[]);
+  });
+});
+
+/** renderPage data 测试的记录组件（模块级：避免 hook 工厂 lint；记录到共享数组） */
+const seen: Record<string, unknown>[] = [];
+function RecorderHost(props: Record<string, unknown>) {
+  seen.push({ where: "host", props });
+  return props.children as ReactNode;
+}
+function RecorderSlot(props: Record<string, unknown>) {
+  seen.push({ where: "slot", props });
+  return null;
+}
+
+/** A3 域表扩展：模式预设 list 宿主进 resource-list 注入域；auth-flow footer 数据键合法 */
+describe("PAGE_SLOT_FILLS 扩展（M7-A3）", () => {
+  it("模式预设宿主（team/notification/search）在 resource-list 注入域内", () => {
+    const domain = PAGE_BLOCKS_BY_ARCHETYPE["resource-list"] as readonly string[];
+    for (const name of ["team-page", "notification-inbox", "global-search-page"]) {
+      expect(domain).toContain(name);
+    }
+  });
+
+  it("auth-flow：单表单页宿主（内嵌壳的 block）+ footer 数据键合法；host 联合收窄", () => {
+    const page = definePage("auth-flow", {
+      host: "sign-in-page",
+      brand: { name: "Fleetly Console", logoText: "F" },
+      footer: { links: [{ label: "注册账号", to: "/auth/sign-up", kind: "primary" }] },
+    });
+    // steps 可省（单表单页）；footer 不触发 slot 越界
+    expect(() => planPage(page, authTable)).not.toThrow();
+  });
+
+  it("renderPage data：host/slot 附加 props 分发（运行时适配器注入面）", () => {
+    const page = definePage("auth-flow", {
+      host: "auth-card-layout",
+      steps: [{ id: "signin", block: "sign-in-page" }],
+    });
+    seen.length = 0;
+    const Host = RecorderHost;
+    const Step = RecorderSlot;
+    const table = {
+      "auth-card-layout": Host,
+      "sign-in-page": Step,
+    } as unknown as BlockTable<"auth-flow">;
+    render(
+      renderPage(page, table, {
+        host: { title: "欢迎回来" },
+        slots: { steps: { onSubmit: () => undefined } },
+      }) as ReactElement,
+    );
+    const host = seen.find((s) => s.where === "host")?.props as Record<string, unknown>;
+    const slot = seen.find((s) => s.where === "slot")?.props as Record<string, unknown>;
+    expect(host.title).toBe("欢迎回来");
+    expect(slot.onSubmit).toBeTypeOf("function");
   });
 });

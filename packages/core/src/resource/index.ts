@@ -38,9 +38,40 @@ export interface ResourceFormDef {
   host?: "page" | "sheet" | "dialog";
 }
 
+/**
+ * 详情键值区的 cell 渲染选项（M7-A3：sections items 的声明式渲染参数；
+ * cellFor 家族键由 blocks cellFor 消费，inline-edit/reference/mono 由 DetailGrid 消费）。
+ * 适配器值（resolve/getIdLabel/resource 实例）为类型化非闭包引用（paradigm §3.4）。
+ */
+export interface ResourceShowCellOptions {
+  /** cell-status：值 → tone 映射 */
+  map?: Record<string, string>;
+  /** cell-status：活动态（呼吸点）值 */
+  pulseFor?: string[];
+  /** cell-number：格式 */
+  format?: "int" | "decimal" | "percent" | "bytes";
+  unit?: string;
+  /** cell-enum-badge：选项表 */
+  options?: readonly { value: string; variant?: string }[];
+  /** cell-id：截断位数 */
+  chars?: number;
+  /** cell-user：id + resolve 解析形态 */
+  resolve?: (id: string) => { name: string; avatarUrl?: string } | undefined;
+  /** cell:"inline-edit"：编辑类型（缺省 text） */
+  type?: "text" | "number";
+  /** cell:"mono"：前缀（如版本号 v） */
+  prefix?: string;
+  /** cell:"reference"：外键资源实例（createResource 产物）与 label 读取 */
+  getIdLabel?: (row: Record<string, unknown>) => string;
+  /** cell:"reference" 的资源实例（视图层消费） */
+  resource?: unknown;
+  /** cell:"inline-edit" 的保存适配器（value, data)；缺省由视图层 inlineSave 注入 */
+  onSave?: (value: string | number, data: Record<string, unknown>) => Promise<void>;
+}
+
 export interface ResourceShowSection {
   title: string;
-  items: { label: string; field: string; cell?: string }[];
+  items: { label: string; field: string; cell?: string; cellOptions?: ResourceShowCellOptions }[];
 }
 
 export interface ResourceShowTab {

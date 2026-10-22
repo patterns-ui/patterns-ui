@@ -1,3 +1,6 @@
+/**
+ * 【M7-A3 豁免清单】重定向桩：`/` 的记忆租户重定向（rootTenantRedirect），无组件无原型。
+ */
 import { rootTenantRedirect } from "@patterns-ui/core/tenant";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { listTenants } from "@/lib/tenants";

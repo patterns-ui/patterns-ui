@@ -29,6 +29,7 @@ export {
 export {
   type AuthFlowPageConfig,
   type AuthFlowStepConfig,
+  type AuthFooterLinkConfig,
   definePage,
   type OverviewChartConfig,
   type OverviewPageConfig,
@@ -66,6 +67,7 @@ export {
   useFlow,
 } from "./flow";
 export {
+  type PageRenderData,
   PageRenderer,
   type PageRenderPlan,
   planPage,
