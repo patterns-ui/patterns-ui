@@ -104,18 +104,29 @@ export function expandColumn<TData extends RowData>(
 
 export interface RowActionItem<TData> {
   label: string;
+  /**
+   * 主操作：平铺为行内图标按钮（真实产品惯例：查看/编辑平铺，删除/封禁类收进更多菜单）。
+   * danger 项强制归入更多菜单，即使标了 primary。
+   */
+  primary?: boolean;
   danger?: boolean;
   icon?: LucideIcon;
   run: (row: TData) => void | Promise<void>;
   separatorBefore?: boolean;
 }
 
-/** 行操作列：DropdownMenu（触发按钮带 data-row-actions-trigger，供键盘 Enter 打开） */
+export interface ActionsColumnOptions {
+  /** sr-only 表头文案（默认「操作」） */
+  label?: string;
+}
+
+/** 行操作列：主操作平铺 + 「更多操作」DropdownMenu（触发按钮带 data-row-actions-trigger，供键盘 Enter 打开） */
 export function actionsColumn<TData extends RowData>(
   helper: ListColumnHelper<TData>,
   rowActions: (row: TData) => RowActionItem<TData>[],
-  label = "操作",
+  opts: ActionsColumnOptions | string = {},
 ): ListColumnDef<TData> {
+  const label = typeof opts === "string" ? opts : (opts.label ?? "操作");
   return helper.display({
     id: "__actions",
     enableSorting: false,
@@ -123,12 +134,12 @@ export function actionsColumn<TData extends RowData>(
     size: 60,
     header: () => <span className="sr-only">{label}</span>,
     cell: ({ row, table }) => (
-      <RowActionsMenu row={row} table={table as ListTable<TData>} rowActions={rowActions} />
+      <RowActionsCell row={row} table={table as ListTable<TData>} rowActions={rowActions} />
     ),
   }) as ListColumnDef<TData>;
 }
 
-function RowActionsMenu<TData extends RowData>({
+function RowActionsCell<TData extends RowData>({
   row,
   table,
   rowActions,
@@ -140,36 +151,60 @@ function RowActionsMenu<TData extends RowData>({
   void table;
   const items = rowActions(row.original);
   if (items.length === 0) return null;
+  const primary = items.filter((item) => item.primary && !item.danger);
+  const more = items.filter((item) => !(item.primary && !item.danger));
+  if (primary.length === 0 && more.length === 0) return null;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="行操作"
-            data-row-actions-trigger={row.id}
-            onClick={(e) => e.stopPropagation()}
-          />
-        }
-      >
-        <MoreHorizontal />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        {items.map((item, i) => (
-          <div key={`${item.label}-${i}`}>
-            {item.separatorBefore && i > 0 ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem
-              variant={item.danger ? "destructive" : undefined}
-              onClick={() => void item.run(row.original)}
-            >
-              {item.icon ? <item.icon data-icon="inline-start" /> : null}
-              {item.label}
-            </DropdownMenuItem>
-          </div>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex items-center justify-end gap-0.5 whitespace-nowrap">
+      {primary.map((item) => (
+        <Button
+          key={item.label}
+          variant="ghost"
+          size="icon"
+          title={item.label}
+          aria-label={item.label}
+          className="size-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            void item.run(row.original);
+          }}
+        >
+          {item.icon ? <item.icon /> : <span className="text-xs">{item.label}</span>}
+        </Button>
+      ))}
+      {more.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7"
+                aria-label="更多操作"
+                data-row-actions-trigger={row.id}
+                onClick={(e) => e.stopPropagation()}
+              />
+            }
+          >
+            <MoreHorizontal />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            {more.map((item, i) => (
+              <div key={`${item.label}-${i}`}>
+                {item.separatorBefore && i > 0 ? <DropdownMenuSeparator /> : null}
+                <DropdownMenuItem
+                  variant={item.danger ? "destructive" : undefined}
+                  onClick={() => void item.run(row.original)}
+                >
+                  {item.icon ? <item.icon data-icon="inline-start" /> : null}
+                  {item.label}
+                </DropdownMenuItem>
+              </div>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+    </div>
   );
 }
 
@@ -552,8 +587,11 @@ export function DataTable<TData extends RowData>({
         className={cn(
           densityCell[density],
           "[&>button]:cursor-default",
-          isStickyLeft && "bg-background group-hover/row:bg-muted/50 sticky left-0 z-10",
-          isStickyRight && "bg-background group-hover/row:bg-muted/50 sticky right-0 z-10",
+          // sticky 列必须不透明（否则下层列文字透出）；hover/选中态用与 TableRow 等效的实色
+          isStickyLeft &&
+            "sticky left-0 z-10 bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-has-aria-expanded/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[state=selected]/row:bg-muted",
+          isStickyRight &&
+            "sticky right-0 z-10 bg-background group-hover/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-has-aria-expanded/row:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[state=selected]/row:bg-muted",
           dirty && "bg-primary/10 ring-primary/30 ring-1 ring-inset",
           editable && !isEditing && "hover:bg-primary/5 cursor-text",
           rowIndex >= 0 && "align-middle",

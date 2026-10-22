@@ -42,7 +42,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 | block | 说明 | 关键 props | 依赖 |
 |---|---|---|---|
 | `list-page` | 列表页模板：页头(title/description/actions) + lead(stat-strip?) + FilterBar + AsyncState(DataTable) + PaginationBar + appendix | `title, description?, actions?, lead?, table, toolbar?, empty?` | block: stat-strip, filter-bar, async-state, pagination-bar |
-| `data-table` | TanStack Table v9 封装：sticky 首尾列、列宽拖拽、列显隐/顺序菜单、密度切换、行选择、行操作菜单、展开行、分组/树形、聚合行、行内编辑、虚拟化、移动端卡片化、键盘(`/` 聚焦搜索由页面接线) | `table, stickyFirst?, stickyLast?, rowActions?, getRowId, expandable?: { render }, grouping?, tree?: { getChildren }, aggregates?: { field, fn }[], inline?: InlineCtl, virtual?: boolean, mobile?: 'cards', density persistence key` | core: /inline；ui: table/dropdown/checkbox；block: cells |
+| `data-table` | TanStack Table v9 封装：sticky 首尾列、列宽拖拽、列显隐/顺序菜单、密度切换、行选择、行操作（**主操作平铺 + 更多菜单默认约定**：`RowActionItem.primary` 平铺为行内图标按钮，danger 项强制收进「更多操作」菜单）、展开行、分组/树形、聚合行、行内编辑、虚拟化、移动端卡片化、键盘(`/` 聚焦搜索由页面接线) | `table, stickyFirst?, stickyLast?, rowActions?（(row) => RowActionItem[]，primary 标记主操作）, getRowId, expandable?: { render }, grouping?, tree?: { getChildren }, aggregates?: { field, fn }[], inline?: InlineCtl, virtual?: boolean, mobile?: 'cards', density persistence key` | core: /inline；ui: table/dropdown/checkbox；block: cells |
 | `filter-bar` | 搜索框 + FilterDef 渲染 + and/or 组合编辑器(高级模式) + 已应用 chips + saved-views-menu + 刷新 | `state(来自 useResourceTable), defs, advanced?: boolean` | core: /filters,/list；block: saved-views-menu；ui: select/popover/badge |
 | `facet-sidebar` | 列表左侧 facet 栏（多选 + 计数） | `facetData, state` | core: /filters；ui: checkbox |
 | `saved-views-menu` | 命名视图下拉：保存当前/应用/重命名/删除 | `resourceKey` | core: /list(useSavedViews)；ui: dropdown |

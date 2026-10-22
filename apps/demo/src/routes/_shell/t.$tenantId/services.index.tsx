@@ -6,7 +6,7 @@ import {
 } from "@fleetly/ui-component-core/list";
 import { useNewItemsSignal } from "@fleetly/ui-component-core/task";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Columns3, Plus } from "lucide-react";
+import { Columns3, Eye, Plus, SquarePen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -90,6 +90,23 @@ function ServicesPage() {
   });
 
   const rowActions = (row: MockService) => [
+    {
+      label: "查看",
+      primary: true,
+      icon: Eye,
+      run: () =>
+        navigate({ to: "/t/$tenantId/services/$id", params: { tenantId: tenantId, id: row.id } }),
+    },
+    {
+      label: "编辑",
+      primary: true,
+      icon: SquarePen,
+      run: () =>
+        navigate({
+          to: "/t/$tenantId/services/$id/edit",
+          params: { tenantId: tenantId, id: row.id },
+        }),
+    },
     {
       label: "标记为 running",
       run: () => updateRow.mutate({ id: row.id, status: "running", version: String(row.version) }),

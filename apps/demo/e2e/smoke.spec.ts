@@ -62,12 +62,15 @@ test.describe("冒烟主链路", () => {
     await guardDialog.getByRole("button", { name: "离开" }).click();
     await expect(page).toHaveURL(/\/team$/);
 
-    // 8) undoable 删除：行操作菜单删除 → toast 撤销 → 行恢复
+    // 8) undoable 删除：更多操作菜单删除 → toast 撤销 → 行恢复（主操作 查看/编辑 平铺在行内）
     await page.getByRole("link", { name: "Services" }).first().click();
     await expect(page.locator('[data-slot="data-table"]')).toBeVisible();
     await expect(page.getByText("gateway-01").first()).toBeVisible();
 
-    await page.getByRole("button", { name: "行操作" }).first().click();
+    await expect(page.getByRole("button", { name: "查看", exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "编辑", exact: true }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "更多操作" }).first().click();
     await page.getByRole("menuitem", { name: /删除（可撤销）/ }).click();
     await expect(page.getByText("gateway-01").first()).toHaveCount(0, { timeout: 10_000 }); // 立即消失
     const undoButton = page.getByRole("button", { name: /撤销（\d+s）/ });
