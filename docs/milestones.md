@@ -214,3 +214,28 @@
 - [x] shell/sidebar 变体收敛（D）：`app-shell-*` / `side-nav-*` 通配各匹配 0（D 实现命名为无后缀基座 `app-shell` / `side-nav` + `variant` prop，较范式原判据「=1」更进一步）；preview 页可切三种 variant（D）；`text-[22px]` 全仓 grep 为 0（D）；过滤树 URL 还原 e2e 绿（D）
 - [x] ci.yml 无 `workflow_dispatch` 门（e2e 随 PR/push；顶层触发器保留手动重跑）（E）；`pnpm install && pnpm dev` fresh-clone CI job 绿（E；本地 file:// clone 实测 dev :5173 与 review :4173 均 200）
 - [x] （E 追加验收）`grep -rn "core/mutation" registry/ packages/` 为空；docs/core-api.md §6/§15/§16、architecture.md §2/§4、blocks.md、README.md 与现状一致
+
+## M7 —— 范式落地（进行中；任务明细与判据见 docs/paradigm.md §6）
+
+A1–A3（词表生成器/运行时层/页面迁移）与 B1–B3（eslint-plugin 四规则/三态截图基线/一致性分数棘轮）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。先落 B4：
+
+### M7-B4 核对器与编排（2026-10-23 落地）
+
+**交付物**
+
+1. **`pnpm ui:check` 一条龙**（scripts/ui-check.mjs，node 零依赖编排器）：10 步按序——typecheck → biome lint → 范式 lint（lint:eslint）→ archetype/slot（slots:check）→ 产物新鲜度（`pnpm build` 后 `git diff --exit-code`，与 CI 同口径）→ 三方一致核对（check:names）→ 截图基线（ui:shots --check）→ 分数棘轮（ui:score --check）→ a11y（ui:a11y）→ chunk 预算（demo build + chunk-budget 报告）。任一步失败**继续跑完**再汇总非零退出；每步打印标题+耗时。旋钮：`--skip <id|name>[,...]`（按编号/名称豁免）、`--fast`（= 跳 7/9/10 浏览器与构建项的静态快跑）、`--list`。
+2. **三方一致核对** `pnpm check:names`（scripts/check-config-names.mts，tsx 以 demo tsconfig 加载 pages 为真实模块后受检遍历——结构性提取而非正则）：配置名字 ⊆ 注入表 ∪ sandbox 登记表。核对项：tables.ts 注入子表键集与 core `PAGE_BLOCKS_BY_ARCHETYPE` 逐原型集合相等；definePage 的 host/slots/steps[].block/sections[].content.block 按原型域核对；def 列 `meta.cell` ⊆ cellFor 标记集且映射进 CELL_NAMES；tabs 登记名（block/sandbox）⊆ BLOCK_NAMES ∪ sandbox 登记表（detail spec customTabs/dialogs 键 + 文件头 `// sandbox:` 登记，登记须有对应实现）；另有兜底网——config 内任何命中 BLOCK_NAMES 的串必须出于已核对位置。失败输出列全表（报错即目录）。**覆盖 typecheck 盲区**：`meta.cell`/`tabs[].sandbox` 是 `string`（无字面量收窄）、注入表与词表的集合相等也只有运行时可核。
+3. **a11y 检查** `pnpm ui:a11y`（@axe-core/playwright 4.14.0，demo devDep 进 catalog）：`e2e/a11y.spec.ts` + 独立 `playwright.config.a11y.ts`（testMatch 隔离；主 config testIgnore 排除，不进 dev 冒烟套件；归 ui:check 第 9 步编排）。口径：tags wcag2a+wcag2aa；**serious/critical = 失败，moderate/minor 报告留账不判败**（spec 头与本文档同步）。页集 = 截图基线同款三页（services 列表已登录 / settings / auth sign-in）。
+4. **chunk 体积预算报告**（scripts/chunk-budget.mjs，读 `apps/demo/dist/assets/*.js` 文件大小，不引 visualizer）：逐 chunk 预算表（基名 = 文件名去尾部 8 位 hash）+ 表外默认 32 KiB + 总量预算；初始值 = 2026-10-23 实测 × 1.15 取整（表内 15 项 + 总量 1449 KiB，实测合计 1259.3 KiB）。**超限报警不失败**（paradigm §8「超限报警」）；`--table` 按当前实测重算预算初值。
+
+**随带修复（a11y 首扫发现，均为 a11y 属性类小改）**
+
+- **typed-form-field label 绑定断裂**（B2 报告的「SecretWidget label 未关联」即此症，非独立遗留）：widgets 在 FieldShell **外层**调 `useFieldControlIds()` 读到 null，全部 14 个 widget 的控件 id/aria-describedby 落空、label htmlFor 悬空。修法：FieldShell children 增 render-prop 形态（`(ids) => ReactNode`，ReactNode 形态兼容保留），widgets 全量改用——id 绑定回归（settings 个人/安全节、service 表单、onboarding 等全部 typed-form 页受益）。
+- **9 处无名 select trigger 补 aria-label**（Base UI Select trigger 是 `role=combobox`，ARIA 1.2 该 role **name from author**——触发器内的可见文本不计入可访问名，axe `button-name` 全数误名）：filter-bar×4、pagination-bar、refresh-bar、settings-page×2、onboarding（team-page/onboarding 角色选择已有 aria-label，未动）。
+
+**验收记录（2026-10-23）**
+
+- `pnpm ui:check` 10 步全绿（总耗时 95.9s；freshness 步本地以 `git add -A` 暂存口径过——registry blocks 源码变更须与再生成的 registry.json 同 commit，禁 commit 环境下以暂存验证，提交后 CI 自然绿）。
+- 三方核对失败路径：team.page.ts 塞 `toolbar: "fake-block"` → 第 6 步红并列 resource-list 注入域全表；services def 塞 `sandbox: "fake-block"` → 红并列 sandbox 登记表全表；还原复绿。
+- `pnpm ui:a11y` 单独 3/3 绿（修复后 wcag2a/2aa 零违规，moderate 以下亦无留账项）。
+- `pnpm -r typecheck` / `pnpm lint` / `pnpm -r test`（core 241 + eslint-plugin 35 + demo 13）/ e2e dev 7 + preview 2 全绿；lockfile 变更经 `pnpm exec biome format --write pnpm-lock.yaml` 恢复仓内风格。

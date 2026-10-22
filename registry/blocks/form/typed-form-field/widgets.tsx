@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { collectFieldErrors, FieldShell, useFieldContext, useFieldControlIds } from "./contexts";
+import { collectFieldErrors, FieldShell, useFieldContext } from "./contexts";
 
 // ---------------------------------------------------------------------------
 // 公共 props
@@ -60,7 +60,6 @@ export interface TextWidgetProps extends WidgetBaseProps {
 export function TextWidget(props: TextWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -69,18 +68,20 @@ export function TextWidget(props: TextWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <Input
-        id={ids?.controlId}
-        type={props.type ?? "text"}
-        value={field.state.value ?? ""}
-        placeholder={props.placeholder}
-        disabled={props.disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={ids?.describedBy}
-        className={props.mono ? "font-mono text-sm" : undefined}
-        onBlur={field.handleBlur}
-        onChange={(e) => field.handleChange(e.target.value)}
-      />
+      {(ids) => (
+        <Input
+          id={ids.controlId}
+          type={props.type ?? "text"}
+          value={field.state.value ?? ""}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          aria-invalid={invalid || undefined}
+          aria-describedby={ids.describedBy}
+          className={props.mono ? "font-mono text-sm" : undefined}
+          onBlur={field.handleBlur}
+          onChange={(e) => field.handleChange(e.target.value)}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -93,7 +94,6 @@ export interface TextareaWidgetProps extends WidgetBaseProps {
 export function TextareaWidget(props: TextareaWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -102,18 +102,20 @@ export function TextareaWidget(props: TextareaWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <Textarea
-        id={ids?.controlId}
-        rows={props.rows ?? 4}
-        value={field.state.value ?? ""}
-        placeholder={props.placeholder}
-        disabled={props.disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={ids?.describedBy}
-        className={props.mono ? "font-mono text-sm" : undefined}
-        onBlur={field.handleBlur}
-        onChange={(e) => field.handleChange(e.target.value)}
-      />
+      {(ids) => (
+        <Textarea
+          id={ids.controlId}
+          rows={props.rows ?? 4}
+          value={field.state.value ?? ""}
+          placeholder={props.placeholder}
+          disabled={props.disabled}
+          aria-invalid={invalid || undefined}
+          aria-describedby={ids.describedBy}
+          className={props.mono ? "font-mono text-sm" : undefined}
+          onBlur={field.handleBlur}
+          onChange={(e) => field.handleChange(e.target.value)}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -129,7 +131,6 @@ export interface NumberWidgetProps extends WidgetBaseProps {
 export function NumberWidget(props: NumberWidgetProps) {
   const field = useFieldContext<number>();
   const { errors, invalid } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -138,27 +139,29 @@ export function NumberWidget(props: NumberWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="flex items-center gap-2">
-        <Input
-          id={ids?.controlId}
-          type="number"
-          value={field.state.value ?? ""}
-          min={props.min}
-          max={props.max}
-          step={props.step}
-          placeholder={props.placeholder}
-          disabled={props.disabled}
-          aria-invalid={invalid || undefined}
-          aria-describedby={ids?.describedBy}
-          className="w-36"
-          onBlur={field.handleBlur}
-          onChange={(e) => {
-            const raw = e.target.value;
-            field.handleChange(raw === "" ? Number.NaN : Number(raw));
-          }}
-        />
-        {props.unit ? <span className="text-muted-foreground text-sm">{props.unit}</span> : null}
-      </div>
+      {(ids) => (
+        <div className="flex items-center gap-2">
+          <Input
+            id={ids.controlId}
+            type="number"
+            value={field.state.value ?? ""}
+            min={props.min}
+            max={props.max}
+            step={props.step}
+            placeholder={props.placeholder}
+            disabled={props.disabled}
+            aria-invalid={invalid || undefined}
+            aria-describedby={ids.describedBy}
+            className="w-36"
+            onBlur={field.handleBlur}
+            onChange={(e) => {
+              const raw = e.target.value;
+              field.handleChange(raw === "" ? Number.NaN : Number(raw));
+            }}
+          />
+          {props.unit ? <span className="text-muted-foreground text-sm">{props.unit}</span> : null}
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -176,7 +179,6 @@ export interface SelectWidgetProps extends WidgetBaseProps {
 export function SelectWidget(props: SelectWidgetProps) {
   const field = useFieldContext<string>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -185,33 +187,35 @@ export function SelectWidget(props: SelectWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <Select
-        value={field.state.value ?? null}
-        onValueChange={(v) => field.handleChange(v === null ? "" : (v as string))}
-        disabled={props.disabled}
-        items={props.options}
-      >
-        <SelectTrigger
-          id={ids?.controlId}
-          className="w-full"
-          aria-invalid={errors.length > 0 || undefined}
-          aria-describedby={ids?.describedBy}
+      {(ids) => (
+        <Select
+          value={field.state.value ?? null}
+          onValueChange={(v) => field.handleChange(v === null ? "" : (v as string))}
+          disabled={props.disabled}
+          items={props.options}
         >
-          <SelectValue placeholder={props.placeholder ?? "请选择"} />
-        </SelectTrigger>
-        <SelectContent>
-          {props.clearable ? (
-            <SelectItem value="">
-              <span className="text-muted-foreground">清除</span>
-            </SelectItem>
-          ) : null}
-          {props.options.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+          <SelectTrigger
+            id={ids.controlId}
+            className="w-full"
+            aria-invalid={errors.length > 0 || undefined}
+            aria-describedby={ids.describedBy}
+          >
+            <SelectValue placeholder={props.placeholder ?? "请选择"} />
+          </SelectTrigger>
+          <SelectContent>
+            {props.clearable ? (
+              <SelectItem value="">
+                <span className="text-muted-foreground">清除</span>
+              </SelectItem>
+            ) : null}
+            {props.options.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
     </FieldShell>
   );
 }
@@ -223,7 +227,6 @@ export interface MultiSelectWidgetProps extends WidgetBaseProps {
 export function MultiSelectWidget(props: MultiSelectWidgetProps) {
   const field = useFieldContext<string[]>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const [open, setOpen] = useState(false);
   const value = field.state.value ?? [];
   const labelOf = (v: string) => props.options.find((o) => o.value === v)?.label ?? v;
@@ -238,46 +241,48 @@ export function MultiSelectWidget(props: MultiSelectWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <button
-              type="button"
-              id={ids?.controlId}
-              disabled={props.disabled}
-              className="border-input bg-transparent aria-invalid:border-destructive flex min-h-8 w-full flex-wrap items-center gap-1 rounded-lg border px-2 py-1 text-left text-sm"
-              aria-invalid={errors.length > 0 || undefined}
-              aria-describedby={ids?.describedBy}
-            >
-              {value.length === 0 ? (
-                <span className="text-muted-foreground">{props.placeholder ?? "选择若干项"}</span>
-              ) : (
-                value.map((v) => (
-                  <Badge key={v} variant="secondary" className="font-normal">
-                    {labelOf(v)}
-                  </Badge>
-                ))
-              )}
-            </button>
-          }
-        />
-        <PopoverContent className="w-64 p-1" align="start">
-          <div className="max-h-64 overflow-y-auto">
-            {props.options.map((opt) => (
-              <Label
-                key={opt.value}
-                className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-normal"
+      {(ids) => (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <button
+                type="button"
+                id={ids.controlId}
+                disabled={props.disabled}
+                className="border-input bg-transparent aria-invalid:border-destructive flex min-h-8 w-full flex-wrap items-center gap-1 rounded-lg border px-2 py-1 text-left text-sm"
+                aria-invalid={errors.length > 0 || undefined}
+                aria-describedby={ids.describedBy}
               >
-                <Checkbox
-                  checked={value.includes(opt.value)}
-                  onCheckedChange={() => toggle(opt.value)}
-                />
-                {opt.label}
-              </Label>
-            ))}
-          </div>
-        </PopoverContent>
-      </Popover>
+                {value.length === 0 ? (
+                  <span className="text-muted-foreground">{props.placeholder ?? "选择若干项"}</span>
+                ) : (
+                  value.map((v) => (
+                    <Badge key={v} variant="secondary" className="font-normal">
+                      {labelOf(v)}
+                    </Badge>
+                  ))
+                )}
+              </button>
+            }
+          />
+          <PopoverContent className="w-64 p-1" align="start">
+            <div className="max-h-64 overflow-y-auto">
+              {props.options.map((opt) => (
+                <Label
+                  key={opt.value}
+                  className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm font-normal"
+                >
+                  <Checkbox
+                    checked={value.includes(opt.value)}
+                    onCheckedChange={() => toggle(opt.value)}
+                  />
+                  {opt.label}
+                </Label>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
     </FieldShell>
   );
 }
@@ -294,7 +299,6 @@ export interface TagsWidgetProps extends WidgetBaseProps {
 export function TagsWidget(props: TagsWidgetProps) {
   const field = useFieldContext<string[]>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const value = field.state.value ?? [];
   const [draft, setDraft] = useState("");
   const add = () => {
@@ -315,42 +319,44 @@ export function TagsWidget(props: TagsWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="border-input bg-transparent focus-within:border-ring flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border px-2 py-1.5">
-        {value.map((tag) => (
-          <Badge key={tag} variant="secondary" className="gap-1 pr-1 font-normal">
-            {tag}
-            <button
-              type="button"
-              aria-label={`移除 ${tag}`}
-              className="hover:bg-muted rounded-sm p-0.5"
-              onClick={() => field.handleChange(value.filter((t) => t !== tag))}
-            >
-              <X className="size-3" />
-            </button>
-          </Badge>
-        ))}
-        <input
-          id={ids?.controlId}
-          value={draft}
-          placeholder={value.length === 0 ? (props.placeholder ?? "输入后回车添加") : ""}
-          disabled={props.disabled}
-          aria-describedby={ids?.describedBy}
-          className="placeholder:text-muted-foreground min-w-24 flex-1 bg-transparent text-sm outline-none"
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
+      {(ids) => (
+        <div className="border-input bg-transparent focus-within:border-ring flex min-h-9 flex-wrap items-center gap-1.5 rounded-lg border px-2 py-1.5">
+          {value.map((tag) => (
+            <Badge key={tag} variant="secondary" className="gap-1 pr-1 font-normal">
+              {tag}
+              <button
+                type="button"
+                aria-label={`移除 ${tag}`}
+                className="hover:bg-muted rounded-sm p-0.5"
+                onClick={() => field.handleChange(value.filter((t) => t !== tag))}
+              >
+                <X className="size-3" />
+              </button>
+            </Badge>
+          ))}
+          <input
+            id={ids.controlId}
+            value={draft}
+            placeholder={value.length === 0 ? (props.placeholder ?? "输入后回车添加") : ""}
+            disabled={props.disabled}
+            aria-describedby={ids.describedBy}
+            className="placeholder:text-muted-foreground min-w-24 flex-1 bg-transparent text-sm outline-none"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                add();
+              } else if (e.key === "Backspace" && draft === "" && value.length > 0) {
+                field.handleChange(value.slice(0, -1));
+              }
+            }}
+            onBlur={() => {
               add();
-            } else if (e.key === "Backspace" && draft === "" && value.length > 0) {
-              field.handleChange(value.slice(0, -1));
-            }
-          }}
-          onBlur={() => {
-            add();
-            field.handleBlur();
-          }}
-        />
-      </div>
+              field.handleBlur();
+            }}
+          />
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -368,7 +374,6 @@ export interface SwitchWidgetProps extends WidgetBaseProps {
 export function SwitchWidget(props: SwitchWidgetProps) {
   const field = useFieldContext<boolean>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -377,19 +382,21 @@ export function SwitchWidget(props: SwitchWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="flex items-center gap-2">
-        <Switch
-          id={ids?.controlId}
-          checked={field.state.value === true}
-          disabled={props.disabled}
-          onCheckedChange={(v) => field.handleChange(v === true)}
-          onBlur={field.handleBlur}
-          aria-describedby={ids?.describedBy}
-        />
-        <span className="text-muted-foreground text-sm">
-          {field.state.value === true ? (props.onLabel ?? "启用") : (props.offLabel ?? "未启用")}
-        </span>
-      </div>
+      {(ids) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            id={ids.controlId}
+            checked={field.state.value === true}
+            disabled={props.disabled}
+            onCheckedChange={(v) => field.handleChange(v === true)}
+            onBlur={field.handleBlur}
+            aria-describedby={ids.describedBy}
+          />
+          <span className="text-muted-foreground text-sm">
+            {field.state.value === true ? (props.onLabel ?? "启用") : (props.offLabel ?? "未启用")}
+          </span>
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -406,7 +413,6 @@ export interface DateWidgetProps extends WidgetBaseProps {
 export function DateWidget(props: DateWidgetProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
-  const ids = useFieldControlIds();
   return (
     <FieldShell
       label={props.label}
@@ -415,17 +421,19 @@ export function DateWidget(props: DateWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <Input
-        id={ids?.controlId}
-        type={props.variant === "datetime" ? "datetime-local" : "date"}
-        value={field.state.value ?? ""}
-        disabled={props.disabled}
-        aria-invalid={invalid || undefined}
-        aria-describedby={ids?.describedBy}
-        className="w-60"
-        onBlur={field.handleBlur}
-        onChange={(e) => field.handleChange(e.target.value)}
-      />
+      {(ids) => (
+        <Input
+          id={ids.controlId}
+          type={props.variant === "datetime" ? "datetime-local" : "date"}
+          value={field.state.value ?? ""}
+          disabled={props.disabled}
+          aria-invalid={invalid || undefined}
+          aria-describedby={ids.describedBy}
+          className="w-60"
+          onBlur={field.handleBlur}
+          onChange={(e) => field.handleChange(e.target.value)}
+        />
+      )}
     </FieldShell>
   );
 }
@@ -438,7 +446,6 @@ export interface DateRangeValue {
 export function DateRangeWidget(props: WidgetBaseProps) {
   const field = useFieldContext<DateRangeValue>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const value = field.state.value ?? {};
   return (
     <FieldShell
@@ -448,29 +455,31 @@ export function DateRangeWidget(props: WidgetBaseProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="flex items-center gap-2">
-        {/* 双控件：label htmlFor 绑首控件（开始日期），两控件都挂 aria-describedby 关联描述/错误 */}
-        <Input
-          id={ids?.controlId}
-          type="date"
-          aria-label="开始日期"
-          aria-describedby={ids?.describedBy}
-          value={value.from ?? ""}
-          disabled={props.disabled}
-          className="w-44"
-          onChange={(e) => field.handleChange({ ...value, from: e.target.value || undefined })}
-        />
-        <span className="text-muted-foreground text-sm">→</span>
-        <Input
-          type="date"
-          aria-label="结束日期"
-          aria-describedby={ids?.describedBy}
-          value={value.to ?? ""}
-          disabled={props.disabled}
-          className="w-44"
-          onChange={(e) => field.handleChange({ ...value, to: e.target.value || undefined })}
-        />
-      </div>
+      {(ids) => (
+        <div className="flex items-center gap-2">
+          {/* 双控件：label htmlFor 绑首控件（开始日期），两控件都挂 aria-describedby 关联描述/错误 */}
+          <Input
+            id={ids.controlId}
+            type="date"
+            aria-label="开始日期"
+            aria-describedby={ids.describedBy}
+            value={value.from ?? ""}
+            disabled={props.disabled}
+            className="w-44"
+            onChange={(e) => field.handleChange({ ...value, from: e.target.value || undefined })}
+          />
+          <span className="text-muted-foreground text-sm">→</span>
+          <Input
+            type="date"
+            aria-label="结束日期"
+            aria-describedby={ids.describedBy}
+            value={value.to ?? ""}
+            disabled={props.disabled}
+            className="w-44"
+            onChange={(e) => field.handleChange({ ...value, to: e.target.value || undefined })}
+          />
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -479,7 +488,6 @@ export function DateRangeWidget(props: WidgetBaseProps) {
 export function SecretWidget(props: WidgetBaseProps) {
   const field = useFieldContext<string>();
   const { errors, invalid } = useFieldState(field);
-  const ids = useFieldControlIds();
   const [visible, setVisible] = useState(false);
   return (
     <FieldShell
@@ -489,30 +497,32 @@ export function SecretWidget(props: WidgetBaseProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="flex gap-2">
-        <Input
-          id={ids?.controlId}
-          type={visible ? "text" : "password"}
-          value={field.state.value ?? ""}
-          placeholder={props.placeholder}
-          disabled={props.disabled}
-          autoComplete="new-password"
-          aria-invalid={invalid || undefined}
-          aria-describedby={ids?.describedBy}
-          className="font-mono text-sm"
-          onBlur={field.handleBlur}
-          onChange={(e) => field.handleChange(e.target.value)}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label={visible ? "隐藏" : "显示"}
-          onClick={() => setVisible((v) => !v)}
-        >
-          {visible ? <EyeOff /> : <Eye />}
-        </Button>
-      </div>
+      {(ids) => (
+        <div className="flex gap-2">
+          <Input
+            id={ids.controlId}
+            type={visible ? "text" : "password"}
+            value={field.state.value ?? ""}
+            placeholder={props.placeholder}
+            disabled={props.disabled}
+            autoComplete="new-password"
+            aria-invalid={invalid || undefined}
+            aria-describedby={ids.describedBy}
+            className="font-mono text-sm"
+            onBlur={field.handleBlur}
+            onChange={(e) => field.handleChange(e.target.value)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={visible ? "隐藏" : "显示"}
+            onClick={() => setVisible((v) => !v)}
+          >
+            {visible ? <EyeOff /> : <Eye />}
+          </Button>
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -534,7 +544,6 @@ export interface KvPairsWidgetProps extends WidgetBaseProps {
 export function KvPairsWidget(props: KvPairsWidgetProps) {
   const field = useFieldContext<KvPair[]>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const rows = field.state.value ?? [];
   const setRow = (index: number, patch: Partial<KvPair>) => {
     field.handleChange(rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
@@ -547,51 +556,53 @@ export function KvPairsWidget(props: KvPairsWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="space-y-2">
-        {rows.length === 0 ? <p className="text-muted-foreground text-sm">暂无条目。</p> : null}
-        {rows.map((row, index) => (
-          <div key={index} className="flex items-center gap-2">
-            {/* 多控件：首行键输入绑 label（id），全部行内输入挂 aria-describedby（各自已有 aria-label） */}
-            <Input
-              id={index === 0 ? ids?.controlId : undefined}
-              value={row.key}
-              placeholder={props.keyPlaceholder ?? "KEY"}
-              aria-label="键"
-              aria-describedby={ids?.describedBy}
-              className="font-mono text-sm"
-              onChange={(e) => setRow(index, { key: e.target.value })}
-            />
-            <span className="text-muted-foreground">=</span>
-            <Input
-              value={row.value}
-              placeholder={props.valuePlaceholder ?? "value"}
-              aria-label="值"
-              aria-describedby={ids?.describedBy}
-              className="font-mono text-sm"
-              onChange={(e) => setRow(index, { value: e.target.value })}
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label="删除此行"
-              onClick={() => field.handleChange(rows.filter((_, i) => i !== index))}
-            >
-              <Trash2 className="text-muted-foreground" />
-            </Button>
-          </div>
-        ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          id={rows.length === 0 ? ids?.controlId : undefined}
-          aria-describedby={ids?.describedBy}
-          onClick={() => field.handleChange([...rows, { key: "", value: "" }])}
-        >
-          <Plus /> 添加条目
-        </Button>
-      </div>
+      {(ids) => (
+        <div className="space-y-2">
+          {rows.length === 0 ? <p className="text-muted-foreground text-sm">暂无条目。</p> : null}
+          {rows.map((row, index) => (
+            <div key={index} className="flex items-center gap-2">
+              {/* 多控件：首行键输入绑 label（id），全部行内输入挂 aria-describedby（各自已有 aria-label） */}
+              <Input
+                id={index === 0 ? ids.controlId : undefined}
+                value={row.key}
+                placeholder={props.keyPlaceholder ?? "KEY"}
+                aria-label="键"
+                aria-describedby={ids.describedBy}
+                className="font-mono text-sm"
+                onChange={(e) => setRow(index, { key: e.target.value })}
+              />
+              <span className="text-muted-foreground">=</span>
+              <Input
+                value={row.value}
+                placeholder={props.valuePlaceholder ?? "value"}
+                aria-label="值"
+                aria-describedby={ids.describedBy}
+                className="font-mono text-sm"
+                onChange={(e) => setRow(index, { value: e.target.value })}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="删除此行"
+                onClick={() => field.handleChange(rows.filter((_, i) => i !== index))}
+              >
+                <Trash2 className="text-muted-foreground" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            id={rows.length === 0 ? ids.controlId : undefined}
+            aria-describedby={ids.describedBy}
+            onClick={() => field.handleChange([...rows, { key: "", value: "" }])}
+          >
+            <Plus /> 添加条目
+          </Button>
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -620,7 +631,6 @@ let uploadSeq = 0;
 export function UploadWidget(props: UploadWidgetProps) {
   const field = useFieldContext<UploadedFile[]>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const files = field.state.value ?? [];
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -657,69 +667,71 @@ export function UploadWidget(props: UploadWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="space-y-2">
-        <button
-          type="button"
-          id={ids?.controlId}
-          aria-describedby={ids?.describedBy}
-          className={cn(
-            "border-input hover:border-ring text-muted-foreground flex w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-sm transition-colors",
-            dragOver && "border-ring bg-muted/40",
-          )}
-          onClick={() => inputRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
-          }}
-        >
-          <UploadCloud className="size-5" />
-          <span>{props.placeholder ?? "拖拽文件到此处，或点击选择"}</span>
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          className="hidden"
-          accept={props.accept}
-          multiple={props.multiple}
-          onChange={(e) => {
-            if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
-            e.target.value = "";
-          }}
-        />
-        {files.map((f) => (
-          <div key={f.id} className="flex items-center gap-2 text-sm">
-            <FileText className="text-muted-foreground size-4 shrink-0" />
-            <span className="truncate">{f.name}</span>
-            <span className="text-muted-foreground shrink-0 text-xs">
-              {(f.size / 1024).toFixed(1)} KB
-            </span>
-            <div className="bg-muted relative ml-auto h-1.5 w-28 overflow-hidden rounded-full">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-[width] duration-200",
-                  f.progress >= 100 ? "bg-status-success" : "bg-primary",
-                )}
-                style={{ width: `${f.progress}%` }}
-              />
+      {(ids) => (
+        <div className="space-y-2">
+          <button
+            type="button"
+            id={ids.controlId}
+            aria-describedby={ids.describedBy}
+            className={cn(
+              "border-input hover:border-ring text-muted-foreground flex w-full flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-6 text-sm transition-colors",
+              dragOver && "border-ring bg-muted/40",
+            )}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+            }}
+          >
+            <UploadCloud className="size-5" />
+            <span>{props.placeholder ?? "拖拽文件到此处，或点击选择"}</span>
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            className="hidden"
+            accept={props.accept}
+            multiple={props.multiple}
+            onChange={(e) => {
+              if (e.target.files && e.target.files.length > 0) addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          {files.map((f) => (
+            <div key={f.id} className="flex items-center gap-2 text-sm">
+              <FileText className="text-muted-foreground size-4 shrink-0" />
+              <span className="truncate">{f.name}</span>
+              <span className="text-muted-foreground shrink-0 text-xs">
+                {(f.size / 1024).toFixed(1)} KB
+              </span>
+              <div className="bg-muted relative ml-auto h-1.5 w-28 overflow-hidden rounded-full">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-[width] duration-200",
+                    f.progress >= 100 ? "bg-status-success" : "bg-primary",
+                  )}
+                  style={{ width: `${f.progress}%` }}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`移除 ${f.name}`}
+                onClick={() => field.handleChange(files.filter((x) => x.id !== f.id))}
+              >
+                <X />
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-label={`移除 ${f.name}`}
-              onClick={() => field.handleChange(files.filter((x) => x.id !== f.id))}
-            >
-              <X />
-            </Button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -736,7 +748,6 @@ export interface JsonWidgetProps extends WidgetBaseProps {
 export function JsonWidget(props: JsonWidgetProps) {
   const field = useFieldContext<string>();
   const fieldErrors = useFieldState(field);
-  const ids = useFieldControlIds();
   const value = field.state.value ?? "";
   const [parseError, setParseError] = useState<string | null>(null);
   const validate = useMemo(() => {
@@ -758,32 +769,34 @@ export function JsonWidget(props: JsonWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="space-y-2">
-        <Textarea
-          id={ids?.controlId}
-          rows={props.rows ?? 6}
-          value={value}
-          placeholder={props.placeholder ?? '{\n  "key": "value"\n}'}
-          disabled={props.disabled}
-          aria-invalid={errors.length > 0 || undefined}
-          aria-describedby={ids?.describedBy}
-          className="font-mono text-sm"
-          onBlur={field.handleBlur}
-          onChange={(e) => {
-            field.handleChange(e.target.value);
-            setParseError(null);
-          }}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={validate !== true || value.trim() === ""}
-          onClick={() => field.handleChange(JSON.stringify(JSON.parse(value), null, 2))}
-        >
-          格式化
-        </Button>
-      </div>
+      {(ids) => (
+        <div className="space-y-2">
+          <Textarea
+            id={ids.controlId}
+            rows={props.rows ?? 6}
+            value={value}
+            placeholder={props.placeholder ?? '{\n  "key": "value"\n}'}
+            disabled={props.disabled}
+            aria-invalid={errors.length > 0 || undefined}
+            aria-describedby={ids.describedBy}
+            className="font-mono text-sm"
+            onBlur={field.handleBlur}
+            onChange={(e) => {
+              field.handleChange(e.target.value);
+              setParseError(null);
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={validate !== true || value.trim() === ""}
+            onClick={() => field.handleChange(JSON.stringify(JSON.parse(value), null, 2))}
+          >
+            格式化
+          </Button>
+        </div>
+      )}
     </FieldShell>
   );
 }
@@ -813,7 +826,6 @@ export interface RepeatableRowsWidgetProps extends WidgetBaseProps {
 export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
   const field = useFieldContext<Record<string, unknown>[]>();
   const { errors } = useFieldState(field);
-  const ids = useFieldControlIds();
   const rows = field.state.value ?? [];
   const setCell = (index: number, key: string, value: unknown) => {
     field.handleChange(rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
@@ -826,105 +838,107 @@ export function RepeatableRowsWidget(props: RepeatableRowsWidgetProps) {
       errors={errors}
       className={props.className}
     >
-      <div className="space-y-2">
-        {rows.length === 0 ? (
-          <p className="text-muted-foreground text-sm">暂无行。</p>
-        ) : (
-          <div className="border-border divide-border overflow-hidden rounded-lg border">
-            <div
-              className="bg-muted/50 text-muted-foreground grid gap-2 px-3 py-1.5 text-xs font-medium"
-              style={{
-                gridTemplateColumns: `${props.columns.map((c) => c.width ?? "1fr").join(" ")} auto`,
-              }}
-            >
-              {props.columns.map((c) => (
-                <span key={c.key}>{c.label}</span>
-              ))}
-              <span aria-hidden="true" />
-            </div>
-            {rows.map((row, index) => (
+      {(ids) => (
+        <div className="space-y-2">
+          {rows.length === 0 ? (
+            <p className="text-muted-foreground text-sm">暂无行。</p>
+          ) : (
+            <div className="border-border divide-border overflow-hidden rounded-lg border">
               <div
-                key={index}
-                className="grid items-center gap-2 px-3 py-2"
+                className="bg-muted/50 text-muted-foreground grid gap-2 px-3 py-1.5 text-xs font-medium"
                 style={{
                   gridTemplateColumns: `${props.columns.map((c) => c.width ?? "1fr").join(" ")} auto`,
                 }}
               >
-                {props.columns.map((col, colIndex) => (
-                  <span key={col.key} className="min-w-0">
-                    {col.type === "select" ? (
-                      <Select
-                        value={String(row[col.key] ?? "")}
-                        onValueChange={(v) => setCell(index, col.key, v)}
-                        items={col.options ?? []}
-                      >
-                        <SelectTrigger
-                          size="sm"
-                          className="w-full"
-                          aria-label={col.label}
-                          aria-describedby={ids?.describedBy}
-                        >
-                          <SelectValue placeholder={col.placeholder ?? "选择"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(col.options ?? []).map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        id={index === 0 && colIndex === 0 ? ids?.controlId : undefined}
-                        type={col.type === "number" ? "number" : "text"}
-                        aria-label={col.label}
-                        aria-describedby={ids?.describedBy}
-                        value={
-                          row[col.key] === undefined || row[col.key] === null
-                            ? ""
-                            : String(row[col.key])
-                        }
-                        placeholder={col.placeholder}
-                        onChange={(e) =>
-                          setCell(
-                            index,
-                            col.key,
-                            col.type === "number"
-                              ? e.target.value === ""
-                                ? undefined
-                                : Number(e.target.value)
-                              : e.target.value,
-                          )
-                        }
-                      />
-                    )}
-                  </span>
+                {props.columns.map((c) => (
+                  <span key={c.key}>{c.label}</span>
                 ))}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="删除此行"
-                  onClick={() => field.handleChange(rows.filter((_, i) => i !== index))}
-                >
-                  <Trash2 className="text-muted-foreground" />
-                </Button>
+                <span aria-hidden="true" />
               </div>
-            ))}
-          </div>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          id={rows.length === 0 ? ids?.controlId : undefined}
-          aria-describedby={ids?.describedBy}
-          onClick={() => field.handleChange([...rows, { ...props.newRow }])}
-        >
-          <Plus /> {props.addLabel ?? "添加行"}
-        </Button>
-      </div>
+              {rows.map((row, index) => (
+                <div
+                  key={index}
+                  className="grid items-center gap-2 px-3 py-2"
+                  style={{
+                    gridTemplateColumns: `${props.columns.map((c) => c.width ?? "1fr").join(" ")} auto`,
+                  }}
+                >
+                  {props.columns.map((col, colIndex) => (
+                    <span key={col.key} className="min-w-0">
+                      {col.type === "select" ? (
+                        <Select
+                          value={String(row[col.key] ?? "")}
+                          onValueChange={(v) => setCell(index, col.key, v)}
+                          items={col.options ?? []}
+                        >
+                          <SelectTrigger
+                            size="sm"
+                            className="w-full"
+                            aria-label={col.label}
+                            aria-describedby={ids.describedBy}
+                          >
+                            <SelectValue placeholder={col.placeholder ?? "选择"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(col.options ?? []).map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <Input
+                          id={index === 0 && colIndex === 0 ? ids.controlId : undefined}
+                          type={col.type === "number" ? "number" : "text"}
+                          aria-label={col.label}
+                          aria-describedby={ids.describedBy}
+                          value={
+                            row[col.key] === undefined || row[col.key] === null
+                              ? ""
+                              : String(row[col.key])
+                          }
+                          placeholder={col.placeholder}
+                          onChange={(e) =>
+                            setCell(
+                              index,
+                              col.key,
+                              col.type === "number"
+                                ? e.target.value === ""
+                                  ? undefined
+                                  : Number(e.target.value)
+                                : e.target.value,
+                            )
+                          }
+                        />
+                      )}
+                    </span>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="删除此行"
+                    onClick={() => field.handleChange(rows.filter((_, i) => i !== index))}
+                  >
+                    <Trash2 className="text-muted-foreground" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            id={rows.length === 0 ? ids.controlId : undefined}
+            aria-describedby={ids.describedBy}
+            onClick={() => field.handleChange([...rows, { ...props.newRow }])}
+          >
+            <Plus /> {props.addLabel ?? "添加行"}
+          </Button>
+        </div>
+      )}
     </FieldShell>
   );
 }

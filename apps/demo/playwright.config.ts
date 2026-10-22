@@ -12,9 +12,10 @@ export default defineConfig({
   testDir: "./e2e",
   // services-prod-preview 只对 prod preview 构建有意义（dev 不复现冻结），由
   // playwright.config.preview.ts 独立执行；states-baseline（三态截图基线，M7-B2）
-  // 由 playwright.config.shots.ts 独立执行（确定性环境钉死）。dev 冒烟两者皆排除，
-  // 避免同 spec 双跑。
-  testIgnore: /(services-prod-preview|states-baseline)\.spec\.ts/,
+  // 由 playwright.config.shots.ts 独立执行；a11y（M7-B4）由
+  // playwright.config.a11y.ts 独立执行（归 pnpm ui:check 编排）。dev 冒烟三者皆
+  // 排除，避免同 spec 双跑。
+  testIgnore: /(services-prod-preview|states-baseline|a11y)\.spec\.ts/,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,

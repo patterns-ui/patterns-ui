@@ -208,6 +208,7 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 | M4     | 资源层与高级表格（defineResource/inferColumns + 分组/树形/聚合/虚拟化 + SaaS 模板页）        | ✅   |
 | M5     | 收尾（单测补全 128 + 守卫测试 12、Playwright 冒烟、CI、changesets、README、lint 收敛）       | ✅   |
 | M6     | 地基与结构修复（发布就绪/结构归位/L4 健壮化/变体收敛/文案与文档收尾，见 docs/milestones.md） | ✅   |
+| M7     | 范式落地（名字层 + 执行层 + 指导层 + 分发；B4 一条龙已落地，见 docs/milestones.md）          | 🚧   |
 
 ### 脚本
 
@@ -220,6 +221,12 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 | `pnpm test:e2e`                            | Playwright 冒烟（webServer 自起 vite dev :4173；CI 随 PR/push 跑） |
 | `pnpm build`                               | core tsup 构建 + `registry:build`（registry.json + dist/r/*.json） |
 | `pnpm review`                              | demo `vite build && vite preview`（:4173 钉死；CI 冒烟探活）       |
+| `pnpm lint:eslint` / `pnpm slots:check`    | 范式 lint 四规则（M7-B1）/ archetype slot 三方一致（M7-B1）        |
+| `pnpm ui:shots [--check]`                  | 三态截图基线生成 / CI 校验（M7-B2）                                |
+| `pnpm ui:score [--check]`                  | 一致性分数报告 / 棘轮校验（M7-B3）                                 |
+| `pnpm check:names`                         | 三方一致核对：配置名字 ⊆ 注入表 ∪ sandbox 登记表（M7-B4）          |
+| `pnpm ui:a11y`                             | axe 扫描（wcag2a/2aa；serious/critical 败，moderate 留账，M7-B4）  |
+| `pnpm ui:check [--fast\|--skip 7,shots]`   | 一条龙 10 步质量门（M7-B4；`--fast` 静态快跑，`--list` 看全表）    |
 | `pnpm dlx shadcn@latest registry validate` | 校验 registry.json（CI 亦跑）                                      |
 | `pnpm changeset` / `pnpm version-packages` | 记录变更 / 提版本 + CHANGELOG（发版流程 docs/registry.md §6）      |
 
@@ -229,4 +236,4 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 - [docs/core-api.md](docs/core-api.md) —— 核心抽象完整 API 规格
 - [docs/blocks.md](docs/blocks.md) —— 全部 registry blocks 规格
 - [docs/registry.md](docs/registry.md) —— registry 构建发布与升级策略
-- [docs/milestones.md](docs/milestones.md) —— M0–M6 任务分解与验收清单
+- [docs/milestones.md](docs/milestones.md) —— M0–M7 任务分解与验收清单

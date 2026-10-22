@@ -227,7 +227,11 @@ function FilterDefControl({
           else onApply({ field: def.field, op: def.op ?? "eq", value: v });
         }}
       >
-        <SelectTrigger size="sm" className={cn(active && "border-primary/50")}>
+        <SelectTrigger
+          size="sm"
+          className={cn(active && "border-primary/50")}
+          aria-label={def.label}
+        >
           <SelectValue placeholder={label} />
         </SelectTrigger>
         <SelectContent>
@@ -423,7 +427,7 @@ export function LeafValueEditor({
               if (v !== null) setOp(v as FilterOperator);
             }}
           >
-            <SelectTrigger size="sm" className="w-20">
+            <SelectTrigger size="sm" className="w-20" aria-label={`${def.label} 比较方式`}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -666,7 +670,7 @@ function LeafRow({
           onChange({ field, op: nextDef ? defaultOpForDef(nextDef) : leaf.op, value: "" });
         }}
       >
-        <SelectTrigger size="sm" className="w-28">
+        <SelectTrigger size="sm" className="w-28" aria-label="过滤字段">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -683,7 +687,7 @@ function LeafRow({
           if (op !== null) onChange({ ...leaf, op: op as FilterOperator });
         }}
       >
-        <SelectTrigger size="sm" className="w-20">
+        <SelectTrigger size="sm" className="w-20" aria-label="比较操作符">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -728,7 +732,7 @@ function LeafValueEditorInline({
           if (v !== null) onChange({ ...leaf, value: v });
         }}
       >
-        <SelectTrigger size="sm" className="w-full">
+        <SelectTrigger size="sm" className="w-full" aria-label="条件值">
           <SelectValue placeholder="选择值" />
         </SelectTrigger>
         <SelectContent>

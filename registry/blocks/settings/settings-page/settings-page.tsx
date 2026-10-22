@@ -493,7 +493,7 @@ function AppearanceSectionBody({ presets }: { presets: { id: string; label: stri
       <div className="grid gap-2">
         <span className="text-[13px] font-medium">主题</span>
         <Select value={theme} onValueChange={(v) => v !== null && setTheme(v as ThemeMode)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full" aria-label="主题">
             <SelectValue>
               {THEME_OPTIONS.find((o) => o.value === theme)?.label ?? theme}
             </SelectValue>
@@ -510,7 +510,7 @@ function AppearanceSectionBody({ presets }: { presets: { id: string; label: stri
       <div className="grid gap-2">
         <span className="text-[13px] font-medium">样式预设</span>
         <Select value={preset} onValueChange={(v) => v !== null && setPreset(v)}>
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="w-full" aria-label="样式预设">
             <SelectValue>{presets.find((o) => o.id === preset)?.label ?? preset}</SelectValue>
           </SelectTrigger>
           <SelectContent>

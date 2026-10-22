@@ -67,7 +67,7 @@ export function RefreshBar({
               else onAutoIntervalChange(Number(v));
             }}
           >
-            <SelectTrigger size="sm" className="w-19">
+            <SelectTrigger size="sm" className="w-19" aria-label="自动刷新间隔">
               <SelectValue>
                 {intervalOptions.find(
                   (o) =>

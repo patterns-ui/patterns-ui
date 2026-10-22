@@ -154,7 +154,7 @@ export function Onboarding({
                     value={resource.env}
                     onValueChange={(v) => v !== null && setResource({ ...resource, env: v })}
                   >
-                    <SelectTrigger className="w-40">
+                    <SelectTrigger className="w-40" aria-label="环境">
                       <SelectValue>
                         {envOptions.find((o) => o.value === resource.env)?.label ?? resource.env}
                       </SelectValue>

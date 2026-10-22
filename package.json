@@ -23,6 +23,8 @@
     "registry:freeze": "pnpm --filter @patterns-ui/eslint-plugin freeze:regen",
     "ui:shots": "node scripts/ui-shots.mjs",
     "ui:score": "node scripts/consistency-score.mjs",
+    "check:names": "tsx --tsconfig apps/demo/tsconfig.json scripts/check-config-names.mts",
+    "ui:a11y": "pnpm --filter demo exec playwright test -c playwright.config.a11y.ts",
     "ui:check": "node scripts/ui-check.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",

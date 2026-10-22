@@ -86,8 +86,14 @@ export interface FieldShellProps {
   /** 错误文案列表（空 = 无错误显示） */
   errors?: string[];
   required?: boolean;
-  /** 字段主体（受控输入） */
-  children: ReactNode;
+  /**
+   * 字段主体，两种形态：
+   * - ReactNode：静态内容（不需要控件 id 绑定时）；
+   * - (ids) => ReactNode：需要绑定控件 a11y ids 时的正确取法（在 FieldShell 作用域内
+   *   计算——widget 顶层调 useFieldControlIds 读到的是父级 context（null），label
+   *   htmlFor 全量悬空；M7-B4 a11y 检查实测该误用后改为 render-prop 唯一正确形态）。
+   */
+  children: ReactNode | ((ids: FieldControlIds) => ReactNode);
   /** 附加到 label 的 htmlFor */
   htmlFor?: string;
   className?: string;
@@ -114,6 +120,8 @@ export function FieldShell({
   const describedBy =
     [description ? descriptionId : null, hasError ? errorId : null].filter(Boolean).join(" ") ||
     undefined;
+  const controlIds: FieldControlIds = { controlId, describedBy };
+  const content = typeof children === "function" ? children(controlIds) : children;
   return (
     <Field
       data-invalid={hasError ? true : undefined}
@@ -130,9 +138,9 @@ export function FieldShell({
           ) : null}
         </FieldLabel>
       ) : null}
-      <FieldControlIdsContext.Provider value={{ controlId, describedBy }}>
+      <FieldControlIdsContext.Provider value={controlIds}>
         <FieldContent>
-          {children}
+          {content}
           {description ? (
             <FieldDescription id={descriptionId}>{description}</FieldDescription>
           ) : null}

@@ -96,7 +96,7 @@ export function PaginationBar({
               if (v !== null) list.setPageSize(Number(v));
             }}
           >
-            <SelectTrigger size="sm" className="w-17">
+            <SelectTrigger size="sm" className="w-17" aria-label="每页条数">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
