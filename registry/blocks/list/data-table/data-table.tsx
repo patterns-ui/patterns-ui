@@ -131,7 +131,8 @@ export function actionsColumn<TData extends RowData>(
     id: "__actions",
     enableSorting: false,
     enableHiding: false,
-    size: 60,
+    enableResizing: false,
+    // 宽度自适应内容（主操作 + 更多菜单）；不声明 size，由表格自动布局
     header: () => <span className="sr-only">{label}</span>,
     cell: ({ row, table }) => (
       <RowActionsCell row={row} table={table as ListTable<TData>} rowActions={rowActions} />
@@ -715,7 +716,14 @@ export function DataTable<TData extends RowData>({
                   return (
                     <TableHead
                       key={header.id}
-                      style={{ width: header.getSize() }}
+                      style={
+                        // 仅显式声明 size 的列给固定宽（选择/展开/拖拽过的列）；其余交给
+                        // 表格自动布局——无条件写 width 会把未声明列全部顶到 150px，造成
+                        // 总宽溢出、尾列被 sticky 操作列遮住
+                        header.column.columnDef.size !== undefined
+                          ? { width: header.getSize() }
+                          : undefined
+                      }
                       className={cn(
                         densityHead[density],
                         "relative",
