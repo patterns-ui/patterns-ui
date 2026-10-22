@@ -44,10 +44,16 @@ describe("formatRelative", () => {
 describe("formatAbsolute", () => {
   it("formats in the preferred timezone", () => {
     const instant = "2026-01-15T12:00:00Z";
-    const tokyo = formatAbsolute(instant, { timeZone: "Asia/Tokyo", absolutePattern: "datetime" });
+    // hour12 显式钉住：默认跟随运行环境 locale（CI en-US 出 "9:00 PM"），断言 24 制必须钉死
+    const tokyo = formatAbsolute(instant, {
+      timeZone: "Asia/Tokyo",
+      hour12: false,
+      absolutePattern: "datetime",
+    });
     expect(tokyo).toContain("21:00"); // UTC+9
     const la = formatAbsolute(instant, {
       timeZone: "America/Los_Angeles",
+      hour12: false,
       absolutePattern: "datetime",
     });
     expect(la).toContain("04:00"); // UTC-8
@@ -89,10 +95,11 @@ describe("formatAbsolute", () => {
   });
 
   it("handles DST boundaries via Intl (America/New_York summer)", () => {
-    // 2026-07-15 处于夏令时（UTC-4）
+    // 2026-07-15 处于夏令时（UTC-4）；hour12 钉住见上
     expect(
       formatAbsolute("2026-07-15T12:00:00Z", {
         timeZone: "America/New_York",
+        hour12: false,
         absolutePattern: "datetime",
       }),
     ).toContain("08:00");
@@ -100,6 +107,7 @@ describe("formatAbsolute", () => {
     expect(
       formatAbsolute("2026-01-15T12:00:00Z", {
         timeZone: "America/New_York",
+        hour12: false,
         absolutePattern: "datetime",
       }),
     ).toContain("07:00");
@@ -110,6 +118,7 @@ describe("formatAbsolute", () => {
     expect(
       formatAbsolute("2026-03-08T06:59:00Z", {
         timeZone: "America/New_York",
+        hour12: false,
         absolutePattern: "datetime",
       }),
     ).toContain("01:59");
@@ -117,6 +126,7 @@ describe("formatAbsolute", () => {
     expect(
       formatAbsolute("2026-03-08T07:01:00Z", {
         timeZone: "America/New_York",
+        hour12: false,
         absolutePattern: "datetime",
       }),
     ).toContain("03:01");

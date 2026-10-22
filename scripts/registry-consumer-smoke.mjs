@@ -14,7 +14,7 @@
  * 注意：shadcn CLI 在本机有网络挂起史（CI 正常）——本脚本各步骤带超时，挂起即失败退出；
  * CI 是权威判官。
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   existsSync,
   mkdirSync,
@@ -22,10 +22,8 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from "node:fs";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -172,23 +170,60 @@ function listFiles(dir, acc = []) {
   return acc;
 }
 
-/** ~20 行静态 server：托管 registry/dist（content-type application/json） */
+/**
+ * 静态 server 源码（独立子进程跑）：托管 registry/dist，content-type application/json。
+ * **必须独立进程**——shadcn add 走 spawnSync 会阻塞本进程事件循环，内嵌 server 无法
+ * accept/响应请求（连接停在内核 backlog 直到超时，CI 首跑即栽在此），故 server 外置。
+ * 就绪协议：监听成功后向 stdout 打印 `READY <port>`。
+ */
+const SERVER_SOURCE = String.raw`
+const { createServer } = require("node:http");
+const { existsSync, readFileSync, statSync } = require("node:fs");
+const { join } = require("node:path");
+const distDir = process.argv[1];
+const server = createServer((req, res) => {
+  const pathname = decodeURIComponent(new URL(req.url ?? "/", "http://127.0.0.1").pathname);
+  const filePath = join(distDir, pathname.replace(/^\/+/, ""));
+  if (!filePath.startsWith(distDir) || !existsSync(filePath) || !statSync(filePath).isFile()) {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("not found: " + pathname);
+    return;
+  }
+  res.writeHead(200, { "content-type": "application/json" });
+  res.end(readFileSync(filePath));
+});
+server.listen(0, "127.0.0.1", () => console.log("READY " + server.address().port));
+`;
+
 function serveRegistryDist() {
-  const server = createServer((req, res) => {
-    const pathname = decodeURIComponent(new URL(req.url ?? "/", "http://127.0.0.1").pathname);
-    const filePath = join(DIST_DIR, pathname.replace(/^\/+/, ""));
-    if (!filePath.startsWith(DIST_DIR) || !existsSync(filePath) || !statSync(filePath).isFile()) {
-      res.writeHead(404, { "content-type": "text/plain" });
-      res.end(`not found: ${pathname}`);
-      return;
-    }
-    res.writeHead(200, { "content-type": "application/json" });
-    res.end(readFileSync(filePath));
-  });
   return new Promise((resolvePromise, rejectPromise) => {
-    server.once("error", rejectPromise);
-    server.listen(0, "127.0.0.1", () => {
-      resolvePromise({ server, port: server.address().port });
+    const proc = spawn(process.execPath, ["-e", SERVER_SOURCE, DIST_DIR], {
+      stdio: ["ignore", "pipe", "inherit"],
+    });
+    let buffer = "";
+    let settled = false;
+    const timer = setTimeout(() => {
+      proc.kill();
+      rejectPromise(new Error("registry dist server not ready within 15s"));
+    }, 15_000);
+    const done = (fn, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(value);
+    };
+    proc.stdout.on("data", (chunk) => {
+      buffer += chunk;
+      const match = buffer.match(/READY (\d+)/);
+      if (match) {
+        done(resolvePromise, { proc, port: Number(match[1]) });
+      }
+    });
+    proc.on("error", (error) => done(rejectPromise, error));
+    proc.on("exit", () => {
+      if (!/READY (\d+)/.test(buffer)) {
+        done(rejectPromise, new Error("registry dist server exited before ready"));
+      }
     });
   });
 }
@@ -227,7 +262,7 @@ async function main() {
   }
 
   const tmp = mkdtempSync(join(tmpdir(), "registry-smoke-"));
-  let server = null;
+  let serverProc = null;
   try {
     console.log(`[smoke] tmp project: ${tmp}`);
     mkdirSync(join(tmp, "src"), { recursive: true });
@@ -245,9 +280,9 @@ async function main() {
     // 装依赖（pnpm-lock.yaml 的存在同时让 shadcn CLI 识别包管理器为 pnpm）
     run("install tmp deps", "pnpm", ["install"], { cwd: tmp });
 
-    const { server: httpServer, port } = await serveRegistryDist();
-    server = httpServer;
-    console.log(`[smoke] serving ${DIST_DIR} on http://127.0.0.1:${port}`);
+    const { proc, port } = await serveRegistryDist();
+    serverProc = proc;
+    console.log(`[smoke] serving ${DIST_DIR} on http://127.0.0.1:${port} (external process)`);
 
     // add 我们的 theme + status-badge（--yes 跳过确认；flags 已对照 shadcn add --help 核实）
     run(
@@ -332,8 +367,8 @@ export function App() {
       "\n[smoke] PASS — consumer pipeline verified (token → @theme inline → utility, no hardcoded color)",
     );
   } finally {
-    if (server) {
-      server.close();
+    if (serverProc) {
+      serverProc.kill();
     }
     rmSync(tmp, { recursive: true, force: true });
     console.log(`[smoke] cleaned up ${tmp}`);
