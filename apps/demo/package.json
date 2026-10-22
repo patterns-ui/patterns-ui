@@ -10,6 +10,7 @@
     "review": "vite build && vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:preview": "playwright test -c playwright.config.preview.ts",
     "typecheck": "tsr generate && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

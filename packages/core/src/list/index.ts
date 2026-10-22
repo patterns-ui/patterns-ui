@@ -652,6 +652,24 @@ export function useResourceTable<TData extends RowData>(
   const groupingRef = useRef(grouping);
   groupingRef.current = grouping;
 
+  // 受控 state 各切片按「内容」稳定身份：TanStack Table v9 的 render-phase 适配器
+  // （useTable）在每次提交后把 options.state 发布进 table 原子store 并 bump commitAtom；
+  // 若切片每渲染都是新对象（pagination/sorting 字面量、宿主每渲染新建的 grouping 数组），
+  // 发布快照与渲染期基线之间会出现身份漂移，store 订阅者（React uSES）被反复通知——
+  // 在 prod 构建的点击翻页时序下与 router 的 startTransition 装载链叠加，触发
+  // 同步渲染重启循环（renderer 冻结；dev/直链不复现）。故三切片全部按内容键缓存。
+  const sortKey = formatSortParam(state.sort);
+  const sortingState = useMemo(() => toSortingState(parseSortParam(sortKey)), [sortKey]);
+  const paginationState = useMemo(
+    () => ({ pageIndex: state.page - 1, pageSize: state.size }),
+    [state.page, state.size],
+  );
+  const groupingKey = grouping.join("\u0000");
+  const groupingState = useMemo<GroupingState>(
+    () => (groupingKey === "" ? [] : groupingKey.split("\u0000")),
+    [groupingKey],
+  );
+
   const table = useTable(
     {
       features: listTableFeatures,
@@ -671,11 +689,11 @@ export function useResourceTable<TData extends RowData>(
           : -1,
       rowCount: mode === "server-offset" ? query.data?.total : undefined,
       state: {
-        sorting: toSortingState(state.sort),
-        pagination: { pageIndex: state.page - 1, pageSize: state.size },
+        sorting: sortingState,
+        pagination: paginationState,
         rowSelection,
         expanded,
-        grouping,
+        grouping: groupingState,
       },
       onGroupingChange: (updater) => {
         const next = typeof updater === "function" ? updater(groupingRef.current) : updater;

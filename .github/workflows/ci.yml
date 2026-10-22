@@ -131,6 +131,12 @@ jobs:
         run: pnpm --filter demo exec playwright install chromium --with-deps
       - name: Run smoke (webServer 自起 vite dev)
         run: pnpm --filter demo test:e2e
+      # prod-preview 回归（renderer 冻结 bug 守卫，e2e/services-prod-preview.spec.ts）：
+      # 构建一次复用，preview server 由 playwright webServer 自起（playwright.config.preview.ts）
+      - name: Build demo (preview e2e 消费 dist)
+        run: pnpm --filter demo build
+      - name: Run prod-preview regression (webServer 自起 vite preview)
+        run: pnpm --filter demo test:e2e:preview
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

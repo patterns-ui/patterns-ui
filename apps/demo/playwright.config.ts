@@ -10,6 +10,9 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./e2e",
+  // services-prod-preview 只对 prod preview 构建有意义（dev 不复现冻结），由
+  // playwright.config.preview.ts 独立执行；dev 冒烟排除，避免同 spec 双跑。
+  testIgnore: /services-prod-preview\.spec\.ts/,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
