@@ -9,7 +9,7 @@ import {
   isFilterLeaf,
   isFilterNode,
   removeLeaf,
-} from "@fleetly/ui-component-core/filters";
+} from "@fleetly/patterns-ui-core/filters";
 import { cn } from "cn";
 import { ArrowDownUp, ChevronDown, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { type ReactNode, useEffect, useMemo, useState } from "react";

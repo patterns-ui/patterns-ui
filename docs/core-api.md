@@ -1,13 +1,13 @@
-# @fleetly/ui-component-core API 规格
+# @fleetly/patterns-ui-core API 规格
 
 逻辑包的完整契约。所有签名按此实现；实现时如发现设计缺陷，先改本文再改代码（文档是唯一事实源）。
 
 包结构（子路径导出）：
 
 ```ts
-import { ... } from '@fleetly/ui-component-core/data'
-import { ... } from '@fleetly/ui-component-core/list'
-import { ... } from '@fleetly/ui-component-core/filters'
+import { ... } from '@fleetly/patterns-ui-core/data'
+import { ... } from '@fleetly/patterns-ui-core/list'
+import { ... } from '@fleetly/patterns-ui-core/filters'
 // ... /form /reference /mutation /tenant /auth /router /task /inline /datetime /resource /theme
 ```
 
@@ -589,4 +589,4 @@ export function useTheme(): {
 
 - `packages/core` 用 tsup 构建：ESM only、dts、external 全部依赖；`exports` 按模块子路径映射（`./data`、`./list`、…、`.` 聚合桶）。
 - 所有 hook 浏览器 API 访问收敛 effect/事件内；导出 `useMounted()` 惯例 helper。
-- 包名 `@fleetly/ui-component-core`，scope 内后续包遵循 `@fleetly/ui-component-*`。
+- 包名 `@fleetly/patterns-ui-core`，scope 内后续包遵循 `@fleetly/ui-component-*`。

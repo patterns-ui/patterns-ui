@@ -1,4 +1,4 @@
-import { useAuth } from "@fleetly/ui-component-core/auth";
+import { useAuth } from "@fleetly/patterns-ui-core/auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { HandMetal } from "lucide-react";

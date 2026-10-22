@@ -1,4 +1,4 @@
-import { printGuess, resourceListRouteOptions } from "@fleetly/ui-component-core/resource";
+import { printGuess, resourceListRouteOptions } from "@fleetly/patterns-ui-core/resource";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { ResourceListView } from "@/components/blocks/list/resource-list-view/resource-list-view";

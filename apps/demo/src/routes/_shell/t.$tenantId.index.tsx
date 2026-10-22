@@ -1,4 +1,4 @@
-import { useTenant } from "@fleetly/ui-component-core/tenant";
+import { useTenant } from "@fleetly/patterns-ui-core/tenant";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { StatStrip } from "@/components/blocks/shared/stat-strip/stat-strip";
 import { Button } from "@/components/ui/button";

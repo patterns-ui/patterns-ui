@@ -1,5 +1,5 @@
-import type { CanFn } from "@fleetly/ui-component-core/auth";
-import { filterByCanFn, useCan } from "@fleetly/ui-component-core/auth";
+import type { CanFn } from "@fleetly/patterns-ui-core/auth";
+import { filterByCanFn, useCan } from "@fleetly/patterns-ui-core/auth";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "cn";
 import { ChevronDown, type LucideIcon } from "lucide-react";

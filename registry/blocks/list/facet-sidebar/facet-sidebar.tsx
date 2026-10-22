@@ -1,6 +1,6 @@
-import type { FacetResult } from "@fleetly/ui-component-core/data";
-import type { FilterDef, FilterLeaf, FilterTree } from "@fleetly/ui-component-core/filters";
-import { isFilterLeaf } from "@fleetly/ui-component-core/filters";
+import type { FacetResult } from "@fleetly/patterns-ui-core/data";
+import type { FilterDef, FilterLeaf, FilterTree } from "@fleetly/patterns-ui-core/filters";
+import { isFilterLeaf } from "@fleetly/patterns-ui-core/filters";
 import { cn } from "cn";
 import { Checkbox } from "@/components/ui/checkbox";
 

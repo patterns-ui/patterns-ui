@@ -1,4 +1,4 @@
-import { useSavedViews } from "@fleetly/ui-component-core/list";
+import { useSavedViews } from "@fleetly/patterns-ui-core/list";
 import { cn } from "cn";
 import { Bookmark, BookmarkCheck, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

@@ -1,4 +1,4 @@
-# @fleetly/ui-component-core
+# @fleetly/patterns-ui-core
 
 ## 0.1.0
 

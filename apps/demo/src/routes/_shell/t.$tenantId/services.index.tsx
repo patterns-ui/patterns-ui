@@ -1,10 +1,10 @@
-import type { FilterDef } from "@fleetly/ui-component-core/filters";
+import type { FilterDef } from "@fleetly/patterns-ui-core/filters";
 import {
   createListColumnHelper,
   createListSearchSchema,
   useResourceTable,
-} from "@fleetly/ui-component-core/list";
-import { useNewItemsSignal } from "@fleetly/ui-component-core/task";
+} from "@fleetly/patterns-ui-core/list";
+import { useNewItemsSignal } from "@fleetly/patterns-ui-core/task";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Columns3, Eye, Plus, SquarePen } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";

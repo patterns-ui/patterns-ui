@@ -1,5 +1,5 @@
-import { useAuth } from "@fleetly/ui-component-core/auth";
-import type { HttpError } from "@fleetly/ui-component-core/data";
+import { useAuth } from "@fleetly/patterns-ui-core/auth";
+import type { HttpError } from "@fleetly/patterns-ui-core/data";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";

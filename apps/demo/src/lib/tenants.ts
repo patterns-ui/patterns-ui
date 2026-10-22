@@ -1,5 +1,5 @@
-import { HttpError } from "@fleetly/ui-component-core/data";
-import type { Tenant } from "@fleetly/ui-component-core/tenant";
+import { HttpError } from "@fleetly/patterns-ui-core/data";
+import type { Tenant } from "@fleetly/patterns-ui-core/tenant";
 import { api } from "./api";
 
 export async function listTenants(): Promise<Tenant[]> {

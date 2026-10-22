@@ -6,10 +6,10 @@
  * ListPage + FilterBar + AsyncState + DataTable + PaginationBar。
  * 列渲染经 cellFor 消费列 meta.cell（inferColumns 的推断标记）。
  */
-import type { ResourceClient, ResourceOf } from "@fleetly/ui-component-core/data";
-import { createResource } from "@fleetly/ui-component-core/data";
-import { type ListColumnDef, useResourceTable } from "@fleetly/ui-component-core/list";
-import type { ResourceDef } from "@fleetly/ui-component-core/resource";
+import type { ResourceClient, ResourceOf } from "@fleetly/patterns-ui-core/data";
+import { createResource } from "@fleetly/patterns-ui-core/data";
+import { type ListColumnDef, useResourceTable } from "@fleetly/patterns-ui-core/list";
+import type { ResourceDef } from "@fleetly/patterns-ui-core/resource";
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { type CellForType, cellFor } from "@/components/blocks/cells/cell-for/cell-for";

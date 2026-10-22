@@ -1,6 +1,6 @@
-import { AuthProvider, notifyUnauthorized } from "@fleetly/ui-component-core/auth";
-import { HttpError } from "@fleetly/ui-component-core/data";
-import { ThemeProvider } from "@fleetly/ui-component-core/theme";
+import { AuthProvider, notifyUnauthorized } from "@fleetly/patterns-ui-core/auth";
+import { HttpError } from "@fleetly/patterns-ui-core/data";
+import { ThemeProvider } from "@fleetly/patterns-ui-core/theme";
 import { QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRouter, RouterProvider } from "@tanstack/react-router";
 import { StrictMode } from "react";

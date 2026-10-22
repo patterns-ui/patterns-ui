@@ -2,8 +2,8 @@
  * demo：表单页共用件 —— 草稿自动保存接线、dirty guard 确认框、草稿恢复横幅。
  */
 
-import type { DirtyGuardState } from "@fleetly/ui-component-core/form";
-import { useFormDirtyGuard } from "@fleetly/ui-component-core/form";
+import type { DirtyGuardState } from "@fleetly/patterns-ui-core/form";
+import { useFormDirtyGuard } from "@fleetly/patterns-ui-core/form";
 import { FileWarning } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";

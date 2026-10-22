@@ -1,4 +1,4 @@
-import { requireAuth } from "@fleetly/ui-component-core/auth";
+import { requireAuth } from "@fleetly/patterns-ui-core/auth";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 /**

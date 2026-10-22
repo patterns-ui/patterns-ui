@@ -5,12 +5,12 @@
  * action facet + actor 文本）+ FacetSidebar（action chips 计数）+ DataTable + PaginationBar。
  * 列定义内置（id/action/resource/actor/createdAt）；actor 经 resolve 反查展示。
  */
-import type { Resource } from "@fleetly/ui-component-core/data";
+import type { Resource } from "@fleetly/patterns-ui-core/data";
 import {
   createListColumnHelper,
   type ListColumnDef,
   useResourceTable,
-} from "@fleetly/ui-component-core/list";
+} from "@fleetly/patterns-ui-core/list";
 import { useMemo } from "react";
 import { CellEnumBadge } from "@/components/blocks/cells/cell-enum-badge/cell-enum-badge";
 import { CellId } from "@/components/blocks/cells/cell-id/cell-id";

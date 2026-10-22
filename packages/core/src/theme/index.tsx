@@ -127,7 +127,7 @@ export function useTheme(): {
   const ctx = useContext(PresetContext);
   if (!ctx) {
     throw new Error(
-      "useTheme must be used within a ThemeProvider (@fleetly/ui-component-core/theme)",
+      "useTheme must be used within a ThemeProvider (@fleetly/patterns-ui-core/theme)",
     );
   }
   return {

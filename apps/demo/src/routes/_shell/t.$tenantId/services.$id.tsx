@@ -1,5 +1,5 @@
-import { useInlineEdit } from "@fleetly/ui-component-core/inline";
-import { useTaskSubmit } from "@fleetly/ui-component-core/task";
+import { useInlineEdit } from "@fleetly/patterns-ui-core/inline";
+import { useTaskSubmit } from "@fleetly/patterns-ui-core/task";
 import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { cn } from "cn";
 import { Boxes, Pencil, Rocket } from "lucide-react";

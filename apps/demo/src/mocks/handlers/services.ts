@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { type FilterTree, isFilterLeaf, isFilterNode } from "@fleetly/ui-component-core/filters";
+import { type FilterTree, isFilterLeaf, isFilterNode } from "@fleetly/patterns-ui-core/filters";
 import { findUserByToken, type MockService, servicesOf } from "../db";
 import { fail, type MockRequestContext, type MockRoute, ok } from "../types";
 

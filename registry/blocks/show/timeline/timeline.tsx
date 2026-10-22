@@ -6,7 +6,7 @@ import {
   formatAbsolute,
   formatRelative,
   useDateTimePrefs,
-} from "@fleetly/ui-component-core/datetime";
+} from "@fleetly/patterns-ui-core/datetime";
 import { cn } from "cn";
 import { Check, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";

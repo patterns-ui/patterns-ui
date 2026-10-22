@@ -1,6 +1,6 @@
-import { useAuth } from "@fleetly/ui-component-core/auth";
-import type { CrumbResolve } from "@fleetly/ui-component-core/router";
-import { TenantProvider, useTenant } from "@fleetly/ui-component-core/tenant";
+import { useAuth } from "@fleetly/patterns-ui-core/auth";
+import type { CrumbResolve } from "@fleetly/patterns-ui-core/router";
+import { TenantProvider, useTenant } from "@fleetly/patterns-ui-core/tenant";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useMemo, useState } from "react";
 import { AppShellInset } from "@/components/blocks/shell/app-shell-inset/app-shell-inset";

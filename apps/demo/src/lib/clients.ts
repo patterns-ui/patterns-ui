@@ -1,5 +1,5 @@
-import type { BulkResult, ListParams, Page, ResourceClient } from "@fleetly/ui-component-core/data";
-import { type FilterTree, minimalTree } from "@fleetly/ui-component-core/filters";
+import type { BulkResult, ListParams, Page, ResourceClient } from "@fleetly/patterns-ui-core/data";
+import { type FilterTree, minimalTree } from "@fleetly/patterns-ui-core/filters";
 import { api } from "./api";
 
 /**

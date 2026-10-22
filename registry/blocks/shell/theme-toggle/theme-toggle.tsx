@@ -1,4 +1,4 @@
-import { type ThemeMode, useTheme } from "@fleetly/ui-component-core/theme";
+import { type ThemeMode, useTheme } from "@fleetly/patterns-ui-core/theme";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 

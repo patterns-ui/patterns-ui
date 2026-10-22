@@ -4,7 +4,7 @@ import {
   formatRelative,
   useDateTimePrefs,
   useNow,
-} from "@fleetly/ui-component-core/datetime";
+} from "@fleetly/patterns-ui-core/datetime";
 import { cn } from "cn";
 
 function toIsoString(value: string | number | Date): string | undefined {

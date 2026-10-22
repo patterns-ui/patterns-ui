@@ -1,4 +1,4 @@
-import { HttpError, type HttpErrorKind } from "@fleetly/ui-component-core/data";
+import { HttpError, type HttpErrorKind } from "@fleetly/patterns-ui-core/data";
 import {
   Ban,
   KeyRound,

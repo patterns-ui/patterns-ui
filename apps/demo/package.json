@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@base-ui/react": "catalog:",
-    "@fleetly/ui-component-core": "workspace:*",
+    "@fleetly/patterns-ui-core": "workspace:*",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/react-query": "catalog:",
     "@tanstack/react-router": "catalog:",

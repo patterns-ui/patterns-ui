@@ -64,7 +64,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Build core (demo 依赖 workspace dist)
-        run: pnpm --filter @fleetly/ui-component-core build
+        run: pnpm --filter @fleetly/patterns-ui-core build
       - name: Install Playwright chromium
         run: pnpm --filter demo exec playwright install chromium --with-deps
       - name: Run smoke (webServer 自起 vite dev)
