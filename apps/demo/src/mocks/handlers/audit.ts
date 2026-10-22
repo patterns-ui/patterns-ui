@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { auditEventsOf, findUserByToken, type MockAuditEvent } from "../db";
-import { fail, type MockRequestContext, type MockRoute, ok } from "../types";
+import { fail, type MockFilterTree, type MockRequestContext, type MockRoute, ok } from "../types";
 import { evaluateTree } from "./services";
 
 function bearerToken(req: { headers: { authorization?: string } }): string | null {
@@ -45,7 +45,7 @@ function parseFilters(ctx: MockRequestContext) {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== "object") return undefined;
-    return parsed as import("@patterns-ui/core/filters").FilterTree;
+    return parsed as MockFilterTree;
   } catch {
     return undefined;
   }

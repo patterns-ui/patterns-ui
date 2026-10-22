@@ -112,9 +112,9 @@ export const auditDef = defineResource<AuditEvent>({
   nav: { group: "Data", icon: "scroll-text" },
 });
 
-// 路由文件（audit2.tsx）—— 两行装配
+// 路由文件（audit.tsx）—— 两行装配
 const listOptions = resourceListRouteOptions(auditDef); // validateSearch + staticData + 权限守卫
-export const Route = createFileRoute("/_shell/t/$tenantId/audit2")({
+export const Route = createFileRoute("/_shell/t/$tenantId/audit")({
   ...listOptions,
   component: () => <ResourceListView def={auditDef} />, // FilterBar+DataTable+分页+四态 全套
 });
@@ -122,21 +122,21 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit2")({
 
 详情路由同样两行（`resourceDetailRouteOptions`：staticData + loader 走 createResource 同款 queryKey 预取），导航由 `navFromResources(defs, user)` 派生。实测与手写版功能等价、代码量约 1/3（见下方对比表）。
 
-## Block 目录（75 blocks + 2 主题 preset = 77 items）
+## Block 目录（73 blocks + 2 主题 preset = 75 items）
 
 安装：`pnpm dlx shadcn@latest add @patterns-ui/<name>`。规格见 [docs/blocks.md](docs/blocks.md)。
 
 | 分类                 | Blocks                                                                                                                                                                                                                                                           |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| shell（10）          | app-shell-inset / -floating / -fullbleed · top-bar · breadcrumbs · theme-toggle · preset-switcher · user-menu · command-palette · global-search-page                                                                                                             |
-| sidebar（6）         | side-nav-inset / -floating / -icon · nav-group · nav-user · tenant-switcher                                                                                                                                                                                      |
-| auth（5）            | sign-in-page · sign-up-page · forgot-password-page · otp-page · onboarding                                                                                                                                                                                       |
+| shell（8）           | app-shell（variant：inset/floating/fullbleed）· top-bar · breadcrumbs · theme-toggle · preset-switcher · user-menu · command-palette · global-search-page                                                                                                        |
+| sidebar（4）         | side-nav（variant：inset/floating/icon）· nav-group · nav-user · tenant-switcher                                                                                                                                                                                 |
+| auth（6）            | auth-card-layout · sign-in-page · sign-up-page · forgot-password-page · otp-page · onboarding                                                                                                                                                                    |
 | list（14）           | data-table · filter-bar · facet-sidebar · saved-views-menu · pagination-bar · selection-bar · refresh-bar · new-items-banner · export-button · list-page（table/grid 双变体）· audit-log · notification-inbox · resource-list-view（L4）· use-resource-mutations |
 | cells（10）          | cell-for（语义分发）· cell-id / -time / -user / -status / -boolean / -number / -enum-badge / -tags / -progress                                                                                                                                                   |
 | form（8）            | typed-form-field（widget 全家 + createTypedForm 工厂）· form-page / form-sheet / form-dialog（三宿主）· stepper · confirm-dialog · reference-select · secret-reveal                                                                                              |
 | show（9）            | detail-page · detail-grid · timeline · reference-field · inline-edit-field · danger-zone · record-pager · diff-viewer · resource-detail-view（L4）                                                                                                               |
-| shared（11）         | async-state · empty-state · error-state · error-pages · skeleton · status-badge · relative-time · copy-button · user-avatar · resource-icon · stat-strip                                                                                                         |
-| team / settings（2） | team-page · settings-page                                                                                                                                                                                                                                        |
+| shared（12）         | async-state · empty-state · error-state · error-pages（ErrorPage 单模板 + RouteErrorBoundary）· page-header · skeleton · status-badge · relative-time · copy-button · user-avatar · resource-icon · stat-strip                                                   |
+| team / settings（2） | team-page · settings-page（组织/个人/安全/外观四节）                                                                                                                                                                                                             |
 | 主题（2）            | default · aurora（`[data-preset]` 皮肤，theme item 分发）                                                                                                                                                                                                        |
 
 ## 升级策略
@@ -155,26 +155,27 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit2")({
 ## L4 采用：defineResource 与手写版对比（M4）
 
 同一份「审计事件列表页」（keyset 分页 + action facet + 时间范围过滤 + 高级 and/or）有两种写法，
-demo 里并存可直接对比：
+demo 里并存可直接对比（M6 后产品入口是 L4 版 `/t/:tid/audit`；M2 手写版移至 `/t/:tid/dev/audit-legacy` 工具参照页）：
 
-| 版本      | 路由             | 代码量                  | 说明                                                                                                                                                                     |
-| --------- | ---------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| M2 手写   | `/t/:tid/audit`  | ~229 行（单文件）       | 手写列定义 + useResourceTable + FilterBar/FacetSidebar/DataTable/PaginationBar 全套装配 + cursor/load-more 双模式切换                                                    |
-| M4 资源层 | `/t/:tid/audit2` | ~87 行页面 + ~55 行 def | `defineResource`（列由 `inferColumns` 从样本推断、filters/list 一并声明）+ `resourceListRouteOptions`（validateSearch/staticData/权限守卫）+ `ResourceListView` 一行装配 |
+| 版本      | 路由                       | 代码量                  | 说明                                                                                                                                                                     |
+| --------- | -------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| M2 手写   | `/t/:tid/dev/audit-legacy` | ~229 行（单文件）       | 手写列定义 + useResourceTable + FilterBar/FacetSidebar/DataTable/PaginationBar 全套装配 + cursor/load-more 双模式切换                                                    |
+| M4 资源层 | `/t/:tid/audit`            | ~87 行页面 + ~55 行 def | `defineResource`（列由 `inferColumns` 从样本推断、filters/list 一并声明）+ `resourceListRouteOptions`（validateSearch/staticData/权限守卫）+ `ResourceListView` 一行装配 |
 
 资源层版本的收益随资源数量线性放大：def 还同时派生导航（`navFromResources`）、
 详情路由 loader 预取（`resourceDetailRouteOptions`）与表单字段推断（`inferFormFields`）；
-dev 模式打开 `/t/:tid/audit2` 可在控制台看到 Guesser 打印的可粘贴配置。
+dev 模式打开 `/t/:tid/audit` 可在控制台看到 Guesser 打印的可粘贴配置。
 手写版保留为 L3 层参考（想完全掌控装配时停在该层即可）。
 
 ## demo 运行
 
 ```bash
 pnpm install
-pnpm dev          # 起 demo（含 mock API 中间件；登录账号 demo@fleetly.dev / 任意密码）
+pnpm dev          # 起 demo（含 mock API 中间件；登录账号 demo@fleetly.dev / 任意密码）——干净 clone 到这一步即可起（dev 期 core 走 workspace 源码 alias，无需先 build）
 pnpm test         # core 单测 + demo 守卫测试
-pnpm test:e2e     # Playwright 冒烟（需先装浏览器，见下）
+pnpm test:e2e     # Playwright 冒烟（需先装浏览器，见下；CI 随 PR/push 跑）
 pnpm build        # core 构建 + registry JSON 构建
+pnpm review       # demo 生产构建 + preview 自测（vite build && vite preview，:4173 钉死）
 ```
 
 浏览器二进制（Ubuntu 26.04+ 需平台覆盖；CI 的 ubuntu-24.04 不需要）：
@@ -198,14 +199,15 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 
 ### 里程碑状态
 
-| 里程碑 | 内容                                                                                   | 状态 |
-| ------ | -------------------------------------------------------------------------------------- | ---- |
-| M0     | monorepo 骨架、registry 管线、demo alias 链                                            | ✅   |
-| M1     | 壳与横切（theme/tenant/auth/router/datetime + shell/sidebar/auth blocks）              | ✅   |
-| M2     | 列表纵切（data/filters/list core + 列表全家桶 blocks + services/audit 页）             | ✅   |
-| M3     | 表单、详情与关联（form/reference/task core + 表单三宿主/show 系 blocks）               | ✅   |
-| M4     | 资源层与高级表格（defineResource/inferColumns + 分组/树形/聚合/虚拟化 + SaaS 模板页）  | ✅   |
-| M5     | 收尾（单测补全 128 + 守卫测试 12、Playwright 冒烟、CI、changesets、README、lint 收敛） | ✅   |
+| 里程碑 | 内容                                                                                         | 状态 |
+| ------ | -------------------------------------------------------------------------------------------- | ---- |
+| M0     | monorepo 骨架、registry 管线、demo alias 链                                                  | ✅   |
+| M1     | 壳与横切（theme/tenant/auth/router/datetime + shell/sidebar/auth blocks）                    | ✅   |
+| M2     | 列表纵切（data/filters/list core + 列表全家桶 blocks + services/audit 页）                   | ✅   |
+| M3     | 表单、详情与关联（form/reference/task core + 表单三宿主/show 系 blocks）                     | ✅   |
+| M4     | 资源层与高级表格（defineResource/inferColumns + 分组/树形/聚合/虚拟化 + SaaS 模板页）        | ✅   |
+| M5     | 收尾（单测补全 128 + 守卫测试 12、Playwright 冒烟、CI、changesets、README、lint 收敛）       | ✅   |
+| M6     | 地基与结构修复（发布就绪/结构归位/L4 健壮化/变体收敛/文案与文档收尾，见 docs/milestones.md） | ✅   |
 
 ### 脚本
 
@@ -215,8 +217,9 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 | `pnpm lint` / `pnpm format`                | biome 检查 / 格式化（0 warning 基线）                              |
 | `pnpm -r typecheck`                        | 全 workspace tsc（demo 先 `tsr generate`）                         |
 | `pnpm -r test`                             | core 单测（vitest）+ demo 守卫测试（node 环境源码扫描）            |
-| `pnpm test:e2e`                            | Playwright 冒烟（webServer 自起 vite dev :4173）                   |
+| `pnpm test:e2e`                            | Playwright 冒烟（webServer 自起 vite dev :4173；CI 随 PR/push 跑） |
 | `pnpm build`                               | core tsup 构建 + `registry:build`（registry.json + dist/r/*.json） |
+| `pnpm review`                              | demo `vite build && vite preview`（:4173 钉死；CI 冒烟探活）       |
 | `pnpm dlx shadcn@latest registry validate` | 校验 registry.json（CI 亦跑）                                      |
 | `pnpm changeset` / `pnpm version-packages` | 记录变更 / 提版本 + CHANGELOG（发版流程 docs/registry.md §6）      |
 
@@ -226,4 +229,4 @@ docs/             # 规格文档（架构、core API、blocks、registry、里�
 - [docs/core-api.md](docs/core-api.md) —— 核心抽象完整 API 规格
 - [docs/blocks.md](docs/blocks.md) —— 全部 registry blocks 规格
 - [docs/registry.md](docs/registry.md) —— registry 构建发布与升级策略
-- [docs/milestones.md](docs/milestones.md) —— M0–M5 任务分解与验收清单
+- [docs/milestones.md](docs/milestones.md) —— M0–M6 任务分解与验收清单

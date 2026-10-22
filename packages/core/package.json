@@ -1,7 +1,7 @@
 {
   "name": "@patterns-ui/core",
   "version": "0.1.0",
-  "description": "@patterns-ui 的逻辑层：data/list/filters/form/reference/mutation/tenant/auth/router/task/inline/datetime/resource/theme",
+  "description": "@patterns-ui 的逻辑层：data/list/filters/form/reference/tenant/auth/router/task/inline/datetime/resource/theme/storage",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -81,16 +81,6 @@
       "require": {
         "types": "./dist/reference/index.d.cts",
         "default": "./dist/reference/index.cjs"
-      }
-    },
-    "./mutation": {
-      "import": {
-        "types": "./dist/mutation/index.d.ts",
-        "default": "./dist/mutation/index.js"
-      },
-      "require": {
-        "types": "./dist/mutation/index.d.cts",
-        "default": "./dist/mutation/index.cjs"
       }
     },
     "./tenant": {

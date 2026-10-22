@@ -26,11 +26,17 @@ export type {
   SortDirection,
   SortSpec,
 } from "../filters";
-
 // queryKey 工厂公共出口（docs/core-api.md §1 queryKey 约定；M6-B 单源钉死，
 // data/reference 内部与宿主失效逻辑全部走同一实现）。*KeyPrefix 供失效用
 // （前缀匹配任意 params / 任意 id）。
 export { detailKey, detailKeyPrefix, listKey, listKeyPrefix, manyKey } from "./query-keys";
+// undoable 提交时序（M6-E 起 data 是唯一出口；原 ./mutation 兼容壳已删除——未 npm publish 过，非 breaking）
+export {
+  type ScheduleUndoable,
+  scheduleUndoable,
+  type UndoableJob,
+  type UndoableToastControl,
+} from "./undoable";
 
 // ---------------------------------------------------------------------------
 // 基础类型（docs/core-api.md §1.1）

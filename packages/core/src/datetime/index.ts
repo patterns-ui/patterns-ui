@@ -139,9 +139,15 @@ function toDate(value: string | number | Date): Date | undefined {
 }
 
 // ---------------------------------------------------------------------------
-// ISO 日期字符串判定（M6-B 工具单点化：filters 的日期比较与 resource 的类型推断共用）
+// ISO 日期字符串判定（M6-B 工具单点化：filters 的日期比较走此单点）
 // ---------------------------------------------------------------------------
 
+/**
+ * 宽松形状（M6-E 决策：与 resource.inferColumns 的严形状 ISO_RE 有意保留两套）：
+ * `YYYY-MM-DD` 或带 `T`/空格 的时间部分（时间数字组不校验）——服务 filters
+ * comparable() 的「尽力归一化」（空格分隔的宿主数据也尝试 Date.parse，失败自然回落）。
+ * resource 的列分类需严形状（误判会改变整列渲染），见 resource/index.ts ISO_RE 注释。
+ */
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ].*)?$/;
 
 /** ISO 日期形状判定（`YYYY-MM-DD` 或带 `T`/空格 时间部分；时间单源 datetime 收敛） */

@@ -24,6 +24,9 @@ export function setToken(token: string | null): void {
 
 /**
  * demo 的 fetch 封装：自动带 Bearer token；非 2xx 抛 HttpError（message 优先取响应体 message）。
+ *
+ * 2xx JSON 兜底（M6-E）：204 或空 body → 约定值 undefined（调用方按可选数据处理）；
+ * 非空但非 JSON → 抛 HttpError（清晰错误，不泄漏 SyntaxError）。
  */
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
@@ -49,5 +52,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (response.status === 204) {
     return undefined as T;
   }
-  return (await response.json()) as T;
+  const text = await response.text();
+  if (text.trim() === "") {
+    return undefined as T;
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new HttpError(response.status, `响应不是有效 JSON（HTTP ${response.status}）`, text);
+  }
 }

@@ -1,25 +1,77 @@
-import type { BulkResult, MutationOpts, Resource } from "@patterns-ui/core/data";
-import type { UndoableToastControl } from "@patterns-ui/core/mutation";
+import type {
+  BulkResult,
+  MutationOpts,
+  Resource,
+  UndoableToastControl,
+} from "@patterns-ui/core/data";
 import { cn } from "cn";
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+
+/**
+ * undoable/toast 默认文案（M6-E 文案对象化：④ 文案从 ② 逻辑解焊）。
+ * 宿主可经 `useResourceMutations(resource, { messages })` 部分覆盖，缺省与
+ * DEFAULT 合并（调用点不传 = 行为不变）。带参文案用函数形态（可保留数字排版节点）。
+ */
+export interface UseResourceMutationsMessages {
+  /** 单项删除成功提示 */
+  deleted: string;
+  /** 批量删除的动作名（成功/汇总前缀） */
+  bulkDeleted: string;
+  /** 批量更新的动作名（成功/汇总前缀） */
+  bulkUpdated: string;
+  /** bulk 无结果集时的成功提示 */
+  done: (label: string) => string;
+  /** bulk 全部成功汇总 */
+  doneCount: (label: string, count: number) => string;
+  /** bulk 部分失败汇总 */
+  partial: (label: string, succeeded: number, failed: number) => string;
+  /** undoable toast 正文（倒计时秒数入参；返回 ReactNode 以保留 tabular-nums 排版） */
+  undoableNotice: (secondsLeft: number) => ReactNode;
+  /** undoable toast 撤销按钮文案 */
+  undoAction: (secondsLeft: number) => ReactNode;
+  /** 用户撤销后的提示 */
+  undone: string;
+}
+
+export const DEFAULT_USE_RESOURCE_MUTATIONS_MESSAGES: UseResourceMutationsMessages = {
+  deleted: "已删除",
+  bulkDeleted: "批量删除",
+  bulkUpdated: "批量更新",
+  done: (label) => `${label}完成`,
+  doneCount: (label, count) => `${label}完成（${count} 项）`,
+  partial: (label, succeeded, failed) => `${label}：成功 ${succeeded}，失败 ${failed}`,
+  undoableNotice: (secondsLeft) => (
+    <>
+      已应用变更，<span className="tabular-nums">{secondsLeft}</span>s 内可撤销
+    </>
+  ),
+  undoAction: (secondsLeft) => <>撤销（{secondsLeft}s）</>,
+  undone: "已撤销，未提交变更",
+};
 
 export interface UseResourceMutationsOptions {
   /** undoable 倒计时（ms），默认 5000 */
   undoDurationMs?: number;
   /** 单项操作成功提示开关（默认开；bulk 结果汇总恒开） */
   successToast?: boolean;
+  /** 默认文案部分覆盖（缺省合并 DEFAULT_USE_RESOURCE_MUTATIONS_MESSAGES） */
+  messages?: Partial<UseResourceMutationsMessages>;
 }
 
-function summarize(label: string, result: BulkResult | undefined): void {
+function summarize(
+  label: string,
+  result: BulkResult | undefined,
+  messages: UseResourceMutationsMessages,
+): void {
   if (!result) {
-    toast.success(`${label}完成`);
+    toast.success(messages.done(label));
     return;
   }
   const { succeeded, failed } = result;
-  if (failed.length === 0) toast.success(`${label}完成（${succeeded.length} 项）`);
-  else toast.warning(`${label}：成功 ${succeeded.length}，失败 ${failed.length}`);
+  if (failed.length === 0) toast.success(messages.doneCount(label, succeeded.length));
+  else toast.warning(messages.partial(label, succeeded.length, failed.length));
 }
 
 /** undoable toast 视图：自带每秒倒数；toast 只渲染一次（重发 upsert 会触发 onDismiss → 意外立即提交） */
@@ -27,11 +79,13 @@ function UndoableToastView({
   ctl,
   initialSeconds,
   onClose,
+  messages,
   className,
 }: {
   ctl: UndoableToastControl;
   initialSeconds: number;
   onClose: () => void;
+  messages: UseResourceMutationsMessages;
   className?: string;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(initialSeconds);
@@ -49,9 +103,7 @@ function UndoableToastView({
         className,
       )}
     >
-      <p className="text-sm">
-        已应用变更，<span className="tabular-nums">{secondsLeft}</span>s 内可撤销
-      </p>
+      <p className="text-sm">{messages.undoableNotice(secondsLeft)}</p>
       <Button
         size="sm"
         variant="outline"
@@ -60,7 +112,7 @@ function UndoableToastView({
           onClose();
         }}
       >
-        撤销（{secondsLeft}s）
+        {messages.undoAction(secondsLeft)}
       </Button>
     </div>
   );
@@ -81,6 +133,10 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
   options: UseResourceMutationsOptions = {},
 ) {
   const { undoDurationMs = 5000, successToast = true } = options;
+  const messages: UseResourceMutationsMessages = {
+    ...DEFAULT_USE_RESOURCE_MUTATIONS_MESSAGES,
+    ...options.messages,
+  };
   /** undo 标记：key 在 opts 首次创建时固定（见上） */
   const undoneFlags = useRef(new Map<string, boolean>());
   const seq = useRef(0);
@@ -104,7 +160,7 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
           undo: () => {
             undoneFlags.current.set(key, true);
             rawCtl.undo();
-            toast.info("已撤销，未提交变更");
+            toast.info(messages.undone);
           },
         };
         toast.custom(
@@ -113,6 +169,7 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
               ctl={ctl}
               initialSeconds={ctl.secondsLeft}
               onClose={() => toast.dismiss(t)}
+              messages={messages}
             />
           ),
           {
@@ -139,7 +196,10 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
     useDeleteWithUndo: () => {
       if (deleteOptsRef.current === null) {
         seq.current += 1;
-        deleteOptsRef.current = makeUndoableOpts<{ id: string }>(`del-${seq.current}`, "已删除");
+        deleteOptsRef.current = makeUndoableOpts<{ id: string }>(
+          `del-${seq.current}`,
+          messages.deleted,
+        );
       }
       return resource.useDelete(deleteOptsRef.current);
     },
@@ -149,8 +209,9 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
         seq.current += 1;
         const key = `bulk-del-${seq.current}`;
         bulkDeleteOptsRef.current = {
-          ...makeUndoableOpts<{ ids: string[] }>(key, "批量删除"),
-          onSuccess: (data) => summarize("批量删除", data as BulkResult | undefined),
+          ...makeUndoableOpts<{ ids: string[] }>(key, messages.bulkDeleted),
+          onSuccess: (data) =>
+            summarize(messages.bulkDeleted, data as BulkResult | undefined, messages),
         };
       }
       return resource.useBulkDelete(bulkDeleteOptsRef.current);
@@ -158,7 +219,8 @@ export function useResourceMutations<TData, TCreate, TUpdate>(
     /** 悲观批量更新（结果汇总） */
     useBulkUpdate: () =>
       resource.useBulkUpdate({
-        onSuccess: (data) => summarize("批量更新", data as BulkResult | undefined),
+        onSuccess: (data) =>
+          summarize(messages.bulkUpdated, data as BulkResult | undefined, messages),
       }),
   };
 }

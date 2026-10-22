@@ -24,7 +24,7 @@ L0  Tokens           CSS 变量设计令牌 + 主题 preset 机制（纯 CSS）
 
 **依赖规则（强制，验收时检查 import）：**
 
-- `packages/core` **不得** import 任何 React UI 组件、shadcn、blocks；只依赖 `@tanstack/react-query`、`@tanstack/react-router`（peer）、`zod`（peer）、`react`（peer）。ThemeProvider 允许依赖 `next-themes`。
+- `packages/core` **不得** import 任何 React UI 组件、shadcn、blocks；只依赖 `@tanstack/react-query`、`@tanstack/react-router`、`@tanstack/react-table`（list 模块用，均为 peer）、`zod`（peer）、`react`（peer）。运行依赖仅两件：`next-themes`（theme 模块）、`use-sync-external-store`（非 React 内置 store 订阅，auth/tenant 等，M6-B 起）。
 - `registry/blocks/**` 可以 import：`@patterns-ui/core`、`@/components/ui/*`（shadcn 基础件）、`@/components/blocks/*`（其他 block）、`@/lib/*`、lucide-react 等运行库。**不得** import demo 应用代码。
 - `apps/demo` 可以 import 一切；是唯一允许出现业务/ mock 代码的地方。
 - 纯视觉组件（L2 以下）零路由依赖；需要路由的组件只经 `@tanstack/react-router` 的 `Link/useRouter/useSearch/useNavigate`。
@@ -55,22 +55,22 @@ patterns-ui/
 ├── registry.json                  # 构建产物（GitHub registry 索引），提交进仓库
 ├── docs/                          # 本规格书系列
 ├── packages/core/                 # @patterns-ui/core
-│   ├── package.json               # exports 子路径：./data ./list ./form ... ./resource ./datetime
+│   ├── package.json               # exports 子路径：./data ./list ./form ... ./resource ./datetime ./storage
 │   ├── tsconfig.json
 │   └── src/
-│       ├── data/                  # Page/ListParams/ResourceClient 契约 + createResource
+│       ├── data/                  # Page/ListParams/ResourceClient 契约 + createResource + undoable 时序 + queryKey 工厂
 │       ├── list/                  # useResourceTable + createListSearchSchema + URL 编解码
 │       ├── filters/               # FilterDef/FilterTree 模型 + 客户端求值器
-│       ├── form/                  # useResourceForm（宿主无关）
+│       ├── form/                  # useResourceForm（宿主无关）+ 默认文案对象化
 │       ├── reference/             # useReference
-│       ├── mutation/              # mutationMode 三档实现（含 undoable）
 │       ├── tenant/                # TenantProvider/useTenant/记忆与校正
 │       ├── auth/                  # AuthProvider 约定/守卫/can()
 │       ├── router/                # 面包屑派生、列表 search schema 工厂
 │       ├── task/                  # useTask 长任务轮询
 │       ├── inline/                # useInlineEdit changeSet
-│       ├── datetime/              # 时区偏好 + Intl 缓存 + 相对/绝对格式化
+│       ├── datetime/              # 时区偏好 + Intl 缓存 + 相对/绝对格式化 + isIsoDate
 │       ├── resource/              # L4 defineResource + 推断/Guesser
+│       ├── storage/               # createStorage 统一 localStorage（信封+版本+migrate；M6-B）
 │       └── theme/                 # ThemeProvider（next-themes 薄封装 + preset）
 ├── registry/
 │   ├── blocks/                    # block 源码，按类别分目录（kebab-case 文件名）
@@ -82,8 +82,8 @@ patterns-ui/
     ├── src/routes/                # TanStack Router 文件路由
     ├── src/components/ui/         # shadcn 基础件（Base UI 方言）
     ├── src/lib/                   # demo 的 mock client、api 封装、utils
-    ├── src/mocks/                 # Vite dev 中间件 mock API（内存存储）
-    ├── vite.config.ts             # @/components/blocks/* → registry/blocks/* alias + mock 中间件
+    ├── src/mocks/                 # Vite dev/preview 中间件 mock API（内存存储；自包含——不 import @patterns-ui/core，否则 config 加载链依赖 core dist）
+    ├── vite.config.ts             # @/components/blocks/* → registry/blocks/* alias + mock 中间件；dev 期 @patterns-ui/core → packages/core/src（干净 clone install+dev 即起）
     └── tsconfig.json              # 同上 alias 的 paths 映射
 ```
 

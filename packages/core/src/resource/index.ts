@@ -272,6 +272,13 @@ export interface InferredColumnMeta extends ListColumnMeta {
   enumValues?: string[];
 }
 
+/**
+ * 列类型分类用 ISO 严形状（M6-E 决策：与 datetime.isIsoDate 有意保留两套）：
+ * 时间部分必须 `T` 分隔且 `HH:MM[:SS[.fff]]` 数字组结构合法、可带 `Z/±HH:MM`——
+ * inferColumns 借它决定整列渲染为 cell-time，误判代价高，必须严形状。
+ * datetime.isIsoDate 是宽松形状（含空格分隔、时间部分不校验数字组），服务 filters
+ * 的 comparable() 尽力归一化（解析失败自然回落），两者语义不可互换。
+ */
 const ISO_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

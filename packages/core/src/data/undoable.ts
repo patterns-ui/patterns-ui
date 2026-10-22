@@ -1,10 +1,10 @@
 /**
  * data/undoable —— undoable 提交时序（docs/core-api.md §6）。
  *
- * M6-B 归位：scheduleUndoable 从 mutation 模块下沉为 data 内部实现
- * （data 不得反向 import mutation —— paradigm.md §2.1 依赖方向）。
- * mutation 子路径（@patterns-ui/core/mutation）保留为兼容 re-export（blocks
- * use-resource-mutations 消费其类型）。
+ * M6-B 归位：scheduleUndoable 从 mutation 模块下沉为 data 实现（data 不得反向
+ * import mutation —— paradigm.md §2.1 依赖方向）。M6-E 删除 ./mutation 兼容壳：
+ * 本模块经 `@patterns-ui/core/data` 直接导出（blocks use-resource-mutations 等
+ * 消费方一律从 data 引 UndoableToastControl）。
  *
  * 时序约定：
  *   t0        立即应用乐观变更（optimistic() 返回回滚函数）

@@ -11,6 +11,7 @@
     "build": "pnpm --filter @patterns-ui/core build && pnpm registry:build",
     "test": "pnpm -r test",
     "test:e2e": "pnpm --filter demo test:e2e",
+    "review": "pnpm --filter demo review",
     "lint": "biome check .",
     "format": "biome format --write .",
     "typecheck": "pnpm -r typecheck",

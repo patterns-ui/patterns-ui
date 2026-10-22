@@ -7,7 +7,6 @@ const modules = [
   "filters",
   "form",
   "reference",
-  "mutation",
   "tenant",
   "auth",
   "router",

@@ -111,11 +111,11 @@ jobs:
       - name: Consumer smoke (tmp vite app + shadcn add + build + assert)
         run: pnpm registry:smoke
 
+  # M6-E：e2e 随 PR/push 跑（去掉 workflow_dispatch 门；顶层触发器保留可手动重跑）
   e2e:
-    name: Playwright smoke (manual)
+    name: Playwright smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: github.event_name == 'workflow_dispatch'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -137,3 +137,54 @@ jobs:
           name: playwright-trace
           path: apps/demo/test-results/
           retention-days: 7
+
+  # M6-E：fresh-clone 仿真——干净 checkout 后仅 pnpm install + pnpm dev 即起
+  # （dev 的 core 源码 alias 见 apps/demo/vite.config.ts），随后 review 冒烟（build+preview+探活）。
+  fresh-clone-dev:
+    name: fresh clone dev + review smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 只 install + dev：不先 build core（验证干净 clone 的 dev 链路自足）
+      - name: Dev smoke (pnpm dev → HTTP 200 on :5173)
+        run: |
+          pnpm dev > /tmp/dev.log 2>&1 &
+          for i in $(seq 1 90); do
+            curl -fsS http://localhost:5173/ > /dev/null && break
+            sleep 1
+          done
+          if ! curl -fsS http://localhost:5173/ > /dev/null; then
+            echo "::error::dev server did not come up on :5173"
+            cat /tmp/dev.log
+            exit 1
+          fi
+          echo "dev server up (200 on /)"
+          pkill -f vite || true
+
+      # review = vite build + vite preview（消费 core dist，故先 build core；preview 端口 4173 钉死于 vite 配置）
+      - name: Build core (review 的 vite build 消费 workspace dist)
+        run: pnpm --filter @patterns-ui/core build
+
+      - name: Review smoke (pnpm review → HTTP 200 on :4173)
+        run: |
+          pnpm review > /tmp/review.log 2>&1 &
+          for i in $(seq 1 150); do
+            curl -fsS http://localhost:4173/ > /dev/null && break
+            sleep 2
+          done
+          if ! curl -fsS http://localhost:4173/ > /dev/null; then
+            echo "::error::preview server did not come up on :4173"
+            cat /tmp/review.log
+            exit 1
+          fi
+          echo "preview server up (200 on /)"
+          pkill -f "vite preview" || true

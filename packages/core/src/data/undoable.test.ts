@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { scheduleUndoable } from "./index";
+import { scheduleUndoable } from "./undoable";
 
 describe("scheduleUndoable", () => {
   beforeEach(() => {

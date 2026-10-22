@@ -77,7 +77,71 @@ export function findUserByToken(token: string | null | undefined): MockUser | un
 
 // ---------------------------------------------------------------------------
 // M2：services / audit-events 种子（确定性生成，保证翻页与过滤可复现）
+// M6-E：确定性 PRNG（mulberry32）替代取模条纹——同租户每次生成完全一致，
+//       跨租户经 FNV-1a 种子派生彼此不同（肉眼无重复条纹）。
 // ---------------------------------------------------------------------------
+
+/** mulberry32：32 位确定性 PRNG，返回 [0, 1)（种子固定 → 序列可复现） */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** 字符串 → 32 位种子（FNV-1a；按 tenantId 派生互不相同的序列） */
+function seedFrom(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+/** [min, max] 闭区间整数 */
+function intBetween(rng: () => number, min: number, max: number): number {
+  return min + Math.floor(rng() * (max - min + 1));
+}
+
+function at<T>(arr: readonly T[], i: number): T {
+  const value = arr[i];
+  if (value === undefined) {
+    throw new Error(`mock seed index out of range: ${i}`);
+  }
+  return value;
+}
+
+function pick<T>(rng: () => number, arr: readonly T[]): T {
+  const value = arr[Math.floor(rng() * arr.length)];
+  if (value === undefined) {
+    throw new Error("mock prng pick: empty array");
+  }
+  return value;
+}
+
+/**
+ * 种子用户目录（M6-E owner/actor/member 口径统一单源）：
+ * `usr_demo`（登录演示账号）+ `usr_1..usr_6`（成员池）。services.owner、
+ * audit.actor、notifications.actorId 与 team 成员、/api/users 全部引用同一目录
+ * ——id → 姓名在所有端点解析一致。
+ */
+const SEED_USERS: readonly { id: string; name: string; email: string }[] = [
+  { id: "usr_demo", name: "Demo User", email: DEMO_EMAIL },
+  { id: "usr_1", name: "Lin Wei", email: "lin@fleetly.dev" },
+  { id: "usr_2", name: "Aisha Khan", email: "aisha@fleetly.dev" },
+  { id: "usr_3", name: "Diego Marín", email: "diego@fleetly.dev" },
+  { id: "usr_4", name: "Yuki Tanaka", email: "yuki@fleetly.dev" },
+  { id: "usr_5", name: "Petra Novak", email: "petra@fleetly.dev" },
+  { id: "usr_6", name: "Sam Okafor", email: "sam@fleetly.dev" },
+];
+
+/** owner/actor 抽样池（usr_1..usr_6；usr_demo 是登录账号不参与业务行归属） */
+const SEED_ACTOR_IDS = SEED_USERS.filter((u) => u.id !== "usr_demo").map((u) => u.id);
 
 export interface MockService {
   id: string;
@@ -86,7 +150,7 @@ export interface MockService {
   status: "running" | "degraded" | "stopped";
   replicas: number;
   region: string;
-  owner: string; // userId
+  owner: string; // userId（SEED_USERS 目录口径）
   createdAt: string;
   updatedAt: string;
   version: number;
@@ -95,14 +159,22 @@ export interface MockService {
 export interface MockAuditEvent {
   id: string;
   action: string;
-  actor: string; // userId
+  actor: string; // userId（SEED_USERS 目录口径）
   resource: string; // "services/svc-001"
   ip: string;
   createdAt: string;
 }
 
 const SERVICE_ENVS = ["rep", "staging", "prod"] as const;
-const SERVICE_STATUSES = ["running", "running", "running", "degraded", "stopped"] as const;
+/** weighted：running 占多数，degraded/stopped 少量 */
+const SERVICE_STATUSES = [
+  "running",
+  "running",
+  "running",
+  "running",
+  "degraded",
+  "stopped",
+] as const;
 const REGIONS = ["cn-beijing", "cn-shanghai", "cn-hangzhou", "ap-southeast-1", "us-west-2"];
 const SERVICE_WORDS = [
   "gateway",
@@ -130,26 +202,19 @@ function seededIso(dayOffset: number, hour: number, minute: number): string {
   return new Date(base - dayOffset * 86_400_000 - hour * 3_600_000 - minute * 60_000).toISOString();
 }
 
-function at<T>(arr: readonly T[], i: number): T {
-  const value = arr[i];
-  if (value === undefined) {
-    throw new Error(`mock seed index out of range: ${i}`);
-  }
-  return value;
-}
-
 function seedServices(tenantId: string): MockService[] {
+  const rng = mulberry32(seedFrom(`services:${tenantId}`));
   return Array.from({ length: 120 }, (_, i) => {
     const word = at(SERVICE_WORDS, i % SERVICE_WORDS.length);
     const n = String(Math.floor(i / SERVICE_WORDS.length) + 1).padStart(2, "0");
     return {
       id: `svc-${String(i + 1).padStart(3, "0")}`,
       name: `${word}-${n}`,
-      env: at(SERVICE_ENVS, i % 3),
-      status: at(SERVICE_STATUSES, i % 5),
-      replicas: (i % 9) + 1,
-      region: at(REGIONS, i % REGIONS.length),
-      owner: `usr_${(i % 6) + 1}`,
+      env: pick(rng, SERVICE_ENVS),
+      status: pick(rng, SERVICE_STATUSES),
+      replicas: intBetween(rng, 1, 9),
+      region: pick(rng, REGIONS),
+      owner: pick(rng, SEED_ACTOR_IDS),
       createdAt: seededIso(90 - Math.floor(i / 2), (i * 7) % 24, (i * 13) % 60),
       // 更新时间分布在 0-7 天内（时间列默认相对形态：今天 / N 天前）
       updatedAt: seededIso(Math.floor((i % 21) / 3), (i * 5) % 24, (i * 17) % 60),
@@ -175,18 +240,22 @@ const AUDIT_ACTIONS = [
 
 function seedAuditEvents(tenantId: string): MockAuditEvent[] {
   const prefix = tenantId === "torchwood" ? "tw" : tenantId === "playground" ? "pg" : "ac";
-  return Array.from({ length: 320 }, (_, i) => ({
-    id: `${prefix}-evt-${String(i + 1).padStart(4, "0")}`,
-    action: at(AUDIT_ACTIONS, i % AUDIT_ACTIONS.length),
-    actor: `usr_${(i % 6) + 1}`,
-    resource:
-      i % 3 === 0
-        ? `members/usr_${(i % 6) + 1}`
-        : `services/${prefix}-svc-${String((i % 120) + 1).padStart(3, "0")}`,
-    ip: `10.${(i % 8) + 1}.${(i * 3) % 250}.${(i * 7) % 250}`,
-    // 时间递减生成（index 0 最新；keyset 游标按 createdAt desc, id desc 稳定翻页）；锚点动态
-    createdAt: new Date(Date.now() - i * 137 * 60_000).toISOString(),
-  }));
+  const rng = mulberry32(seedFrom(`audit:${tenantId}`));
+  return Array.from({ length: 320 }, (_, i) => {
+    const actor = pick(rng, SEED_ACTOR_IDS);
+    return {
+      id: `${prefix}-evt-${String(i + 1).padStart(4, "0")}`,
+      action: pick(rng, AUDIT_ACTIONS),
+      actor,
+      resource:
+        i % 3 === 0
+          ? `members/${pick(rng, SEED_ACTOR_IDS)}`
+          : `services/${prefix}-svc-${String((i % 120) + 1).padStart(3, "0")}`,
+      ip: `10.${(i % 8) + 1}.${(i * 3) % 250}.${(i * 7) % 250}`,
+      // 时间递减生成（index 0 最新；keyset 游标按 createdAt desc, id desc 稳定翻页）；锚点动态
+      createdAt: new Date(Date.now() - i * 137 * 60_000).toISOString(),
+    };
+  });
 }
 
 // db 上挂 M2 数据集（延迟初始化；租户隔离经 id 前缀）
@@ -213,13 +282,11 @@ export function auditEventsOf(tenantId: string): MockAuditEvent[] {
 
 export function usersForRef(): MockUser[] {
   if (db.users.length > 1) return db.users;
-  const extra: MockUser[] = Array.from({ length: 6 }, (_, i) => ({
-    id: `usr_${i + 1}`,
-    name: at(
-      ["Lin Wei", "Aisha Khan", "Diego Marín", "Yuki Tanaka", "Petra Novak", "Sam Okafor"],
-      i,
-    ),
-    email: `user${i + 1}@fleetly.dev`,
+  // SEED_USERS 目录单源（M6-E 口径统一）：usr_demo 已在 db.users，补 usr_1..usr_6
+  const extra: MockUser[] = SEED_USERS.filter((u) => u.id !== "usr_demo").map((u) => ({
+    id: u.id,
+    name: u.name,
+    email: u.email,
     role: "member",
     permissions: [],
   }));
@@ -424,21 +491,27 @@ const tenantMetrics = new Map<string, MockMetricPoint[]>();
 export function membersOf(tenantId: string): MockMember[] {
   let rows = tenantMembers.get(tenantId);
   if (!rows) {
-    const names = [
-      ["Demo User", "demo@fleetly.dev", "owner", true],
-      ["Lin Wei", "lin@fleetly.dev", "admin", true],
-      ["Aisha Khan", "aisha@fleetly.dev", "member", false],
-      ["Diego Marín", "diego@fleetly.dev", "member", true],
-      ["Yuki Tanaka", "yuki@fleetly.dev", "viewer", false],
-    ] as const;
-    rows = names.map(([name, email, role, twoFactor], i) => ({
-      id: `usr_${i + 1}`,
-      name,
-      email,
-      role: role as MemberRole,
-      twoFactorEnabled: twoFactor,
-      joinedAt: seededIso(120 - i * 12, (i * 5) % 24, (i * 7) % 60),
-    }));
+    // 成员 = SEED_USERS 目录子集（M6-E 口径统一：id/姓名/邮箱与 /api/users 解析一致；
+    // usr_demo 是登录账号兼 owner，其余取 usr_1..usr_4）
+    const roster: { id: string; role: MemberRole; twoFactor: boolean }[] = [
+      { id: "usr_demo", role: "owner", twoFactor: true },
+      { id: "usr_1", role: "admin", twoFactor: true },
+      { id: "usr_2", role: "member", twoFactor: false },
+      { id: "usr_3", role: "member", twoFactor: true },
+      { id: "usr_4", role: "viewer", twoFactor: false },
+    ];
+    rows = roster.map(({ id, role, twoFactor }, i) => {
+      const user = SEED_USERS.find((u) => u.id === id);
+      if (!user) throw new Error(`mock seed user missing: ${id}`);
+      return {
+        id,
+        name: user.name,
+        email: user.email,
+        role,
+        twoFactorEnabled: twoFactor,
+        joinedAt: seededIso(120 - i * 12, (i * 5) % 24, (i * 7) % 60),
+      };
+    });
     tenantMembers.set(tenantId, rows);
   }
   return rows;
@@ -481,7 +554,8 @@ export function invitationsOf(tenantId: string): MockInvitation[] {
 export function notificationsOf(tenantId: string): MockNotification[] {
   let rows = tenantNotifications.get(tenantId);
   if (!rows) {
-    // 种子 24 条：deploy/alert/billing 轮转；前 8 条未读
+    // 种子 24 条：deploy/alert/billing 轮转；前 8 条未读；actorId 走 SEED_USERS 目录
+    const rng = mulberry32(seedFrom(`notifications:${tenantId}`));
     const templates = [
       { type: "deploy", title: "部署完成", body: "gateway-01 发布 v1.8.2 成功" },
       { type: "alert", title: "CPU 使用率告警", body: "payments-02 连续 5 分钟超过 85%" },
@@ -499,7 +573,7 @@ export function notificationsOf(tenantId: string): MockNotification[] {
         body: t.body,
         read: i >= 8,
         createdAt: new Date(Date.now() - i * 47 * 60_000).toISOString(),
-        actorId: `usr_${(i % 6) + 1}`,
+        actorId: pick(rng, SEED_ACTOR_IDS),
       };
     });
     tenantNotifications.set(tenantId, rows);
@@ -513,16 +587,17 @@ export function regionsOf(tenantId: string): MockRegion[] {
     const providers = ["aliyun", "tencent", "aws"];
     const regionNames = ["cn-beijing", "cn-shanghai", "cn-hangzhou", "ap-southeast-1", "us-west-2"];
     const zoneStatuses = ["healthy", "healthy", "healthy", "degraded", "offline"] as const;
+    const rng = mulberry32(seedFrom(`regions:${tenantId}`));
     rows = regionNames.map((name, r) => ({
       id: `reg-${r + 1}`,
       name,
       provider: at(providers, r % providers.length),
-      zones: Array.from({ length: (r % 3) + 2 }, (_, z) => ({
+      zones: Array.from({ length: intBetween(rng, 2, 4) }, (_, z) => ({
         id: `reg-${r + 1}-zone-${String.fromCharCode(97 + z)}`,
         name: `${name}-${String.fromCharCode(97 + z)}`,
-        services: ((r * 7 + z * 13) % 24) + 3,
-        loadPct: ((r * 17 + z * 29) % 70) + 15,
-        status: at(zoneStatuses, (r + z) % zoneStatuses.length),
+        services: intBetween(rng, 3, 26),
+        loadPct: intBetween(rng, 15, 85),
+        status: pick(rng, zoneStatuses),
       })),
     }));
     tenantRegions.set(tenantId, rows);

@@ -150,7 +150,7 @@
 
 3. `data-table` 高级模式：分组行、树形展开、聚合行（sum/avg/count）、行内编辑 changeSet（脏单元格标记 + 批量提交 + 取消）、虚拟化（>200 行自动）、移动端卡片化（<sm）。
 4. `notification-inbox`、`global-search-page`。
-5. SaaS 模板页：`team-page`、`audit-log`、`settings-page`（完整三节 + 时区/主题）、`onboarding`。
+5. SaaS 模板页：`team-page`、`audit-log`、`settings-page`（完整四节：组织/个人/安全/外观 + 时区/主题）、`onboarding`。
 6. `list-page` grid 变体（磁贴墙）。
 
 **任务（demo + mock）**
@@ -189,3 +189,28 @@
 - [ ] `pnpm changeset` 可用；registry.json 与 core 版本对齐
 - [ ] README 按新项目视角可照做走通
 - [ ] git 提交：`feat(m5): tests, guard rails, ci, docs` + tag `v0.1.0`
+
+---
+
+## M6 —— 地基与结构修复（四象限归位）
+
+任务明细与判据见 docs/paradigm.md §5（A 发布就绪 → B 结构归位 → C L4 健壮化 → D 变体收敛 → E 文案与文档收尾）。M6 各项已完成（A–D 已合并，E 于 2026-10-23 收尾），验收清单按事实勾选：
+
+**任务**
+
+1. **A 发布就绪**：core 补 `@tanstack/react-table` peer；MIT + repository/engines/publishConfig 元数据；release workflow 仅 tag + CHANGELOG（changesets，不 npm publish）；theme `@theme inline` 映射段；registry:base 钉 Base UI；`IMPLICIT_NPM_IMPORTS` 收敛；build.ts 全 URL 自引用；CI registry.json 新鲜度 diff + publint/attw job。
+2. **B 结构归位**：`scheduleUndoable` 下沉 data 内部；queryKey 工厂（listKey/detailKey/manyKey/*KeyPrefix）公共出口 + 契约测试；`createStorage(key, schema, {version, migrate})` 统一存储（替换 core/blocks 手写读写）；`useDebouncedCallback`/`isIsoDate`/label 工具单点化；Provider 组件级测试；`?page=-1`/`?size=-30` 钳制单测。
+3. **C L4 健壮化**：def `list.pageSize` 单源直灌（缺省 30 fixture 演示）；`getId` 编译期约束（RequireGetId）；zod 内省 dev-only。
+4. **D 变体收敛**：shell/sidebar 变体 → 基座 + `variant` prop（6 item 名并 2）；`AuthCardLayout` 抽取；ErrorPage 参数化单模板；`PageHeader` 共享原语（22px ×14 收敛）；过滤树字段级 API 下沉 core/filters；queryKey 公共出口接线；过滤树 e2e；typed-form-field label id + aria-describedby。
+5. **E 文案与文档**：mutation 兼容壳删除（data 唯一出口）；文案对象化（form messages + use-resource-mutations messages，预留 messageCatalog 形态注释）；mock 修正（mulberry32 确定性 PRNG + owner ID 口径统一 SEED_USERS 目录 + mock 去 core 依赖）；api.ts 2xx JSON 兜底；CI（e2e 去 workflow_dispatch 门、fresh-clone-dev job、review 冒烟）；docs 漂移回写（core-api/architecture/blocks/milestones/README）；ISO 正则重叠决策记录（有意保留两套）。
+
+**验收清单**
+
+- [x] `publint`/`attw` CI job 绿（A）
+- [x] CI `registry-consumer` job：tmp vite 工程 shadcn add → build → token 断言（A）
+- [x] `grep -rn "from \"\.\./mutation\"" packages/core/src/data` 为空（B；M6-E 进一步删除 ./mutation 兼容壳，undoable 全部经 ./data 出口）；全仓无手拼 queryKey 数组、无裸 localStorage 读写（B）；createStorage key 变更后 guards G6 测试同步绿（B）
+- [x] Provider 测试文件存在且覆盖三项关键副作用（B）；`?page=-1`/`?size=-30` 单测存在（B）
+- [x] e2e：`goto('/t/<tid>/services?size=30')` 每页 30 行（C）
+- [x] shell/sidebar 变体收敛（D）：`app-shell-*` / `side-nav-*` 通配各匹配 0（D 实现命名为无后缀基座 `app-shell` / `side-nav` + `variant` prop，较范式原判据「=1」更进一步）；preview 页可切三种 variant（D）；`text-[22px]` 全仓 grep 为 0（D）；过滤树 URL 还原 e2e 绿（D）
+- [x] ci.yml 无 `workflow_dispatch` 门（e2e 随 PR/push；顶层触发器保留手动重跑）（E）；`pnpm install && pnpm dev` fresh-clone CI job 绿（E；本地 file:// clone 实测 dev :5173 与 review :4173 均 200）
+- [x] （E 追加验收）`grep -rn "core/mutation" registry/ packages/` 为空；docs/core-api.md §6/§15/§16、architecture.md §2/§4、blocks.md、README.md 与现状一致

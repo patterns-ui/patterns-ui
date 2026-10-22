@@ -8,10 +8,10 @@
 import { ... } from '@patterns-ui/core/data'
 import { ... } from '@patterns-ui/core/list'
 import { ... } from '@patterns-ui/core/filters'
-// ... /form /reference /mutation /tenant /auth /router /task /inline /datetime /resource /theme
+// ... /form /reference /tenant /auth /router /task /inline /datetime /resource /theme /storage
 ```
 
-peerDependencies：`react@^19`、`@tanstack/react-query@^5`、`@tanstack/react-router@^1`、`zod@^4`。运行依赖仅 `next-themes`（theme 模块）。
+peerDependencies：`react@^19`、`@tanstack/react-query@^5`、`@tanstack/react-router@^1`、`@tanstack/react-table@^9.3`（list 模块，M6-A 起）、`zod@^4`。运行依赖：`next-themes`（theme 模块）、`use-sync-external-store`（auth/tenant 等非 React 内置 store 订阅，M6-B 起）。
 
 ---
 
@@ -127,7 +127,22 @@ export function createResource<TData, TCreate, TUpdate>(cfg: {
 }): Resource<TData, TCreate, TUpdate>
 ```
 
-**queryKey 约定**：`[name, tenantId?, 'list', params]` / `[name, tenantId?, 'detail', id]`。失效规则：create/bulk → 失效本资源所有 `list`；update → 失效 `list` + 该 id 的 `detail`；delete/bulkX → 失效 `list` + `detail`。
+**queryKey 约定**：`[name, tenantId?, 'list', params]` / `[name, tenantId?, 'detail', id]` / `[name, tenantId?, 'many', ids 去重排序]`。失效规则：create/bulk → 失效本资源所有 `list`；update → 失效 `list` + 该 id 的 `detail`；delete/bulkX → 失效 `list` + `detail`。
+
+**queryKey 工厂公共出口（M6-B 单源钉死）**——data 与 reference 内部、宿主失效逻辑全部走同一实现（跨模块一致性由契约测试锁定）：
+
+```ts
+export function listKey(name: string, params: unknown, opts?: { tenantId?: string }): readonly unknown[]
+export function detailKey(name: string, id: string, opts?: { tenantId?: string }): readonly unknown[]
+export function manyKey(name: string, ids: readonly string[], opts?: { tenantId?: string }): readonly unknown[]
+// 失效用段前缀（前缀匹配任意 params / 任意 id / 任意租户段）：
+export function listKeyPrefix(name: string, tenantId?: string): readonly unknown[]
+export function detailKeyPrefix(name: string, tenantId?: string, id?: string): readonly unknown[]
+export function scopeOf(name: string, tenantId?: string): readonly unknown[]   // [name] | [name, tenantId]
+export function resourceScope(name: string, tenantId?: string): string[]      // 便捷前缀（测试/调试）
+```
+
+**undoable 时序出口（M6-E 起 data 单源）**：`scheduleUndoable`、`UndoableJob`、`ScheduleUndoable`、`UndoableToastControl` 一律从 `@patterns-ui/core/data` 导入（原 `./mutation` 兼容壳已删除，见 §6）。
 
 **mutationMode 语义**：
 
@@ -289,10 +304,11 @@ export function useReferenceLabel<TData>(
   ids: string[],
   getIdLabel?: (row: TData) => string,
 ): {
-  labels: Record<string, string>       // id → label（默认 name ?? title ?? id，空串逐级回落）
+  labels: Record<string, string>       // id → label（缺省 defaultReferenceLabel：name ?? title ?? id，空串逐级回落）
   data: Record<string, TData | undefined>
   isLoading: boolean
 }
+export function defaultReferenceLabel(row: Record<string, unknown>): string   // M6-B label 工具单点化
 
 export interface ReferenceSelectProps (blocks 层组件的 core 约定) {
   resource: Resource<any, any, any>
@@ -326,7 +342,16 @@ export interface UseResourceFormOptions<TData> {
   versionOf?: (record: TData) => string | undefined       // edit 提交的 If-Match 版本来源；默认 record.version
   versionField?: string                                    // 默认 'version'
   onSuccess?: (data: TData) => void                        // 透传 createResource mutation onSuccess
+  messages?: Partial<FormMessages>                        // M6-E 文案对象化：默认文案部分覆盖
 }
+
+/** 默认文案（M6-E；未来 i18n：宿主可注入整体 messageCatalog 覆盖全部默认文案——预留形态，机制非目标） */
+export interface FormMessages { conflict: string; submitFallback: string }
+export const DEFAULT_FORM_MESSAGES: FormMessages
+//   conflict 默认「记录已被他人修改，请刷新后重试」（409）；submitFallback 默认「提交失败」（非 Error 兜底）
+
+/** 防抖回调单源（M6-B 工具单点化；form 模块再出口） */
+export function useDebouncedCallback<A extends unknown[]>(fn: (...args: A) => void, delayMs: number): DebouncedCallback<A>
 
 export function useResourceForm<TData>(opts): {
   mode: 'create' | 'edit'
@@ -345,7 +370,10 @@ export function useResourceForm<TData>(opts): {
   // 409 → formError = '记录已被他人修改，请刷新后重试'
 }
 
-export function extractFieldErrors(err: unknown): { fieldErrors: Record<string, string>; formError?: string }
+export function extractFieldErrors(
+  err: unknown,
+  messages?: Partial<FormMessages>,   // 缺省合并 DEFAULT_FORM_MESSAGES
+): { fieldErrors: Record<string, string>; formError?: string }
 export function draftKey(resourceName: string, id: string | undefined): string
 ```
 
@@ -363,17 +391,20 @@ export function draftKey(resourceName: string, id: string | undefined): string
 
 ---
 
-## 6. mutation/ —— undoable 时序
+## 6. undoable 时序（data 内部，M6-E 起 ./data 唯一出口）
 
-core 内部模块，被 createResource 使用；导出仅用于测试：
+`scheduleUndoable` 是 createResource undoable 档的时序引擎，实现位于 `data/undoable.ts`；经 `@patterns-ui/core/data` 导出（测试与 blocks 消费用）。**M6-E 删除了 `./mutation` 兼容子路径**（曾为 M6-B 归位期的纯 re-export；未 npm publish 过，非 breaking）：
 
 ```ts
-export function scheduleUndoable<TVars>(job: {
+export interface UndoableToastControl { undo: () => void; dismiss: () => void; secondsLeft: number }
+export interface UndoableJob {
   optimistic: () => () => void     // 应用乐观变更，返回回滚函数
   commit: () => Promise<void>
   durationMs: number
-  onToast: (ctl: { undo: () => void; dismiss: () => void; secondsLeft: number }) => void
-}): { promise: Promise<void> }
+  onToast: (ctl: UndoableToastControl) => void
+}
+export interface ScheduleUndoable { promise: Promise<void> }
+export function scheduleUndoable(job: UndoableJob): ScheduleUndoable
 ```
 
 ---
@@ -495,7 +526,10 @@ export function formatAbsolute(iso: string | number | Date, prefs: DateTimePrefs
 export function formatRelative(iso: string | number | Date, now?: number): string   // 'just now'/'5m ago'/'2h ago'/'3d ago'/绝对回退
 export function useNow(intervalMs?: number): number                                 // 默认 30s，供相对时间活渲染
 //   Intl.DateTimeFormat 按 (tz,opts) 键缓存；DST 由 Intl 正确处理（自研仅做缓存与相对计算）
+export function isIsoDate(value: string): boolean   // M6-B 单点化：`YYYY-MM-DD` 或带 T/空格 时间部分
 ```
+
+**ISO 正则重叠决策（M6-E，有意保留两套）**：`isIsoDate`（宽松：`/^\d{4}-\d{2}-\d{2}([T ].*)?$/`）与 resource `inferColumns` 的内部 `ISO_RE`（严格：时间部分必须 `T` 分隔且 `HH:MM[:SS[.fff]]` 结构合法、可带 `Z/±HH:MM`）语义不同、**各自正确**——前者服务 filters 的 `comparable()`（尽力归一化宿主数据：空格分隔串也尝试 `Date.parse`，解析失败自然回落），后者服务列类型分类（整列渲染决策，误判代价高、必须严形状）。收口为一套会让二者之一变错，故两处注释显式记录保留理由（packages/core/src/datetime/index.ts 与 resource/index.ts 同步标注）。
 
 ---
 
@@ -535,6 +569,13 @@ export interface ResourceDef<TData = any> {
   tenantScoped?: boolean                       // queryKey 是否含租户段（默认 true；与 createResource 一致）
 }
 
+// getId 编译期约束（M6-C）：TData 不带 `id: string` 主键时 def 必须显式声明 getId，
+// 否则类型层直接报错（运行时 String(row.id) 的 silent fallback 不再藏在类型层之下）：
+//   type RequireGetId<TData> = TData extends { id: string } ? unknown : { getId: (row: TData) => string }
+//   export type ResourceDef<TData> = ResourceDefShape<TData> & RequireGetId<TData>
+// list.pageSize 是页大小唯一真相（M6-C 单源）：直灌 useResourceTable 缺省与路由 schema
+// （def 值不在 UI 档位内也合法；非法 size 钳制回它，而非回落 options[0]）。
+
 export function defineResource<TData>(def: ResourceDef<TData>): ResourceDef<TData>
 
 // 文件路由内使用（不生成路由树，输出 options 供消费）：
@@ -561,6 +602,12 @@ export async function printGuess(def: ResourceDef): Promise<void>   // dev-only�
 export function navFromResources(defs: ResourceDef[], user?: AuthUser): { group: string; items: { name; label; to; icon?; order? }[] }[]
 //   to = `/${name}`（相对租户根；宿主拼 /t/:tid 前缀）；组内 order 排序、组间按最小 order；
 //   canAccess fail-closed（user 缺失且有 canAccess → 隐藏）
+
+// list 模块配套（M6-C）：UI 档位表补入缺省页大小（升序去重）——展示位把 def.list.pageSize
+// 纳入选项；档位只是展示集合，不反向成为缺省值/请求 size 的来源
+export function withPageSizeOption(options: number[], size: number | undefined): number[]
+export const DEFAULT_PAGE_SIZE: number            // 20（未配置时的唯一缺省定义点）
+export const DEFAULT_PAGE_SIZE_OPTIONS: number[]  // [10, 20, 50, 100]
 ```
 
 ---
@@ -585,8 +632,38 @@ export function useTheme(): {
 
 ---
 
-## 15. 导出与构建
+## 15. storage/ —— localStorage 统一存储（M6-B 新增）
 
-- `packages/core` 用 tsup 构建：ESM only、dts、external 全部依赖；`exports` 按模块子路径映射（`./data`、`./list`、…、`.` 聚合桶）。
+偏好语义本地持久化的单点收敛（core 模块与 blocks 禁止再裸读写 localStorage；防闪内联脚本除外——它无法 import 本模块，三处同步由 demo guards G6 校验）：
+
+```ts
+export interface StorageMigrateContext { fromVersion: number }   // 0 = 信封化之前的裸格式
+export interface CreateStorageOptions {
+  version?: number                                  // 默认 1；读侧旧版本经 migrate 升级
+  migrate?: (stored: unknown, ctx: StorageMigrateContext) => unknown
+  //   缺省时旧格式直接弃用（显式弃用决策）；迁移结果仍须过 schema 校验，失败即弃用
+  tenantId?: string                                 // 提供后最终 key 为 `${key}:${tenantId}`（租户段拼装单点）
+}
+export interface Storage<TData> {
+  readonly fullKey: string                          // 最终存储 key（含租户段；诊断/测试用）
+  read(): TData | undefined                         // 无数据/坏值/未迁移旧格式/未来版本（降级运行）→ undefined
+  write(value: TData): void                         // 写入信封；非浏览器环境静默降级
+  remove(): void
+}
+export function createStorage<TData>(
+  key: string,                                      // 遵循 `fc:<域>:<标识>` 约定（工厂产出）
+  schema: z.ZodType<TData>,                         // 读出校验（坏值/超集弃用回落缺省）
+  opts?: CreateStorageOptions,
+): Storage<TData>
+//   信封格式 `{ v: <version>, d: <data> }`；读写均 try/catch（隐私模式/配额静默降级）。
+//   消费方：datetime 偏好、tenant 记忆、form 草稿、savedViews、theme preset 等。
+```
+
+---
+
+## 16. 导出与构建
+
+- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`；`./mutation` 已于 M6-E 删除）。
 - 所有 hook 浏览器 API 访问收敛 effect/事件内；导出 `useMounted()` 惯例 helper。
 - 包名 `@patterns-ui/core`，scope 内后续包遵循 `@patterns-ui/*`（如 @patterns-ui/eslint-plugin）。
+- dev 消费形态：demo 的 vite dev 把 `@patterns-ui/core` alias 到 workspace 源码（干净 clone `pnpm install && pnpm dev` 即起）；build/typecheck 消费 dist（与真实宿主一致）。

@@ -33,6 +33,26 @@ export interface FormAutosaveOptions {
   debounceMs?: number;
 }
 
+/**
+ * 表单 hook 的用户可见默认文案（M6-E 文案对象化：④ 文案从 ② 逻辑解焊）。
+ * 宿主经 `useResourceForm({ messages })` 部分覆盖；缺省与 DEFAULT_FORM_MESSAGES 合并
+ * （不传 = 行为不变）。
+ *
+ * 未来 i18n：宿主可注入整体 messageCatalog 覆盖全部默认文案（M6-E 预留，机制非目标）——
+ * 届时本接口（及各 hook 的 XxxMessages）即 catalog 的分模块切片形态。
+ */
+export interface FormMessages {
+  /** 409 冲突（乐观并发败者）的表单级提示 */
+  conflict: string;
+  /** 非 Error 形状的未知提交失败的兜底提示 */
+  submitFallback: string;
+}
+
+export const DEFAULT_FORM_MESSAGES: FormMessages = {
+  conflict: "记录已被他人修改，请刷新后重试",
+  submitFallback: "提交失败",
+};
+
 export interface UseResourceFormOptions<TData> {
   resource: ResourceOf<TData>;
   /** 有值 = edit 模式（自动 useOne 取数填充） */
@@ -56,6 +76,8 @@ export interface UseResourceFormOptions<TData> {
   versionField?: string;
   /** 透传 createResource mutation onSuccess */
   onSuccess?: (data: TData) => void;
+  /** 默认文案部分覆盖（缺省合并 DEFAULT_FORM_MESSAGES；M6-E 文案对象化） */
+  messages?: Partial<FormMessages>;
 }
 
 export type ResourceFormSubmitResult<TData> =
@@ -96,14 +118,21 @@ function readDraft<TData>(key: string): Partial<TData> | null {
   return (draftStorage(key).read() as Partial<TData> | undefined) ?? null;
 }
 
-/** 从抛出的错误提取服务端错误：422/400 取 body.{fields,form?}；409 → 固定冲突文案 */
-export function extractFieldErrors(err: unknown): {
+/**
+ * 从抛出的错误提取服务端错误：422/400 取 body.{fields,form?}；409 → 固定冲突文案；
+ * 非 Error 形状 → 兜底文案。文案经 messages 部分覆盖（缺省 DEFAULT_FORM_MESSAGES）。
+ */
+export function extractFieldErrors(
+  err: unknown,
+  messages: Partial<FormMessages> = {},
+): {
   fieldErrors: Record<string, string>;
   formError?: string;
 } {
+  const m: FormMessages = { ...DEFAULT_FORM_MESSAGES, ...messages };
   if (err instanceof HttpError) {
     if (err.kind === "conflict") {
-      return { fieldErrors: {}, formError: "记录已被他人修改，请刷新后重试" };
+      return { fieldErrors: {}, formError: m.conflict };
     }
     if (err.status === 422 || err.status === 400) {
       const body = err.body as { fields?: unknown; form?: unknown; message?: string } | undefined;
@@ -122,7 +151,7 @@ export function extractFieldErrors(err: unknown): {
     return { fieldErrors: {}, formError: err.message };
   }
   if (err instanceof Error) return { fieldErrors: {}, formError: err.message };
-  return { fieldErrors: {}, formError: "提交失败" };
+  return { fieldErrors: {}, formError: m.submitFallback };
 }
 
 /**
@@ -145,7 +174,13 @@ export function useResourceForm<TData>(
     versionField = "version",
     mutationMode,
     onSuccess,
+    messages: messagesOpt,
   } = opts;
+  /** 合并默认文案（memo：宿主传稳定引用/不传时恒定，避免下游依赖抖动） */
+  const messages = useMemo<FormMessages>(
+    () => ({ ...DEFAULT_FORM_MESSAGES, ...messagesOpt }),
+    [messagesOpt],
+  );
   const mode: "create" | "edit" = id !== undefined ? "edit" : "create";
   const autosaveEnabled = autosave?.enabled ?? true;
   const debounceMs = autosave?.debounceMs ?? DEFAULT_DRAFT_DEBOUNCE_MS;
@@ -256,7 +291,7 @@ export function useResourceForm<TData>(
         }
         return { ok: true, data };
       } catch (err) {
-        return { ok: false, ...extractFieldErrors(err) };
+        return { ok: false, ...extractFieldErrors(err, messages) };
       } finally {
         setSubmitting(false);
       }
@@ -272,6 +307,7 @@ export function useResourceForm<TData>(
       clearDraft,
       navigate,
       versionGetter,
+      messages,
     ],
   );
 

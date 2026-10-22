@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
+import { mulberry32 } from "./db";
 import { apiKeyRoutes } from "./handlers/api-keys";
 import { auditRoutes } from "./handlers/audit";
 import { authRoutes } from "./handlers/auth";
@@ -28,6 +29,8 @@ const routes: MockRoute[] = [
 
 const MIN_DELAY_MS = 150;
 const MAX_DELAY_MS = 300;
+/** 模拟网络延迟（M6-E：确定性 PRNG 替代 Math.random——序列可复现，无随机条纹） */
+const delayRng = mulberry32(0x6d2b79f5);
 
 function matchRoute(
   method: string,
@@ -114,7 +117,7 @@ function installMiddleware(middlewares: {
       }
       const body = await readBody(req);
       await new Promise((r) =>
-        setTimeout(r, MIN_DELAY_MS + Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS)),
+        setTimeout(r, MIN_DELAY_MS + delayRng() * (MAX_DELAY_MS - MIN_DELAY_MS)),
       );
       const result = await match.route.handler({
         method: req.method ?? "GET",

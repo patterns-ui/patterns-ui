@@ -13,9 +13,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 | block | 说明 | 关键 props | 依赖 |
 |---|---|---|---|
-| `app-shell-inset` | 侧栏 inset 面板式（默认）：内容区带边框圆角卡面 | `sidebar, topbar, children, fullBleed?` | ui: sidebar/sheet/tooltip；block: side-nav-inset |
-| `app-shell-floating` | 浮动侧栏式（侧栏悬停浮起） | 同上 | block: side-nav-floating |
-| `app-shell-fullbleed` | 满幅工作台（日志/终端类页面）：无内容卡面 | 同上（无卡面） | block: side-nav-inset |
+| `app-shell` | 应用壳基座，`variant: inset`（默认，内容区带边框圆角卡面）/ `floating`（侧栏悬空浮起、内容通栏）/ `fullbleed`（满幅工作台，无卡面）——M6-D 收敛：原 app-shell-inset/-floating/-fullbleed 三件并一件 | `sidebar, topbar, children, variant?, fullBleed?` | ui: sidebar/sheet/tooltip；block: side-nav |
 | `top-bar` | 顶栏：SidebarTrigger + 面包屑 + 搜索入口(⌘K) + ThemeToggle + UserMenu | `onOpenSearch, user, onLogout, extra?` | block: breadcrumbs, theme-toggle, user-menu |
 | `breadcrumbs` | 面包屑（core useCrumbs 派生） | `resolve?` | core: /router；ui: breadcrumb |
 | `command-palette` | ⌘K 全局命令面板（导航跳转 + 动作） | `groups: { label, items: { id, label, icon?, keywords?, to?, run? }[] }[]` | ui: command/dialog；core: /router |
@@ -28,9 +26,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 | block | 说明 | 关键 props | 依赖 |
 |---|---|---|---|
-| `side-nav-inset` | inset 形态侧栏（背景与内容区分层） | `groups: NavGroup[], tenantSlot?, footerSlot?` | ui: sidebar 系列 |
-| `side-nav-floating` | floating 形态 | 同上 | 同上 |
-| `side-nav-icon` | 可折叠至图标形态（折叠态 tooltip） | 同上 + `collapsible: 'icon'` | 同上 |
+| `side-nav` | 侧栏基座，`variant: inset`（默认，背景与内容区分层）/ `floating` / `icon`（可折叠至图标态，折叠 tooltip）——M6-D 收敛：原 side-nav-inset/-floating/-icon 三件并一件 | `groups: NavGroup[], variant?, tenantSlot?, footerSlot?` | ui: sidebar 系列 |
 | `nav-group` | 分组导航（组标题 + 项 + badge + 权限过滤 + 折叠组） | `group: NavGroup, active` | ui: sidebar 子组件；core: /auth |
 | `tenant-switcher` | 租户切换器（sidebar header 位；下拉列表 + 当前租户 + 陈旧回落提示） | —（core useTenant） | core: /tenant；ui: dropdown/avatar |
 | `nav-user` | 侧栏底部用户卡（展开菜单） | `user, onLogout` | ui: sidebar 子组件 |
@@ -55,7 +51,8 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 | `new-items-banner` | "有 N 条新数据"提示条 | `signal(useNewItemsSignal), onRefresh` | ui: button |
 | `notification-inbox` | 通知收件箱页（列表 + 已读/未读 + badge 数据源约定） | `resource(Notification 形状)` | core: /data；block: relative-time, cell-user |
 | `export-button` | 过滤感知 CSV 导出（当前应用的状态取数导出） | `fetch: () => Promise<T[]>, columns, filename` | ui: button/dropdown |
-| `use-resource-mutations` | createResource 消费层 helper：undoable 档 onUndoableToast 接 sonner（倒计时 Undo 按钮，提前关闭视为确认提交）；批量结果汇总（成功 N 失败 M） | `useResourceMutations(resource, { undoDurationMs?, successToast? })` → `{ useDeleteWithUndo, useBulkDeleteWithUndo, useBulkUpdate }` | core: /data,/mutation；npm: sonner |
+| `use-resource-mutations` | createResource 消费层 helper：undoable 档 onUndoableToast 接 sonner（倒计时 Undo 按钮，提前关闭视为确认提交）；批量结果汇总（成功 N 失败 M）；默认文案对象化（M6-E，`messages` 部分覆盖） | `useResourceMutations(resource, { undoDurationMs?, successToast?, messages? })` → `{ useDeleteWithUndo, useBulkDeleteWithUndo, useBulkUpdate }` | core: /data；npm: sonner |
+| `audit-log` | 审计日志预设（keyset 分页 + 时间范围 + actor 过滤 + 事件 chips + load-more） | —（预设装配） | block: data-table, filter-bar, cells |
 
 ## cells/ —— 语义渲染器（列表与详情共用）
 
@@ -103,28 +100,29 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 
 | block | 说明 | 依赖 |
 |---|---|---|
-| `sign-in-page` | 登录（品牌位 + 表单 + 错误展示 + next 回跳） | block: form-dialog 风格的 field；core: /auth |
+| `auth-card-layout` | auth 卡片壳（M6-D 抽取）：居中 main + max-w-sm 卡 + 居中 header（brand/title/description）+ footer，四张 auth 页共用 | ui: card；block: page-header |
+| `sign-in-page` | 登录（品牌位 + 表单 + 错误展示 + next 回跳） | block: auth-card-layout, typed-form-field 风格 field；core: /auth |
 | `sign-up-page` | 注册 | 同上 |
 | `forgot-password-page` | 忘记密码（发送成功态） | 同上 |
 | `otp-page` | MFA/验证码输入（6 位分格） | 同上 |
+| `onboarding` | 带逻辑的引导向导（stepper + 每步表单 + 完成跳转） | block: stepper, typed-form-field |
 
 ## team/ · settings/ —— SaaS 模板页
 
 | block | 说明 | 依赖 |
 |---|---|---|
 | `team-page` | 成员表(角色/状态/2FA) + 邀请流(邮件/角色/链接复制) + 改角色/移除 + 待处理邀请区 | block: data-table, confirm-dialog, cells |
-| `audit-log` | 审计日志预设（keyset 分页 + 时间范围 + actor 过滤 + 事件 chips + load-more） | block: data-table, filter-bar, cells |
-| `settings-page` | 三分节设置壳（org/个人/安全）+ 时区偏好 + 主题与 preset 选择 | block: form-page 风格分区；core: /datetime,/theme |
-| `onboarding` | 带逻辑的引导向导（stepper + 每步表单 + 完成跳转） | block: stepper, typed-form-field |
-| `error-pages` | 403/404/500/路由级 error-boundary 四页面 | ui: button |
+| `settings-page` | 四分节设置壳（组织 / 个人 / 安全 / 外观——M6 后现状，个人/安全节为 typed-form-field 表单）+ 时区偏好 + 主题与 preset 选择 | block: form-page 风格分区, typed-form-field；core: /datetime,/theme |
 
 ## shared/ —— 基础公共件
 
 | block | 说明 |
 |---|---|
 | `status-badge` | 状态徽章：`tone: success/warning/danger/info/neutral`、`pulse?`（live）。**全库状态色单源** |
+| `page-header` | 页头共享原语（M6-D）：`title / description? / eyebrow?`；导出 `pageTitleClass`（22px 标题排版单一事实源） |
 | `empty-state` | 空态（图标 + 标题 + 描述 + 可选 CTA） |
 | `error-state` | 错误态（HttpError 分档文案：401/403/404/409/5xx/网络 + 重试） |
+| `error-pages` | `ErrorPage` 单模板（M6-D 参数化：`code → 403/404/500` 变体映射——icon/标题/默认文案；未知 code 归 500）+ `RouteErrorBoundary`（路由级错误边界） |
 | `relative-time` | 相对时间（useNow 活渲染，title 显示绝对） |
 | `copy-button` | 复制按钮（成功反馈 2s） |
 | `user-avatar` | 头像（图/名首字母）+ 堆叠 `AvatarStack` |

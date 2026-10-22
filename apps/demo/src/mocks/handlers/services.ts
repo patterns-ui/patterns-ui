@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { type FilterTree, isFilterLeaf, isFilterNode } from "@patterns-ui/core/filters";
 import { findUserByToken, type MockService, servicesOf } from "../db";
-import { fail, type MockRequestContext, type MockRoute, ok } from "../types";
+import {
+  fail,
+  isMockFilterLeaf,
+  isMockFilterNode,
+  type MockFilterTree,
+  type MockRequestContext,
+  type MockRoute,
+  ok,
+} from "../types";
 
 function bearerToken(req: { headers: { authorization?: string } }): string | null {
   const header = req.headers.authorization;
@@ -32,14 +39,17 @@ function demoErrorGate(ctx: MockRequestContext): ReturnType<typeof fail> | undef
   return undefined;
 }
 
-export function evaluateTree(row: Record<string, unknown>, tree: FilterTree | undefined): boolean {
+export function evaluateTree(
+  row: Record<string, unknown>,
+  tree: MockFilterTree | undefined,
+): boolean {
   if (tree === undefined) return true;
-  if (isFilterNode(tree)) {
+  if (isMockFilterNode(tree)) {
     return tree.combinator === "or"
       ? tree.children.some((c) => evaluateTree(row, c))
       : tree.children.every((c) => evaluateTree(row, c));
   }
-  if (isFilterLeaf(tree)) {
+  if (isMockFilterLeaf(tree)) {
     const actual = row[tree.field];
     const expected = tree.value;
     switch (tree.op) {
@@ -101,13 +111,13 @@ export function evaluateTree(row: Record<string, unknown>, tree: FilterTree | un
   return true;
 }
 
-function parseFilters(ctx: MockRequestContext): FilterTree | undefined {
+function parseFilters(ctx: MockRequestContext): MockFilterTree | undefined {
   const raw = ctx.query.get("f");
   if (!raw) return undefined;
   try {
     const parsed: unknown = JSON.parse(raw);
     if (parsed === null || typeof parsed !== "object") return undefined;
-    return parsed as FilterTree;
+    return parsed as MockFilterTree;
   } catch {
     return undefined;
   }
@@ -185,14 +195,14 @@ export const serviceRoutes: MockRoute[] = [
           row as unknown as Record<string, unknown>,
           filters === undefined
             ? undefined
-            : isFilterNode(filters)
+            : isMockFilterNode(filters)
               ? {
                   combinator: filters.combinator,
                   children: filters.children.filter(
-                    (c) => !(isFilterLeaf(c) && facetsParam.includes(c.field)),
+                    (c) => !(isMockFilterLeaf(c) && facetsParam.includes(c.field)),
                   ),
                 }
-              : isFilterLeaf(filters) && facetsParam.includes(filters.field)
+              : isMockFilterLeaf(filters) && facetsParam.includes(filters.field)
                 ? undefined
                 : filters,
         ),
