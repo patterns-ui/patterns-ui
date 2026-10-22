@@ -2,7 +2,7 @@
   "name": "resource-detail-view",
   "type": "registry:block",
   "title": "Resource Detail View (L4)",
-  "description": "L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；sections 的 cell 类型与 inferColumns 标记共用。",
+  "description": "L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；custom tab 登记制（M7-A2：tab.block 词表名 / tab.sandbox 登记名必填，渲染经 customTabs 注入表解析）；sections 的 cell 类型与 inferColumns 标记共用。",
   "categories": ["show"],
   "dependencies": [],
   "registryDependencies": [],

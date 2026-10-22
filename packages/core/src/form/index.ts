@@ -7,7 +7,7 @@
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { HttpError, type MutationOpts, type ResourceOf } from "../data";
+import { HttpError, type MutationOpts, parseError, type ResourceOf } from "../data";
 import { useDebouncedCallback } from "../debounce";
 import { useMounted } from "../mounted";
 import { createStorage } from "../storage";
@@ -121,6 +121,7 @@ function readDraft<TData>(key: string): Partial<TData> | null {
 /**
  * 从抛出的错误提取服务端错误：422/400 取 body.{fields,form?}；409 → 固定冲突文案；
  * 非 Error 形状 → 兜底文案。文案经 messages 部分覆盖（缺省 DEFAULT_FORM_MESSAGES）。
+ * 信封解析（problem+json/{code,message}/字段错误数组）走 data.parseError 单源（M7-A2）。
  */
 export function extractFieldErrors(
   err: unknown,
@@ -130,28 +131,22 @@ export function extractFieldErrors(
   formError?: string;
 } {
   const m: FormMessages = { ...DEFAULT_FORM_MESSAGES, ...messages };
-  if (err instanceof HttpError) {
-    if (err.kind === "conflict") {
-      return { fieldErrors: {}, formError: m.conflict };
-    }
-    if (err.status === 422 || err.status === 400) {
-      const body = err.body as { fields?: unknown; form?: unknown; message?: string } | undefined;
-      const fieldErrors: Record<string, string> = {};
-      if (body?.fields !== null && typeof body?.fields === "object") {
-        for (const [field, message] of Object.entries(body.fields as Record<string, unknown>)) {
-          if (message === undefined || message === null) continue;
-          fieldErrors[field] = typeof message === "string" ? message : String(message);
-        }
-      }
-      return {
-        fieldErrors,
-        formError: typeof body?.form === "string" ? body.form : (body?.message ?? err.message),
-      };
-    }
-    return { fieldErrors: {}, formError: err.message };
+  const parsed = parseError(err);
+  if (parsed.kind === "conflict") {
+    return { fieldErrors: {}, formError: m.conflict };
   }
-  if (err instanceof Error) return { fieldErrors: {}, formError: err.message };
-  return { fieldErrors: {}, formError: m.submitFallback };
+  if (parsed.status === 422 || parsed.status === 400) {
+    // 表单级错误优先 body.form（{fields,form} 信封）；缺省回落信封 message（body.message ?? error.message）
+    const body =
+      err instanceof HttpError ? (err.body as { form?: unknown } | undefined) : undefined;
+    return {
+      // parseError 对 422/400 必回填 fieldErrors（不变量）；此处空表即无字段错误
+      fieldErrors: parsed.fieldErrors ?? {},
+      formError: typeof body?.form === "string" ? body.form : parsed.message || m.submitFallback,
+    };
+  }
+  if (!(err instanceof Error)) return { fieldErrors: {}, formError: m.submitFallback };
+  return { fieldErrors: {}, formError: parsed.message || m.submitFallback };
 }
 
 /**

@@ -8,7 +8,12 @@
  */
 import type { ResourceClient, ResourceOf } from "@patterns-ui/core/data";
 import { createResource } from "@patterns-ui/core/data";
-import { type ListColumnDef, useResourceTable } from "@patterns-ui/core/list";
+import {
+  type ListColumnDef,
+  paginationCapabilitiesOf,
+  resolveListPagination,
+  useResourceTable,
+} from "@patterns-ui/core/list";
 import { defaultReferenceLabel } from "@patterns-ui/core/reference";
 import type { ResourceDef } from "@patterns-ui/core/resource";
 import { useParams, useSearch } from "@tanstack/react-router";
@@ -137,9 +142,13 @@ export function ResourceListView<TData extends AnyRow>({
     [parentValue, def.parent],
   );
 
+  // 分页协议 def 一等契约节点（M7-A2）：page/offset/keyset → ListMode 唯一映射出口
+  //（offset 协议在此显式 throw「未实现」；legacy list.mode 双轨兼容）
+  const { mode: listMode } = resolveListPagination(def.list);
+
   const list = useResourceTable<TData>({
     resource,
-    mode: def.list?.mode ?? "server-offset",
+    mode: listMode,
     columns,
     filters: def.filters,
     facets: def.list?.facets,
@@ -168,7 +177,14 @@ export function ResourceListView<TData extends AnyRow>({
     });
   }, [variant, rows, def, tenantPrefix]);
 
-  const listMode = def.list?.mode ?? "server-offset";
+  // 分页 UI 由派生能力决定（M7-A2：能力派生而非 mode 直通 UI）——
+  // canJump → 页码窗口（offset 形态）；keyset 家族无 canJump（禁页码窗口），按 shape 档选 cursor/load-more
+  const paginationCaps = paginationCapabilitiesOf(listMode);
+  const paginationBarMode = paginationCaps.canJump
+    ? ("offset" as const)
+    : listMode === "load-more"
+      ? ("load-more" as const)
+      : ("cursor" as const);
 
   return (
     <ListPage
@@ -205,16 +221,17 @@ export function ResourceListView<TData extends AnyRow>({
         )
       }
       pagination={
-        listMode === "server-cursor" || listMode === "load-more" ? (
+        paginationBarMode === "offset" ? (
+          <PaginationBar list={list} mode="offset" />
+        ) : (
           <PaginationBar
             list={{
               ...list,
-              hasNextPage: list.query.data?.nextCursor !== undefined || listMode === "load-more",
+              hasNextPage:
+                list.query.data?.nextCursor !== undefined || paginationBarMode === "load-more",
             }}
-            mode={listMode === "server-cursor" ? "cursor" : "load-more"}
+            mode={paginationBarMode}
           />
-        ) : (
-          <PaginationBar list={list} mode="offset" />
         )
       }
       appendix={appendix}

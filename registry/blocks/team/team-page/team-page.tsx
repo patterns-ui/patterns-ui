@@ -5,7 +5,7 @@
  * 待处理邀请区（撤销）+ 新邀请 form-dialog（邮箱 + 角色，zod 校验 + 422 回填）。
  * 数据走 client 约定（宿主提供 fetch 适配）；交互编排（弹窗时序）在本块。
  */
-import { listKey } from "@patterns-ui/core/data";
+import { listKey, parseError } from "@patterns-ui/core/data";
 import {
   createListColumnHelper,
   type ListColumnDef,
@@ -304,11 +304,12 @@ export function TeamPage({ client, currentUserId, className }: TeamPageProps) {
           try {
             await inviteMutation.mutateAsync(values);
           } catch (err) {
-            const fields = (err as { body?: { fields?: Record<string, string> } })?.body?.fields;
+            // 错误信封解析走 core parseError 单源（M7-A2）：422 fields 回填、其余进表单级
+            const parsed = parseError(err);
             formApi.setErrorMap({
               onSubmit: {
-                fields: fields ?? {},
-                form: fields ? undefined : err instanceof Error ? err.message : "邀请失败",
+                fields: parsed.fieldErrors ?? {},
+                form: parsed.fieldErrors ? undefined : parsed.message || "邀请失败",
               },
             });
           }

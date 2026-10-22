@@ -1,8 +1,10 @@
 /**
- * settings-page —— SaaS 模板页：完整设置页（docs/blocks.md team/settings）。
+ * settings-page —— sections[] 驱动的 SaaS 设置壳（docs/blocks.md team/settings；M7-A2 节化）。
  *
- * 四节：组织（name/avatar）、个人（display name/email/时区）、安全（改密码 + 会话占位）、
- * 外观（theme + preset）。个人/安全节为 typed-form-field 表单（zod 校验 + 服务端错误位）；
+ * 每节 { id, label, description?, icon?, content }：content 为预置节构件
+ * （org/profile/security/sessions/appearance——M6 内置节的登记名）或扩展挂载位
+ * （node：计费/集成等宿主节）。sections 缺省 = 内置五节（组织[有 org 时]/个人/安全/会话/外观），
+ * 行为与节化前一致。个人/安全节为 typed-form-field 表单（zod 校验 + 服务端错误位）；
  * 时区/主题直连 core datetime/theme 偏好（localStorage，不进 URL）。
  */
 import { type ThemeMode, useTheme } from "@patterns-ui/core/theme";
@@ -41,7 +43,27 @@ export interface SettingsProfileInput {
   timeZone?: string;
 }
 
+/** 预置节构件登记名（M7-A2 节化：内置节的封闭集合，只追加） */
+export type SettingsSectionPreset = "org" | "profile" | "security" | "sessions" | "appearance";
+
+/** 节内容型别：预置构件（消费同名 props 数据/回调）或扩展挂载位（宿主 ReactNode） */
+export type SettingsSectionContent = { preset: SettingsSectionPreset } | { node: React.ReactNode };
+
+/** 设置节声明（sections[] 驱动；可扩展——计费/集成等扩展节可挂载） */
+export interface SettingsSectionSpec {
+  id: string;
+  label: string;
+  description?: string;
+  icon?: React.ReactNode;
+  content: SettingsSectionContent;
+}
+
 export interface SettingsPageProps {
+  /**
+   * sections[] 驱动（M7-A2 节化）；缺省 = 内置五节（组织[有 org 时]/个人/安全/会话/外观）
+   * 保持节化前行为。预置节的数据与回调仍来自下方 props。
+   */
+  sections?: SettingsSectionSpec[];
   org?: SettingsOrg;
   onSaveOrgName?(name: string): Promise<void>;
   profile: SettingsProfileInput;
@@ -75,7 +97,72 @@ function timeZones(): string[] {
   return intl.supportedValuesOf?.("timeZone") ?? [];
 }
 
+/** 缺省 sections：内置五节（M6 行为原样保留——组织节仅有 org 时出现） */
+export function defaultSettingsSections(org: SettingsOrg | undefined): SettingsSectionSpec[] {
+  return [
+    ...(org
+      ? [
+          {
+            id: "org",
+            label: "组织",
+            description: "租户名称与标识。",
+            icon: <Building2 className="size-4" />,
+            content: { preset: "org" } as SettingsSectionContent,
+          },
+        ]
+      : []),
+    {
+      id: "profile",
+      label: "个人",
+      description: "显示名、邮箱与时区。",
+      icon: <UserCog className="size-4" />,
+      content: { preset: "profile" },
+    },
+    {
+      id: "security",
+      label: "安全",
+      description: "修改登录密码。",
+      icon: <KeyRound className="size-4" />,
+      content: { preset: "security" },
+    },
+    {
+      id: "sessions",
+      label: "会话",
+      description: "活跃会话管理（占位）",
+      content: { preset: "sessions" },
+    },
+    {
+      id: "appearance",
+      label: "外观",
+      description: "主题与样式预设，即时生效。",
+      icon: <Palette className="size-4" />,
+      content: { preset: "appearance" },
+    },
+  ];
+}
+
+/** 未知预置节登记名的报错（报错即目录） */
+function presetContent(preset: string, props: SettingsPageProps): React.ReactNode {
+  switch (preset) {
+    case "org":
+      return <OrgSectionBody org={props.org} onSaveOrgName={props.onSaveOrgName} />;
+    case "profile":
+      return <ProfileSectionBody profile={props.profile} onSave={props.onSaveProfile} />;
+    case "security":
+      return <SecuritySectionBody onChangePassword={props.onChangePassword} />;
+    case "sessions":
+      return <SessionsSectionBody onSignOutAllSessions={props.onSignOutAllSessions} />;
+    case "appearance":
+      return <AppearanceSectionBody presets={props.presets} />;
+    default:
+      throw new Error(
+        `settings-page: 未知预置节「${preset}」；合法值：[org, profile, security, sessions, appearance]（预置节集合只追加，见 blocks.md settings）`,
+      );
+  }
+}
+
 export function SettingsPage({
+  sections,
   org,
   onSaveOrgName,
   profile,
@@ -85,6 +172,7 @@ export function SettingsPage({
   onSignOutAllSessions,
   className,
 }: SettingsPageProps) {
+  const specs = sections ?? defaultSettingsSections(org);
   return (
     <div
       className={cn("mx-auto flex w-full max-w-3xl flex-col gap-6 pb-8", className)}
@@ -95,38 +183,26 @@ export function SettingsPage({
         description="组织、个人、安全与外观偏好；偏好类设置存于本机（localStorage），不进 URL。"
       />
 
-      {org ? (
+      {specs.map((spec) => (
         <SettingsSection
-          icon={<Building2 className="size-4" />}
-          title="组织"
-          description="租户名称与标识。"
+          key={spec.id}
+          icon={spec.icon}
+          title={spec.label}
+          description={spec.description}
         >
-          <div className="flex items-center gap-4">
-            <UserAvatar user={{ name: org.name, avatarUrl: org.avatarUrl }} size="lg" />
-            <div className="flex-1">
-              <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
-                组织名称
-              </p>
-              <InlineEditField
-                value={org.name}
-                onSave={async (next) => {
-                  await onSaveOrgName?.(next);
-                }}
-              />
-            </div>
-            {org.plan ? <Badge variant="secondary">{org.plan}</Badge> : null}
-          </div>
+          {"preset" in spec.content
+            ? presetContent(spec.content.preset, {
+                org,
+                onSaveOrgName,
+                profile,
+                onSaveProfile,
+                onChangePassword,
+                presets,
+                onSignOutAllSessions,
+              })
+            : spec.content.node}
         </SettingsSection>
-      ) : null}
-
-      <ProfileSection profile={profile} onSave={onSaveProfile} />
-
-      <SecuritySection
-        onChangePassword={onChangePassword}
-        onSignOutAllSessions={onSignOutAllSessions}
-      />
-
-      <AppearanceSection presets={presets} />
+      ))}
     </div>
   );
 }
@@ -163,6 +239,39 @@ function SettingsSection({
 }
 
 // ---------------------------------------------------------------------------
+// 组织节（name/avatar inline-edit）
+// ---------------------------------------------------------------------------
+
+function OrgSectionBody({
+  org,
+  onSaveOrgName,
+}: {
+  org?: SettingsOrg;
+  onSaveOrgName?(name: string): Promise<void>;
+}) {
+  if (!org) {
+    return <p className="text-muted-foreground text-[13px]">组织信息不可用（org 未提供）。</p>;
+  }
+  return (
+    <div className="flex items-center gap-4">
+      <UserAvatar user={{ name: org.name, avatarUrl: org.avatarUrl }} size="lg" />
+      <div className="flex-1">
+        <p className="text-muted-foreground mb-1 text-xs font-medium tracking-wider uppercase">
+          组织名称
+        </p>
+        <InlineEditField
+          value={org.name}
+          onSave={async (next) => {
+            await onSaveOrgName?.(next);
+          }}
+        />
+      </div>
+      {org.plan ? <Badge variant="secondary">{org.plan}</Badge> : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // 个人节（display name / email / 时区）
 // ---------------------------------------------------------------------------
 
@@ -172,7 +281,7 @@ const profileSchema = z.object({
   timeZone: z.string(),
 });
 
-function ProfileSection({
+function ProfileSectionBody({
   profile,
   onSave,
 }: {
@@ -213,43 +322,37 @@ function ProfileSection({
       }}
     >
       <form.AppForm>
-        <SettingsSection
-          icon={<UserCog className="size-4" />}
-          title="个人"
-          description="显示名、邮箱与时区。"
-        >
-          <div className="grid gap-4">
-            <form.AppField name="displayName">
-              {(field) => <field.TextWidget label="显示名" required />}
-            </form.AppField>
-            <form.AppField name="email">
-              {(field) => <field.TextWidget label="邮箱" required />}
-            </form.AppField>
-            <form.AppField name="timeZone">
-              {(field) => (
-                <field.SelectWidget
-                  label="时区"
-                  description="影响全站时间显示（Intl 时区解析）。"
-                  options={[
-                    { value: "", label: "系统时区" },
-                    ...zones.map((zone) => ({ value: zone, label: zone })),
-                  ]}
-                />
-              )}
-            </form.AppField>
-            <FormMessage />
-            <div className="flex justify-end">
-              <SubmitButton label="保存个人设置" />
-            </div>
+        <div className="grid gap-4">
+          <form.AppField name="displayName">
+            {(field) => <field.TextWidget label="显示名" required />}
+          </form.AppField>
+          <form.AppField name="email">
+            {(field) => <field.TextWidget label="邮箱" required />}
+          </form.AppField>
+          <form.AppField name="timeZone">
+            {(field) => (
+              <field.SelectWidget
+                label="时区"
+                description="影响全站时间显示（Intl 时区解析）。"
+                options={[
+                  { value: "", label: "系统时区" },
+                  ...zones.map((zone) => ({ value: zone, label: zone })),
+                ]}
+              />
+            )}
+          </form.AppField>
+          <FormMessage />
+          <div className="flex justify-end">
+            <SubmitButton label="保存个人设置" />
           </div>
-        </SettingsSection>
+        </div>
       </form.AppForm>
     </form>
   );
 }
 
 // ---------------------------------------------------------------------------
-// 安全节（改密码 + 会话占位）
+// 安全节（改密码）
 // ---------------------------------------------------------------------------
 
 const passwordSchema = z
@@ -263,9 +366,8 @@ const passwordSchema = z
     path: ["confirmPassword"],
   });
 
-function SecuritySection({
+function SecuritySectionBody({
   onChangePassword,
-  onSignOutAllSessions,
 }: {
   onChangePassword?: (input: {
     currentPassword: string;
@@ -273,9 +375,7 @@ function SecuritySection({
   }) => Promise<
     { ok: true } | { ok: false; formError?: string; fieldErrors?: Record<string, string> }
   >;
-  onSignOutAllSessions?: () => Promise<void>;
 }) {
-  const [signingOut, setSigningOut] = useState(false);
   const form = useAppForm({
     defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
     validators: { onChange: passwordSchema },
@@ -297,63 +397,66 @@ function SecuritySection({
   });
 
   return (
-    <>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void form.handleSubmit();
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <form.AppForm>
+        <div className="grid max-w-md gap-4">
+          <form.AppField name="currentPassword">
+            {(field) => <field.SecretWidget label="当前密码" required />}
+          </form.AppField>
+          <form.AppField name="newPassword">
+            {(field) => <field.SecretWidget label="新密码" required />}
+          </form.AppField>
+          <form.AppField name="confirmPassword">
+            {(field) => <field.SecretWidget label="确认新密码" required />}
+          </form.AppField>
+          <FormMessage />
+          <div className="flex justify-end">
+            <SubmitButton label="更新密码" />
+          </div>
+        </div>
+      </form.AppForm>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 会话节（占位登出全部）
+// ---------------------------------------------------------------------------
+
+function SessionsSectionBody({
+  onSignOutAllSessions,
+}: {
+  onSignOutAllSessions?: () => Promise<void>;
+}) {
+  const [signingOut, setSigningOut] = useState(false);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <p className="text-muted-foreground text-[13px]">
+        当前设备保持登录；可强制登出全部会话（含其它浏览器）。
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={signingOut || onSignOutAllSessions === undefined}
+        onClick={async () => {
+          setSigningOut(true);
+          try {
+            await onSignOutAllSessions?.();
+            toast.success("已登出全部会话");
+          } finally {
+            setSigningOut(false);
+          }
         }}
       >
-        <form.AppForm>
-          <SettingsSection
-            icon={<KeyRound className="size-4" />}
-            title="安全"
-            description="修改登录密码。"
-          >
-            <div className="grid max-w-md gap-4">
-              <form.AppField name="currentPassword">
-                {(field) => <field.SecretWidget label="当前密码" required />}
-              </form.AppField>
-              <form.AppField name="newPassword">
-                {(field) => <field.SecretWidget label="新密码" required />}
-              </form.AppField>
-              <form.AppField name="confirmPassword">
-                {(field) => <field.SecretWidget label="确认新密码" required />}
-              </form.AppField>
-              <FormMessage />
-              <div className="flex justify-end">
-                <SubmitButton label="更新密码" />
-              </div>
-            </div>
-          </SettingsSection>
-        </form.AppForm>
-      </form>
-
-      <SettingsSection title="会话" description="活跃会话管理（占位）">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-muted-foreground text-[13px]">
-            当前设备保持登录；可强制登出全部会话（含其它浏览器）。
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={signingOut || onSignOutAllSessions === undefined}
-            onClick={async () => {
-              setSigningOut(true);
-              try {
-                await onSignOutAllSessions?.();
-                toast.success("已登出全部会话");
-              } finally {
-                setSigningOut(false);
-              }
-            }}
-          >
-            <LogOut data-icon="inline-start" />
-            登出全部会话
-          </Button>
-        </div>
-      </SettingsSection>
-    </>
+        <LogOut data-icon="inline-start" />
+        登出全部会话
+      </Button>
+    </div>
   );
 }
 
@@ -361,48 +464,42 @@ function SecuritySection({
 // 外观节（theme + preset；core theme 偏好直连）
 // ---------------------------------------------------------------------------
 
-function AppearanceSection({ presets }: { presets: { id: string; label: string }[] }) {
+function AppearanceSectionBody({ presets }: { presets: { id: string; label: string }[] }) {
   const { theme, setTheme, preset, setPreset } = useTheme();
   return (
-    <SettingsSection
-      icon={<Palette className="size-4" />}
-      title="外观"
-      description="主题与样式预设，即时生效。"
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <span className="text-[13px] font-medium">主题</span>
-          <Select value={theme} onValueChange={(v) => v !== null && setTheme(v as ThemeMode)}>
-            <SelectTrigger className="w-full">
-              <SelectValue>
-                {THEME_OPTIONS.find((o) => o.value === theme)?.label ?? theme}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {THEME_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <span className="text-[13px] font-medium">样式预设</span>
-          <Select value={preset} onValueChange={(v) => v !== null && setPreset(v)}>
-            <SelectTrigger className="w-full">
-              <SelectValue>{presets.find((o) => o.id === preset)?.label ?? preset}</SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {presets.map((option) => (
-                <SelectItem key={option.id} value={option.id}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+    <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-2">
+        <span className="text-[13px] font-medium">主题</span>
+        <Select value={theme} onValueChange={(v) => v !== null && setTheme(v as ThemeMode)}>
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              {THEME_OPTIONS.find((o) => o.value === theme)?.label ?? theme}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {THEME_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-    </SettingsSection>
+      <div className="grid gap-2">
+        <span className="text-[13px] font-medium">样式预设</span>
+        <Select value={preset} onValueChange={(v) => v !== null && setPreset(v)}>
+          <SelectTrigger className="w-full">
+            <SelectValue>{presets.find((o) => o.id === preset)?.label ?? preset}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {presets.map((option) => (
+              <SelectItem key={option.id} value={option.id}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
   );
 }

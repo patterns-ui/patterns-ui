@@ -3,7 +3,10 @@ import type { HttpError } from "@patterns-ui/core/data";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { SettingsPage } from "@/components/blocks/settings/settings-page/settings-page";
+import {
+  defaultSettingsSections,
+  SettingsPage,
+} from "@/components/blocks/settings/settings-page/settings-page";
 import { api } from "@/lib/api";
 import { resolveTenant } from "@/lib/tenants";
 
@@ -45,6 +48,9 @@ function SettingsDemoPage() {
 
   return (
     <SettingsPage
+      // sections[] 显式声明（M7-A2 节化最小适配）：预置节构件组一份与内置缺省等价的
+      // sections（行为不变；A3 迁移为 definePage 配置后由配置驱动）
+      sections={defaultSettingsSections(org)}
       org={org}
       onSaveOrgName={async (name) => {
         await api(`/api/orgs/${encodeURIComponent(tenantId)}`, {

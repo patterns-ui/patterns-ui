@@ -281,6 +281,111 @@ function useRouterAccess(enabled: boolean): RouterAccess {
 
 export type ListMode = "client" | "server-offset" | "server-cursor" | "load-more";
 
+// ---------------------------------------------------------------------------
+// 分页协议契约节点（def 一等节点，M7-A2，docs/core-api.md §3.1）
+// ---------------------------------------------------------------------------
+
+/** 分页协议封闭词表（paradigm §1.2；Relay/search_after 等 keyset 变体归一） */
+export const PAGINATION_MODES = ["page", "offset", "keyset"] as const;
+
+/** 分页协议（写错由 typecheck 报错并列出全部合法值——报错信息即目录） */
+export type PaginationMode = (typeof PAGINATION_MODES)[number];
+
+/** def.list 的一等分页契约节点：shape 是 keyset 的 URL 承载档（数据协议 × UI 形态正交） */
+export interface DefListPagination {
+  mode: PaginationMode;
+  /** 缺省 "paged"（cursor 前后式）；"load-more" = 累计拼接档 */
+  shape?: "paged" | "load-more";
+}
+
+/** def.list 形态（pagination 新节点 + legacy mode 双轨兼容，A3 迁移后移除 legacy） */
+export interface DefListShape {
+  pagination?: DefListPagination;
+  mode?: ListMode;
+}
+
+/** 引擎模式按协议派生的 UI 能力（pagination-bar 消费：能力派生而非 mode 直通 UI） */
+export interface PaginationCapabilities {
+  /** 可跳页 → 允许渲染页码窗口（keyset 禁） */
+  canJump: boolean;
+  /** 有服务端总数（或 client 本地全量） */
+  hasTotal: boolean;
+  /** cursor token 留内存不进 URL */
+  tokenInMemory: boolean;
+}
+
+export function paginationCapabilitiesOf(mode: ListMode): PaginationCapabilities {
+  switch (mode) {
+    case "client":
+    case "server-offset":
+      return { canJump: true, hasTotal: true, tokenInMemory: false };
+    case "server-cursor":
+    case "load-more":
+      return { canJump: false, hasTotal: false, tokenInMemory: true };
+  }
+}
+
+/** offset 协议未实现的显式报错（词表封闭 ≠ 预造实现：§1.2 单一实现不预造协议） */
+function offsetUnimplemented(): never {
+  throw new Error(
+    `分页协议 offset 未实现（合法实现值：page/keyset——词表三值 page/offset/keyset 中 offset（请求携带裸行偏移）尚无引擎实现；出现第二种实现时按①象限变更纪律补齐引擎+能力+失败路径测试）`,
+  );
+}
+
+function legacyToListMode(mode: ListMode): {
+  mode: ListMode;
+  protocol: PaginationMode | undefined;
+} {
+  // client 是数据局部性不是线上协议：保留在引擎层，protocol 为空（正交声明）
+  if (mode === "client") return { mode, protocol: undefined };
+  return { mode, protocol: mode === "server-offset" ? "page" : "keyset" };
+}
+
+/**
+ * def.list（pagination 新节点 / legacy mode 双轨）→ 引擎 ListMode 的唯一映射出口。
+ * resource-list-view 等 def 消费方一律经此函数；useResourceTable 自身不感知协议词表。
+ * 泛型 L extends DefListShape：def.list 带 pageSize/facets 等额外字段可直接透传。
+ */
+export function resolveListPagination<L extends DefListShape>(
+  list: L | undefined,
+): {
+  mode: ListMode;
+  protocol: PaginationMode | undefined;
+} {
+  if (list?.pagination !== undefined) {
+    if (list.mode !== undefined) {
+      const fromNew = list.pagination.mode;
+      const legacy = legacyToListMode(list.mode);
+      const newResolved =
+        list.pagination.mode === "page"
+          ? "server-offset"
+          : list.pagination.mode === "keyset"
+            ? list.pagination.shape === "load-more"
+              ? "load-more"
+              : "server-cursor"
+            : "offset";
+      if (legacy.mode !== newResolved) {
+        throw new Error(
+          `list.pagination（${fromNew} → ${newResolved}）与 legacy list.mode（${list.mode} → ${legacy.mode}）冲突；双轨期只声明其一（映射表见 core-api.md §3.1）`,
+        );
+      }
+    }
+    switch (list.pagination.mode) {
+      case "page":
+        return { mode: "server-offset", protocol: "page" };
+      case "keyset":
+        return {
+          mode: list.pagination.shape === "load-more" ? "load-more" : "server-cursor",
+          protocol: "keyset",
+        };
+      case "offset":
+        return offsetUnimplemented();
+    }
+  }
+  if (list?.mode !== undefined) return legacyToListMode(list.mode);
+  return { mode: "server-offset", protocol: "page" };
+}
+
 export interface UseResourceTableOptions<TData extends RowData> {
   // biome-ignore lint/suspicious/noExplicitAny: 与 core-api §3 签名一致（Resource<TData, any, any>）
   resource: Resource<TData, any, any>;

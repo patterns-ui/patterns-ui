@@ -2,6 +2,7 @@ import type { FilterDef } from "@patterns-ui/core/filters";
 import {
   createListColumnHelper,
   DEFAULT_PAGE_SIZE_OPTIONS,
+  resolveListPagination,
   useResourceTable,
   withPageSizeOption,
 } from "@patterns-ui/core/list";
@@ -81,7 +82,8 @@ const servicesDef = defineResource<MockService>({
   client: servicesResource.client,
   columns: [],
   filters: FILTER_DEFS,
-  list: { mode: "server-offset", pageSize: 30, facets: ["env", "status"] },
+  // 分页协议 def 一等契约节点（M7-A2）：page = 页码协议（?page=&size=，可跳页、有 total）
+  list: { pagination: { mode: "page" }, pageSize: 30, facets: ["env", "status"] },
 });
 
 function ServicesPage() {
@@ -188,8 +190,8 @@ function ServicesPage() {
 
   const list = useResourceTable<MockService>({
     resource: servicesResource,
-    // def.list 配置直灌（M6-C 单源）：mode/facets/pageSize 全部以 def 为准
-    mode: servicesDef.list?.mode ?? "server-offset",
+    // def.list 配置直灌（M6-C 单源 + M7-A2 分页协议节点）：mode 经唯一映射出口解析
+    mode: resolveListPagination(servicesDef.list).mode,
     columns,
     filters: servicesDef.filters,
     facets: servicesDef.list?.facets,

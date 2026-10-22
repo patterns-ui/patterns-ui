@@ -1,4 +1,4 @@
-import { HttpError, type HttpErrorKind } from "@patterns-ui/core/data";
+import { type HttpErrorKind, parseError } from "@patterns-ui/core/data";
 import {
   Ban,
   KeyRound,
@@ -56,24 +56,15 @@ function copyEntry(kind: ErrorStateCopy["kind"]) {
   );
 }
 
-/** HttpError 分档文案（401/403/404/409/5xx/网络/未知） */
+/**
+ * HttpError 分档文案（401/403/404/409/5xx/网络/未知）。分档 kind 的信封解析走 core
+ * parseError 单源（M7-A2：problem+json/{code,message}/裸状态码/字段错误数组归一）；
+ * 本块的文案映射表保留（分档 → 文案/icon 是 UI 面）。
+ */
 export function errorStateCopy(error: unknown): ErrorStateCopy {
-  let kind: ErrorStateCopy["kind"];
-  if (error instanceof HttpError) {
-    kind = error.kind;
-  } else if (typeof error === "object" && error !== null && "status" in error) {
-    // duck-typing：宿主可能用结构兼容的错误对象
-    const status = Number((error as { status: unknown }).status);
-    const asHttp = new HttpError(Number.isNaN(status) ? 0 : status, "");
-    kind = status >= 500 ? "server" : asHttp.kind;
-  } else if (error instanceof TypeError) {
-    // fetch 网络失败在浏览器中抛 TypeError
-    kind = "network";
-  } else {
-    kind = "unknown";
-  }
-  const entry = copyEntry(kind);
-  return { kind, title: entry.title, description: entry.description };
+  const parsed = parseError(error);
+  const entry = copyEntry(parsed.kind);
+  return { kind: parsed.kind, title: entry.title, description: entry.description };
 }
 
 export interface ErrorStateProps {
@@ -95,6 +86,7 @@ export function ErrorState({
 }: ErrorStateProps) {
   const copy = errorStateCopy(error);
   const Icon = copyEntry(copy.kind).icon;
+  const status = error !== undefined ? parseError(error).status : undefined;
 
   return (
     <div
@@ -109,8 +101,8 @@ export function ErrorState({
         <p className="text-sm font-medium">{copy.title}</p>
         <p className="text-muted-foreground max-w-sm text-[13px]">{copy.description}</p>
       </div>
-      {error instanceof HttpError && error.status > 0 ? (
-        <p className="text-muted-foreground/70 font-mono text-xs">HTTP {error.status}</p>
+      {status !== undefined && status > 0 ? (
+        <p className="text-muted-foreground/70 font-mono text-xs">HTTP {status}</p>
       ) : null}
       {onRetry || action ? (
         <div className="mt-2 flex items-center gap-2">

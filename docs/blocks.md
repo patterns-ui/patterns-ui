@@ -112,7 +112,7 @@ UI 层（copy-paste）全部 block 清单。命名 `kebab-case`；目录 = 类�
 | block | 说明 | 依赖 |
 |---|---|---|
 | `team-page` | 成员表(角色/状态/2FA) + 邀请流(邮件/角色/链接复制) + 改角色/移除 + 待处理邀请区 | block: data-table, confirm-dialog, cells |
-| `settings-page` | 四分节设置壳（组织 / 个人 / 安全 / 外观——M6 后现状，个人/安全节为 typed-form-field 表单）+ 时区偏好 + 主题与 preset 选择 | block: form-page 风格分区, typed-form-field；core: /datetime,/theme |
+| `settings-page` | sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,icon?,content}——content 为预置构件（org/profile/security/sessions/appearance，M6 四节的内置形态）或扩展挂载位；缺省 sections = 内置节保持旧行为 | block: form-page 风格分区, typed-form-field；core: /datetime,/theme |
 
 ## shared/ —— 基础公共件
 

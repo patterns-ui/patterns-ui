@@ -13,10 +13,11 @@ import type { FilterDef } from "../filters";
 import {
   createListSearchSchema,
   DEFAULT_PAGE_SIZE,
+  type DefListShape,
   type ListColumnDef,
   type ListColumnMeta,
-  type ListMode,
 } from "../list";
+import type { BlockName } from "../vocab";
 
 /** 校验 schema：zod v4（或任何 Standard Schema 实现）；core 只透传（与 form 模块 FormSchema 同约定） */
 export type ResourceSchema = { readonly "~standard": unknown };
@@ -47,6 +48,15 @@ export interface ResourceShowTab {
   label: string;
   kind: "sections" | "sub-resource" | "custom";
   resource?: string;
+  /**
+   * kind:"custom" 登记名（M7-A2 登记制，必填其一）：
+   * - block：词表 block 名（typecheck 收窄到封闭词表）；
+   * - sandbox：宿主登记表键（sandbox 棘轮名，非词表域）。
+   * 渲染经 resource-detail-view 的 customTabs 注入表解析；render 函数出口保留为宿主
+   * 逃生位但必须登记后使用（未登记 → dev throw）。
+   */
+  block?: BlockName;
+  sandbox?: string;
 }
 
 export interface ResourceShowDef {
@@ -88,8 +98,12 @@ export interface ResourceDefShape<TData extends RowData> {
   /** 行主键（缺省读 row.id——TData 带 string id 或已显式声明 getId 二者必有其一，编译期保证） */
   getId?: (row: TData) => string;
   filters?: FilterDef[];
-  /** list.pageSize 是页大小唯一真相：直灌 useResourceTable 缺省与路由 schema（M6-C 单源） */
-  list?: { mode?: ListMode; pageSize?: number; facets?: string[] };
+  /**
+   * list.pageSize 是页大小唯一真相：直灌 useResourceTable 缺省与路由 schema（M6-C 单源）。
+   * pagination 是分页协议一等契约节点（M7-A2：page/offset/keyset 封闭词表，映射见 core-api §3.1）；
+   * legacy mode 双轨兼容（A3 迁移后移除）。
+   */
+  list?: DefListShape & { pageSize?: number; facets?: string[] };
   form?: ResourceFormDef;
   show?: ResourceShowDef;
   /** 子资源嵌套：parent.resource='services', parent.param='serviceId'（URL 参数 + 永久过滤） */

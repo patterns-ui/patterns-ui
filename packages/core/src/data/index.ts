@@ -158,6 +158,122 @@ export class HttpError extends Error {
 }
 
 // ---------------------------------------------------------------------------
+// parseError —— 错误信封解析单源（M7-A2，docs/core-api.md §1.2.1）
+// ---------------------------------------------------------------------------
+
+/** 错误信封解析结果（kind 域与 blocks error-state 分档同源） */
+export interface ParsedError {
+  kind: HttpErrorKind | "network" | "unknown";
+  /** 无状态码（网络/未知）时缺省 */
+  status?: number;
+  message: string;
+  /** 422/400 且信封携带字段错误时回填（不变量：必回填） */
+  fieldErrors?: Record<string, string>;
+}
+
+/** problem+json（RFC 9457）判定：body 为对象且含 title 或 detail 字符串 */
+function isProblemLike(
+  body: unknown,
+): body is { title?: unknown; detail?: unknown; errors?: unknown } {
+  if (typeof body !== "object" || body === null) return false;
+  const record = body as Record<string, unknown>;
+  return typeof record.title === "string" || typeof record.detail === "string";
+}
+
+/** 字段错误对象形态：body.fields 为对象 */
+function fieldErrorsOfRecord(body: Record<string, unknown>): Record<string, string> | undefined {
+  const fields = body.fields;
+  if (fields === null || typeof fields !== "object" || Array.isArray(fields)) return undefined;
+  const out: Record<string, string> = {};
+  let filled = false;
+  for (const [field, message] of Object.entries(fields as Record<string, unknown>)) {
+    if (message === undefined || message === null) continue;
+    out[field] = typeof message === "string" ? message : String(message);
+    filled = true;
+  }
+  return filled ? out : undefined;
+}
+
+/** 字段错误数组形态：body.errors 为 [{field|path, message}]（problem+json errors 同形） */
+function fieldErrorsOfArray(errors: unknown): Record<string, string> | undefined {
+  if (!Array.isArray(errors)) return undefined;
+  const out: Record<string, string> = {};
+  let filled = false;
+  for (const entry of errors) {
+    if (typeof entry !== "object" || entry === null) continue;
+    const record = entry as Record<string, unknown>;
+    const field =
+      typeof record.field === "string"
+        ? record.field
+        : typeof record.path === "string"
+          ? record.path
+          : undefined;
+    if (field === undefined) continue;
+    const message = record.message ?? record.detail;
+    if (message === undefined || message === null) continue;
+    out[field] = typeof message === "string" ? message : String(message);
+    filled = true;
+  }
+  return filled ? out : undefined;
+}
+
+/** 信封一次解析：message / fieldErrors（协议集见 core-api §1.2.1 表格） */
+function parseEnvelope(
+  fallbackMessage: string,
+  body: unknown,
+): { message: string; fieldErrors?: Record<string, string> } {
+  if (typeof body !== "object" || body === null) return { message: fallbackMessage };
+  const record = body as Record<string, unknown>;
+  const fieldErrors = fieldErrorsOfRecord(record) ?? fieldErrorsOfArray(record.errors) ?? undefined;
+  let message = fallbackMessage;
+  if (isProblemLike(body)) {
+    const detail = typeof record.detail === "string" ? record.detail : undefined;
+    const title = typeof record.title === "string" ? record.title : undefined;
+    message = detail ?? title ?? fallbackMessage;
+  } else if (typeof record.message === "string") {
+    message = record.message;
+  }
+  return { message, ...(fieldErrors ? { fieldErrors } : {}) };
+}
+
+/**
+ * 错误信封解析单源（M7-A2）：problem+json / {code,message} / 字段错误对象·数组 / 裸状态码 /
+ * 网络（TypeError）→ 归一 ParsedError。core 内部（form）与 blocks（error-state/team-page）
+ * 一律消费本函数，禁止再自解析 HttpError.body。422/400 必回填 fieldErrors（不变量）。
+ */
+export function parseError(error: unknown): ParsedError {
+  // 网络失败：fetch 在浏览器中抛 TypeError（error-state 既有语义保持）
+  if (error instanceof TypeError) {
+    return { kind: "network", message: error.message };
+  }
+  // HttpError 或结构兼容的 {status} 对象（duck-typing：宿主可能不用 HttpError 类）
+  if (
+    error instanceof HttpError ||
+    (typeof error === "object" && error !== null && "status" in error)
+  ) {
+    const status =
+      error instanceof HttpError ? error.status : Number((error as { status: unknown }).status);
+    const numeric = Number.isFinite(status) ? status : 0;
+    const kind = numeric >= 500 ? "server" : new HttpError(numeric, "").kind;
+    const fallback = error instanceof Error ? error.message : "";
+    // duck-typed 对象无 body 字段时，对象自身即信封（{status,message} 形态）
+    const rawBody = (error as { body?: unknown }).body;
+    const body = error instanceof HttpError ? rawBody : (rawBody ?? error);
+    const { message, fieldErrors } = parseEnvelope(fallback, body);
+    // 422/400 必回填：无字段错误信封时 fieldErrors 为空对象（消费方可直接回填表单）
+    const enforce = numeric === 422 || numeric === 400;
+    return {
+      kind,
+      status: numeric > 0 ? numeric : undefined,
+      message,
+      ...(enforce ? { fieldErrors: fieldErrors ?? {} } : fieldErrors ? { fieldErrors } : {}),
+    };
+  }
+  if (error instanceof Error) return { kind: "unknown", message: error.message };
+  return { kind: "unknown", message: "" };
+}
+
+// ---------------------------------------------------------------------------
 // createResource
 // ---------------------------------------------------------------------------
 

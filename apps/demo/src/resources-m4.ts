@@ -70,7 +70,9 @@ export const auditDef = defineResource<MockAuditEvent>({
     { field: "resource", label: "资源", kind: "text" },
     { field: "createdAt", label: "时间范围", kind: "date-range" },
   ],
-  list: { mode: "server-cursor", pageSize: 20, facets: ["action"] },
+  // 分页协议 def 一等契约节点（M7-A2）：audit 决策 = keyset（契约卡业务决策：
+  // append 日志 offset 漂移不可接受；Relay/search_after 类游标均归一 keyset）
+  list: { pagination: { mode: "keyset" }, pageSize: 20, facets: ["action"] },
   nav: { group: "Data", icon: "scroll-text", order: 11 },
 });
 

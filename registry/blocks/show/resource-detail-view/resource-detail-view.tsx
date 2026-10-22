@@ -2,7 +2,9 @@
  * resource-detail-view —— L4 详情视图工厂（blocks 侧，docs/core-api.md §13）。
  *
  * def + id → resourceOf(def).useOne（loader 已预取 → 命中缓存）→ DetailPage 装配：
- * hero（名称 + id 副标题 + def.show 状态列）+ tabs（sections / sub-resource 占位 / custom render）。
+ * hero（名称 + id 副标题 + def.show 状态列）+ tabs（sections / sub-resource 占位 /
+ * custom 登记制——tab.block（词表名）或 tab.sandbox（登记名）必填，渲染经 customTabs
+ * 注入表解析，renderCustomTab 逃生位必须登记后使用，M7-A2）。
  * sections 的 cell 类型经 cellFor 渲染（与 inferColumns 同一标记体系）。
  */
 
@@ -22,6 +24,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 // biome-ignore lint/suspicious/noExplicitAny: ResourceDef 泛型边界形态（core-api §13）；仅作约束，禁止在实现体内新开 any
 type AnyRow = Record<string, any>;
 
+/**
+ * custom tab 登记表（M7-A2 登记制）：键 = def.show.tabs[].block（词表名）或 sandbox 登记名，
+ * 值 = 渲染组件（props 收 tab 上下文）。custom tab 必须引用登记名；未登记 → dev throw。
+ */
+// biome-ignore lint/suspicious/noExplicitAny: 登记组件 props 形态由登记方约定（注入边界，同 BlockTable）
+export type CustomTabTable = Record<string, React.ComponentType<any>>;
+
 export interface ResourceDetailViewProps<TData extends AnyRow> {
   def: ResourceDef<TData>;
   id: string;
@@ -31,11 +40,40 @@ export interface ResourceDetailViewProps<TData extends AnyRow> {
   statusField?: string;
   /** 状态值 → tone 映射 */
   statusMap?: Record<string, "success" | "warning" | "danger" | "info" | "neutral">;
-  /** custom tab 渲染器（tab.kind === 'custom' 时调用） */
+  /**
+   * custom tab 登记表（M7-A2 登记制）：tab.block（词表名）/ tab.sandbox（登记名）→ 组件。
+   * 渲染经本表解析；名字不在表 → throw（报错列出登记域全表）。
+   */
+  customTabs?: CustomTabTable;
+  /**
+   * custom tab 渲染器（宿主逃生位）：必须登记后使用（tab.block / tab.sandbox 至少其一），
+   * 未登记的 tab 走本回调 → dev throw。
+   */
   renderCustomTab?: (tabId: string, row: TData) => React.ReactNode;
   /** hero 右侧动作 */
   actions?: React.ReactNode;
   className?: string;
+}
+
+/** 登记制解析：登记名 → 组件；未登记/不在表 → 明确报错（报错即目录） */
+function resolveCustomTab(
+  tab: { id: string; block?: string; sandbox?: string },
+  table: CustomTabTable | undefined,
+  // biome-ignore lint/suspicious/noExplicitAny: 登记组件 props 形态由登记方约定（注入边界，同 CustomTabTable）
+): React.ComponentType<any> {
+  const registered = tab.block ?? tab.sandbox;
+  if (registered === undefined) {
+    throw new Error(
+      `resource-detail-view: custom tab「${tab.id}」未登记（M7-A2 登记制）：tab.block（词表名）或 tab.sandbox（登记名）必填其一；已登记名：[${Object.keys(table ?? {}).join(", ") || "（customTabs 注入表为空）"}]`,
+    );
+  }
+  const Component = table?.[registered];
+  if (Component === undefined) {
+    throw new Error(
+      `resource-detail-view: custom tab「${tab.id}」登记名「${registered}」不在 customTabs 注入表；已登记名：[${Object.keys(table ?? {}).join(", ") || "（空）"}]`,
+    );
+  }
+  return Component;
 }
 
 export function ResourceDetailView<TData extends AnyRow>({
@@ -44,6 +82,7 @@ export function ResourceDetailView<TData extends AnyRow>({
   backPrefix = "../../",
   statusField,
   statusMap,
+  customTabs,
   renderCustomTab,
   actions,
   className,
@@ -110,11 +149,16 @@ export function ResourceDetailView<TData extends AnyRow>({
                 />
               </section>
             ) : tab.kind === "custom" ? (
-              (renderCustomTab?.(tab.id, row) ?? (
-                <p className="text-muted-foreground text-sm">
-                  自定义 tab（renderCustomTab 未提供）
-                </p>
-              ))
+              (() => {
+                // 登记制（M7-A2）：custom tab 必须登记（block/sandbox）；渲染经注入表解析，
+                // renderCustomTab 逃生位也必须登记后使用（未登记 → dev throw，报错列登记域）
+                const CustomTab = resolveCustomTab(tab, customTabs);
+                return renderCustomTab ? (
+                  renderCustomTab(tab.id, row)
+                ) : (
+                  <CustomTab tabId={tab.id} row={row} def={def} />
+                );
+              })()
             ) : (
               <p className="text-muted-foreground bg-card rounded-xl border p-6 text-sm">
                 子资源 {tab.resource ?? ""}（由宿主以 sub-resource tab 装配，如 deployments）

@@ -2,7 +2,7 @@
   "name": "settings-page",
   "type": "registry:block",
   "title": "Settings Page",
-  "description": "SaaS 模板页四节：组织（name/avatar inline-edit）、个人（display name/email/时区表单）、安全（改密码 SecretWidget + 会话占位登出全部）、外观（theme+preset，core theme 偏好直连）。",
+  "description": "sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,icon?,content}——content 为预置节构件（org/profile/security/sessions/appearance）或扩展挂载位（计费/集成等）；sections 缺省 = 内置节（组织 name/avatar inline-edit、个人表单、安全改密码、会话登出全部、外观 theme+preset）保持旧行为。",
   "categories": ["settings"],
   "archetype": "settings",
   "dependencies": [],

@@ -85,6 +85,35 @@ export class HttpError extends Error {
 }
 ```
 
+### 1.2.1 parseError —— 错误信封解析单源（M7-A2）
+
+传输凭证轴的错误信封协议（paradigm §1.2：problem+json / `{code,message}` / 裸状态码 / 字段错误数组）在此归一为单一出口；core 内部（form 的 extractFieldErrors）与 blocks（error-state 分档、team-page 表单回填）一律消费本函数，禁止再自解析 HttpError.body：
+
+```ts
+export interface ParsedError {
+  kind: HttpErrorKind | "network" | "unknown"   // 与 error-state 分档同域
+  status?: number                              // 无状态码（网络/未知）时缺省
+  message: string
+  fieldErrors?: Record<string, string>         // 422/400 必回填（不变量；无字段错误时为空对象/缺省）
+}
+
+export function parseError(error: unknown): ParsedError
+```
+
+协议归一规则（按优先级，body 一次解析）：
+
+| 信封形态 | 判定 | message 来源 | fieldErrors 来源 |
+|---|---|---|---|
+| problem+json（RFC 9457） | body 为对象且含 `title` 或 `detail`（可带 `type`/`status`） | `detail ?? title ?? error.message` | `body.errors`（数组元素 `{field|path, message}`；map 形态同下） |
+| `{code,message}` | body 为对象且 `message` 为 string | `body.message` | — |
+| 字段错误对象 | body 为对象且 `fields` 为对象 | 同 `{code,message}` 规则回落 error.message | `body.fields`（值为非 string 时 `String()`） |
+| 字段错误数组 | body 为对象且 `errors` 为数组 | 同上 | `body.errors` 元素的 `{field|path, message}` |
+| 裸状态码 | HttpError（或结构兼容的 `{status}` 对象）无上述 body | `error.message` | — |
+| 网络失败 | `TypeError`（fetch 浏览器语义） | `error.message` | — |
+| 未知 | 其余（含非 Error） | `error instanceof Error ? error.message : ""` | — |
+
+不变量：**422/400 且信封携带字段错误 → `fieldErrors` 必回填**（form 表单回填依赖，见 §5）；`kind` 对 `{status}` 结构兼容对象做 duck-typing（宿主可能不用 HttpError 类）；409 → `kind: "conflict"`（HttpError.kind 同映射）。
+
 适配器约定：任何 fetch/axios/openapi 客户端写 ~20 行实现此接口即可接入。**适配器代码属于使用方项目，不在本库**（demo 里的实现仅是示例）。
 
 ### 1.3 createResource
@@ -197,6 +226,57 @@ export function diffFilters(draft: FilterTree | undefined, applied: FilterTree |
 
 ## 3. list/ —— useResourceTable 与 URL 状态
 
+### 3.1 分页协议契约节点（def 一等节点，M7-A2）
+
+分页协议是 list-browse 元模式的变异轴（paradigm §1.2）：**协议集是封闭词表 `page / offset / keyset`**，声明处唯一（resource def 的 `list.pagination.mode`），AI/宿主只写一行；Relay connections / ES search_after / Stripe starting_after 均归一为 keyset。
+
+```ts
+export const PAGINATION_MODES = ["page", "offset", "keyset"] as const
+export type PaginationMode = (typeof PAGINATION_MODES)[number]
+
+/** def.list 的一等分页契约节点（M7-A2；legacy list.mode 双轨兼容，见映射表） */
+export interface DefListPagination {
+  mode: PaginationMode
+  /** keyset 的 URL 承载档（正交轴：数据协议 × UI 形态）；缺省 "paged" */
+  shape?: "paged" | "load-more"
+}
+
+/** 协议/档位 → 引擎 ListMode 的唯一映射出口（resource-list-view 等 def 消费方共用） */
+export function resolveListPagination(list: {
+  pagination?: DefListPagination
+  mode?: ListMode   // legacy（M6 形态；A3 迁移后移除）
+} | undefined): { mode: ListMode; protocol: PaginationMode | undefined }
+
+/** 按引擎 mode 派生的 UI 能力（pagination-bar 消费：能力派生而非 mode 直通 UI） */
+export interface PaginationCapabilities {
+  canJump: boolean    // 可跳页 → 允许渲染页码窗口（keyset 禁）
+  hasTotal: boolean   // 有服务端总数（或 client 本地全量）
+  tokenInMemory: boolean  // cursor token 留内存不进 URL
+}
+export function paginationCapabilitiesOf(mode: ListMode): PaginationCapabilities
+```
+
+**映射定案（M7-A2）**：
+
+| def 声明（新节点） | 引擎 ListMode | 说明 |
+|---|---|---|
+| `pagination: { mode: "page" }` | `server-offset` | 页码协议：URL `?page=&size=`，可跳页、有 total |
+| `pagination: { mode: "keyset", shape: "paged" }`（缺省） | `server-cursor` | keyset：URL 承载 page 序数，cursor token 留内存 |
+| `pagination: { mode: "keyset", shape: "load-more" }` | `load-more` | keyset 的 load-more URL 承载档（累计拼接） |
+| `pagination: { mode: "offset" }` | — **引擎显式 throw「协议未实现」** | 词表三值齐备但 offset（请求携带裸行偏移）协议尚无实现——§1.2 单一实现不预造协议；出现第二种实现时一并补引擎+能力+失败路径测试 |
+| legacy `mode: "server-offset"` | `server-offset` | 双轨兼容 = `page` |
+| legacy `mode: "server-cursor"` | `server-cursor` | 双轨兼容 = keyset/paged |
+| legacy `mode: "load-more"` | `load-more` | 双轨兼容 = keyset/load-more |
+| legacy `mode: "client"` | `client` | **client 是数据局部性不是线上协议**：`protocol: undefined`，保留在 useResourceTable 层（正交声明，不进协议词表） |
+| （两者都缺省） | `server-offset`（= page） | 缺省协议 |
+| 两者同时声明且冲突 | **throw**（列出两个声明的映射结果，双轨期防混写） | |
+
+`paginationCapabilitiesOf`：client/server-offset → `{canJump:true, hasTotal:true, tokenInMemory:false}`；server-cursor/load-more → `{canJump:false, hasTotal:false, tokenInMemory:true}`。
+
+**行为不变量（跨协议统一，换协议不变——同一引擎承载）**：URL 往返还原（page 家族页码可还原；keyset 家族深链钳制回第 1 页为已知限制）、保存视图（saved views 存查询串）、pageSize 钳制（合法 = UI 档位 ∪ 缺省值，见 clampSize）、筛选/排序/搜索变更必回第 1 页并清空 cursor 栈。**cursor token 留内存不进 URL**；数据模式与 UI 形态正交（shape 是偏好，协议蕴含能力）。新增第四协议走 ①象限变更纪律（协议 + 能力映射 + UI 变体 + 失败路径测试一次补齐），不开 `custom` 口子。
+
+### 3.2 useResourceTable（引擎层）
+
 ```ts
 export type ListMode = 'client' | 'server-offset' | 'server-cursor' | 'load-more'
 
@@ -251,6 +331,7 @@ export interface ResourceTableResult<TData> {
    等重置类提交清空栈。load-more 同样适用深链钳制。
 5. **load-more**：累计 rows 拼接；`page` 为已加载页数；`loadMore()` 用 lastCursor。
 6. **refresh**：`query.refetch()`；轮询用 `queryOptions.refetchInterval`；新数据检测见 §9。
+7. **mode 来源（M7-A2）**：def 消费方（resource-list-view 等）一律经 `resolveListPagination(def.list)` 把协议声明映射为本层 ListMode；本 hook 自身不感知协议词表（引擎层只认四模式）。
 
 ```ts
 export function createListSearchSchema(cfg: {
@@ -551,7 +632,17 @@ export function useCrumbs(resolve?: {
 
 ```ts
 export interface ResourceFormDef { schema: StandardSchema; sections?: { title: string; description?: string; fields: string[] }[]; host?: 'page'|'sheet'|'dialog' }
-export interface ResourceShowDef { sections?: { title: string; items: { label: string; field: string; cell?: string }[] }[]; tabs?: { id: string; label: string; kind: 'sections'|'sub-resource'|'custom'; resource?: string }[] }
+export interface ResourceShowDef {
+  sections?: { title: string; items: { label: string; field: string; cell?: string }[] }[]
+  tabs?: ResourceShowTab[]
+}
+export interface ResourceShowTab {
+  id: string; label: string
+  kind: 'sections'|'sub-resource'|'custom'
+  resource?: string
+  /** kind:'custom' 登记名（M7-A2 登记制，必填其一）：block = 词表 block 名（typecheck 收窄）；sandbox = 宿主登记表键（sandbox 棘轮名）。渲染经注入表（resource-detail-view 的 customTabs）解析；render 函数出口保留为宿主逃生位但必须登记后使用（未登记 → dev throw） */
+  block?: BlockName; sandbox?: string
+}
 
 export interface ResourceDef<TData = any> {
   name: string                                 // 复数 kebab：'services'
@@ -560,7 +651,14 @@ export interface ResourceDef<TData = any> {
   client: ResourceClient<TData, any, any>
   columns: ColumnDef<TData>[]                  // 或经 inferColumns 生成
   filters?: FilterDef[]
-  list?: { mode?: ListMode; pageSize?: number; facets?: string[] }
+  list?: {
+    /** 分页协议一等契约节点（M7-A2，推荐形态；与 legacy mode 双轨兼容，见 §3.1 映射表） */
+    pagination?: { mode: 'page'|'offset'|'keyset'; shape?: 'paged'|'load-more' }
+    /** legacy（M6 形态；A3 迁移后移除）：client/server-offset/server-cursor/load-more */
+    mode?: ListMode
+    pageSize?: number                          // 页大小唯一真相（M6-C 单源）
+    facets?: string[]
+  }
   form?: ResourceFormDef
   show?: ResourceShowDef
   parent?: { resource: string; param: string } // 子资源嵌套：parent.resource='services', parent.param='serviceId'
@@ -663,8 +761,180 @@ export function createStorage<TData>(
 
 ## 16. 导出与构建
 
-- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`、`./vocab`；`./mutation` 已于 M6-E 删除）。
+- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`、`./vocab`、`./page`；`./mutation` 已于 M6-E 删除）。
 - `./vocab`（M7-A1，`src/vocab/index.ts` re-export `blocks.generated.ts` 全部导出）：封闭词表的类型与常量——`ARCHETYPES`/`Archetype`（7 页面原型）、`CELL_NAMES`/`CellName`（cells 词表，排除映射器工厂 cell-for）、`BLOCK_NAMES`/`BlockName`（全部 block，含 cell-for）、`BLOCKS_BY_ARCHETYPE` + `BlockNameFor<A extends Archetype>`（按原型收窄合法 block 名，M7-A2 `definePage<Archetype>` 消费）、`THEME_PRESET_NAMES`/`ThemePresetName`，及 `CELL_DOCS`/`BLOCK_DOCS` 描述映射。生成物由 `pnpm vocab:generate` 产出并提交进 git（registry meta/themes 为唯一事实源，形态见 paradigm.md §3.3 (2)）；运行时解析出口（name → component）随 M7-A2 在此追加。
 - 所有 hook 浏览器 API 访问收敛 effect/事件内；导出 `useMounted()` 惯例 helper。
 - 包名 `@patterns-ui/core`，scope 内后续包遵循 `@patterns-ui/*`（如 @patterns-ui/eslint-plugin）。
 - dev 消费形态：demo 的 vite dev 把 `@patterns-ui/core` alias 到 workspace 源码（干净 clone `pnpm install && pnpm dev` 即起）；build/typecheck 消费 dist（与真实宿主一致）。
+
+---
+
+## 17. page/ —— 范式运行时层（M7-A2）
+
+子路径 `@patterns-ui/core/page`（入口 `src/page/index.tsx`，含 JSX）。承担 paradigm §3.3 名字间接层的运行时半边：**配置写名字 → 类型查名字（/vocab）→ 本模块运行时解析名字并渲染**。core 自身不含任何 UI 组件——渲染器只消费宿主注入的组件表。
+
+### 17.1 按原型分组的注入子表
+
+```ts
+import type { ComponentType } from "react"
+
+/** 各原型的合法 slot 填充 block（宿主/预设 ∪ 内容 block；③ 词表实例层，M7-B1 CI 校验对齐） */
+export const PAGE_SLOT_FILLS: { readonly [A in Archetype]: readonly BlockName[] }
+/** 注入域总表（BLOCKS_BY_ARCHETYPE[A] ∪ PAGE_SLOT_FILLS[A]，具名 spread + as const） */
+export const PAGE_BLOCKS_BY_ARCHETYPE: { readonly [A in Archetype]: readonly BlockName[] }
+/**
+ * 注入域 = 宿主/预设 ∪ 内容填充。经 PAGE_BLOCKS_BY_ARCHETYPE 的**索引访问**派生
+ * （`((typeof PAGE_BLOCKS_BY_ARCHETYPE)[A])[number]`）——写错名字的报错信息展开全部
+ * 合法值（报错信息即目录；别名直写的联合只显示别名与最近候选，不满足——A1 同理用元组+派生）。
+ */
+export type PageBlockNameFor<A extends Archetype> = (typeof PAGE_BLOCKS_BY_ARCHETYPE)[A][number]
+
+/** 注入子表（完整覆盖映射：漏注入任何一个合法名 = 宿主编译错——typecheck 合法值域与注入表同域） */
+export type BlockTable<A extends Archetype = Archetype> = {
+  readonly [K in PageBlockNameFor<A>]: ComponentType<any>
+}
+```
+
+纪律（paradigm §3.3 决策记录）：**禁止全量注入表**（体积上限 = 词表全集）；宿主按原型建子表注入。`PageSlotFills` 与 `BLOCKS_BY_ARCHETYPE` 的并集是各原型的合法名域，M7-B1 的同原型 slot 结构 CI 校验消费同一张表。
+
+### 17.2 definePage —— 页面纯配置工厂
+
+`definePage<Archetype>(archetype, config)`：配置类型按 §3.2 每原型的**唯一 slot 结构**收窄（slot 值引用词表名 `PageBlockNameFor<A>`，宿主 host 也是词表名）；**禁止 JSX 与无类型闭包**（paradigm §3.4），允许类型化非闭包值（client 适配器、zod schema、枚举表、action 序列）。
+
+```ts
+export function definePage<A extends Archetype>(archetype: A, config: PageConfigFor<A>): PageConfig<A>
+export type PageConfigFor<A extends Archetype> = /* 按原型的配置联合（下表） */
+export interface PageConfig<A extends Archetype> { archetype: A; config: PageConfigFor<A> }
+```
+
+| 原型 | slot 结构（config 字段） | 关键类型 |
+|---|---|---|
+| resource-list | `host`(必填 "list-page") / `toolbar` / `filters` / `view`(必填：table·grid；kanban/calendar M8 追加) / `rowActions` / `empty` | `ResourceListPageConfig`（view = `{ name:"data-table"; variant?:"table"|"grid" }`；rowActions = 动作声明数组） |
+| resource-detail | `host`(必填 "detail-page") / `header` / `tabs`(sections·subResource·custom) / `timeline` / `comments`(M8) | `ResourceDetailPageConfig`（custom tab 走 §13 登记制） |
+| resource-form | `host`(必填 form-dialog·form-sheet·page) / `fields`(必填 "typed-form-field") / `layout`("single"·"sections") / `submit`(Action[]) | `ResourceFormPageConfig` |
+| settings | `host`(必填 "settings-page") / `sections[]`（可扩展：preset 节构件 ∪ 词表 block 挂载位） | `SettingsPageConfig`（preset = org/profile/security/sessions/appearance） |
+| overview | `host` / `statCards` / `charts` / `activity` | `OverviewPageConfig`（宿主 M8 dashboard-page 落地前 host 域仅 stat-strip） |
+| auth-flow | `host`(必填 "auth-card-layout") / `steps`(内嵌 step，如 OTP) / `form` / `success` | `AuthFlowPageConfig`（步骤 schema = zod；onDone = Action[]） |
+| wizard | `host`(必填 "stepper") / `steps[]` / `transitions` / `actions`(完成序列) | `WizardPageConfig`（转移校验可异步） |
+
+运行时校验（dev 可见，报错含合法值清单）：archetype 非法 → 列 `ARCHETYPES`；host 缺失 → 报「缺 host」；渲染期 slot 越界 → 列该原型合法 slot 清单（`SLOT_NAMES_BY_ARCHETYPE`）。
+
+```ts
+export const SLOT_NAMES_BY_ARCHETYPE: { readonly [A in Archetype]: readonly string[] }
+```
+
+### 17.3 解析出口与渲染器
+
+```ts
+/** 名字 → 组件；名字不在表 → throw（报错列出注入域全表——报错信息即目录） */
+export function resolveBlock<A extends Archetype>(table: BlockTable<A>, archetype: A, name: string): ComponentType<any>
+
+/** config + table(s) → 渲染计划（纯数据：宿主 + slots 组件 + 派生 props；失败路径同上 throw） */
+export interface PageRenderPlan {
+  archetype: Archetype
+  host: { name: BlockName; Component: ComponentType }
+  slots: { slot: string; name: BlockName; Component: ComponentType }[]
+  props: Record<string, unknown>   // 原型派生的宿主数据 props（纯数据，无 JSX/闭包）
+}
+export function planPage(page: PageConfig<Archetype>, table: BlockTable<Archetype>): PageRenderPlan
+
+/** 渲染器（编译目标，配置即源码）：Host 收 props + slots 记录 + 声明序 children */
+export function renderPage(page: PageConfig<Archetype>, table: BlockTable<Archetype>): ReactNode
+export function PageRenderer(props: { page: PageConfig<Archetype>; table: BlockTable<Archetype>; className?: string }): ReactNode
+```
+
+渲染器把解析出的 slot 组件以**声明序 children** 传给宿主，同时以 `slots: Record<slot, ComponentType>` prop 提供按位装配能力（宿主自行决定各 slot 落位——A3 迁移时各宿主 block 增设对应消费位）。`planPage` 对配置做运行时兜底：未知 slot 名 → throw 带 archetype 与合法 slot 清单；未知 block 名 → resolveBlock 的目录式报错。
+
+### 17.4 defineFlow —— 步骤流元模式（headless 状态机）
+
+flow 元模式（paradigm §1.2：步骤机/转移/步骤间数据保留）。**headless：`createFlowMachine` 可脱离渲染测试**；`useFlow` 是 useSyncExternalStore 的 React 绑定。归入 `./page` 子路径（不另开 `./flow`）：flow 是页面级元模式、definePage 的 step/transition 槽位直接消费 Action 类型，拆分子路径会让 A3 页面配置跨两个 import 面（报告已记录该取舍）。
+
+```ts
+export interface FlowStepConfig {
+  id: string
+  title?: string
+  /** 步骤进入校验（可异步）：true 前进；false/string[] 阻断（错误可见） */
+  validate?: (data: FlowData) => boolean | string[] | Promise<boolean | string[]>
+  /** 进入该步动作序列（Action 词表） */
+  onEnter?: readonly Action[]
+}
+export interface FlowTransitionConfig {
+  from?: string            // 源步骤 id；缺省 = 任意源
+  to: string               // 目标步骤 id
+  /** 转移校验（可异步）；不过不前进且错误可见 */
+  validate?: (data: FlowData) => boolean | string[] | Promise<boolean | string[]>
+  /** 转移成功后的动作序列（声明式编排） */
+  actions?: readonly Action[]
+}
+export interface FlowConfig {
+  steps: readonly FlowStepConfig[]          // id 唯一（defineFlow 校验）
+  transitions?: readonly FlowTransitionConfig[]  // 缺省：顺序 next/back
+  /** 完成动作序列（末步 next 触发；defineFlow({steps, transitions?, actions}) 的 actions 位） */
+  actions?: readonly Action[]
+  initialData?: FlowData
+}
+export type FlowData = Record<string, unknown>   // 步骤间数据保留：submitStep 合并、回退不清空
+
+export function defineFlow(cfg: FlowConfig): FlowConfig   // 纯校验工厂（id 重复/转移目标缺失 → throw）
+
+export interface FlowState {
+  stepId: string; stepIndex: number
+  data: FlowData
+  status: "idle" | "moving" | "done"
+  error: string[]           // 最近一次转移校验失败信息（可见；成功转移清空）
+}
+export interface FlowMachine {                 // headless：可脱离渲染测试
+  getState(): FlowState
+  subscribe(fn: () => void): () => void
+  submitStep(stepId: string, values: Record<string, unknown>): void  // 数据保留（合并）
+  next(): Promise<boolean>    // false = 校验未过（不前进，error 已设置）
+  back(): boolean             // 回退（数据保留）
+  goTo(stepId: string): Promise<boolean>
+  reset(data?: FlowData): void
+}
+export function createFlowMachine(cfg: FlowConfig, opts?: FlowRuntimeOptions): FlowMachine
+export function useFlow(cfg: FlowConfig, opts?: FlowRuntimeOptions): FlowMachine  // React 绑定
+```
+
+### 17.5 action 词表（封闭，只追加）
+
+形态与 /vocab 一致：`ACTION_NAMES = [...] as const` 元组 + `ActionName = (typeof ACTION_NAMES)[number]` 派生联合（写错 → typecheck 报错展开全表）+ 逐名 JSDoc + `ACTION_DOCS`。初版 10 个：
+
+```ts
+export const ACTION_NAMES = [
+  "navigate", "toast", "refresh", "invalidate", "refetch",
+  "close", "reload", "copy", "waitDialog", "loading",
+] as const
+export type ActionName = (typeof ACTION_NAMES)[number]
+
+/** 每个动作的类型化 payload（判别联合：{ name; payload }） */
+export interface ActionPayloadMap {
+  navigate: { to: string; replace?: boolean }
+  toast: { message: string; variant?: "success" | "error" | "info" | "warning" }
+  refresh: Record<string, never>
+  invalidate: { key: readonly unknown[] }     // queryKey 工厂产物（listKeyPrefix 等）
+  refetch: { key?: readonly unknown[] }
+  close: Record<string, never>
+  reload: Record<string, never>
+  copy: { value: string }
+  waitDialog: { title?: string; description?: string; minMs?: number }
+  loading: { on: boolean }
+}
+export type Action = { [K in ActionName]: { name: K; payload: ActionPayloadMap[K] } }[ActionName]
+```
+
+**语义与副作用执行器由宿主注入（core 不绑 router/toast 实现）**：
+
+```ts
+export type ActionExecutor = (action: Action, ctx: { data?: FlowData }) => void | Promise<void>
+/** 词表外动作名 → throw（运行期拒绝，报错列 ACTION_NAMES 全表；编译期由 Action 类型拒绝） */
+export async function runActions(actions: readonly Action[], execute: ActionExecutor, ctx?: { data?: FlowData }): Promise<void>
+/** 默认执行器骨架：navigate 走 TanStack Router（useActionExecutor 内经 useRouterAccess 同款 try/catch 降级）、toast 走注入回调、其余为 no-op 位（宿主经 execute 覆盖） */
+export interface FlowRuntimeOptions {
+  toast?: (payload: ActionPayloadMap["toast"]) => void
+  execute?: Partial<Record<ActionName, ActionExecutor>>
+}
+export function useActionExecutor(opts?: FlowRuntimeOptions): ActionExecutor
+```
+
+动作序列的声明位置：flow 的 `transitions[].actions` / `steps[].onEnter` / `FlowConfig.actions`（完成回调），以及 definePage 各原型的 submit/onDone/actions 槽位。

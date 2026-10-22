@@ -163,7 +163,7 @@ export const BLOCK_NAMES = [
   "refresh-bar",
   /** 相对时间：core useNow 活渲染；title 携带时区感知的绝对格式。 */
   "relative-time",
-  /** L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；sections 的 cell 类型与 inferColumns 标记共用。 */
+  /** L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；custom tab 登记制（M7-A2：tab.block 词表名 / tab.sandbox 登记名必填，渲染经 customTabs 注入表解析）；sections 的 cell 类型与 inferColumns 标记共用。 */
   "resource-detail-view",
   /** 资源类型 → 图标映射（service/deployment/audit/api-key/team/org/…），映射表可经 icons prop 注入覆盖。 */
   "resource-icon",
@@ -175,7 +175,7 @@ export const BLOCK_NAMES = [
   "secret-reveal",
   /** 批量操作条：已选 N + 动作组（confirm 动作就地两段式确认，3s 未确认复原）+ 清除选择。 */
   "selection-bar",
-  /** SaaS 模板页四节：组织（name/avatar inline-edit）、个人（display name/email/时区表单）、安全（改密码 SecretWidget + 会话占位登出全部）、外观（theme+preset，core theme 偏好直连）。 */
+  /** sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,icon?,content}——content 为预置节构件（org/profile/security/sessions/appearance）或扩展挂载位（计费/集成等）；sections 缺省 = 内置节（组织 name/avatar inline-edit、个人表单、安全改密码、会话登出全部、外观 theme+preset）保持旧行为。 */
   "settings-page",
   /** 租户侧栏（基座 + variant）：floating 悬浮 / icon 图标列折叠 / inset 卡面 offcanvas（默认）；header 默认 TenantSwitcher、footer 默认 NavUser（可用 tenantSlot/footerSlot 覆盖）。 */
   "side-nav",
@@ -304,7 +304,7 @@ export const BLOCK_DOCS: Record<BlockName, string> = {
     "刷新条：手动刷新 + 最后更新时间（relative-time 活渲染）+ 自动刷新档位开关（值由页面注入 queryOptions.refetchInterval）。",
   "relative-time": "相对时间：core useNow 活渲染；title 携带时区感知的绝对格式。",
   "resource-detail-view":
-    "L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；sections 的 cell 类型与 inferColumns 标记共用。",
+    "L4 视图工厂（详情）：defineResource def + id → DetailPage 装配（hero + sections/sub-resource/custom tabs 深链 + 状态 map）；custom tab 登记制（M7-A2：tab.block 词表名 / tab.sandbox 登记名必填，渲染经 customTabs 注入表解析）；sections 的 cell 类型与 inferColumns 标记共用。",
   "resource-icon":
     "资源类型 → 图标映射（service/deployment/audit/api-key/team/org/…），映射表可经 icons prop 注入覆盖。",
   "resource-list-view":
@@ -315,7 +315,7 @@ export const BLOCK_DOCS: Record<BlockName, string> = {
   "selection-bar":
     "批量操作条：已选 N + 动作组（confirm 动作就地两段式确认，3s 未确认复原）+ 清除选择。",
   "settings-page":
-    "SaaS 模板页四节：组织（name/avatar inline-edit）、个人（display name/email/时区表单）、安全（改密码 SecretWidget + 会话占位登出全部）、外观（theme+preset，core theme 偏好直连）。",
+    "sections[] 驱动的设置壳（M7-A2 节化）：每节 {id,label,icon?,content}——content 为预置节构件（org/profile/security/sessions/appearance）或扩展挂载位（计费/集成等）；sections 缺省 = 内置节（组织 name/avatar inline-edit、个人表单、安全改密码、会话登出全部、外观 theme+preset）保持旧行为。",
   "side-nav":
     "租户侧栏（基座 + variant）：floating 悬浮 / icon 图标列折叠 / inset 卡面 offcanvas（默认）；header 默认 TenantSwitcher、footer 默认 NavUser（可用 tenantSlot/footerSlot 覆盖）。",
   "sign-in-page":

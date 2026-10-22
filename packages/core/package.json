@@ -182,6 +182,16 @@
         "types": "./dist/vocab/index.d.cts",
         "default": "./dist/vocab/index.cjs"
       }
+    },
+    "./page": {
+      "import": {
+        "types": "./dist/page/index.d.ts",
+        "default": "./dist/page/index.js"
+      },
+      "require": {
+        "types": "./dist/page/index.d.cts",
+        "default": "./dist/page/index.cjs"
+      }
     }
   },
   "files": [
