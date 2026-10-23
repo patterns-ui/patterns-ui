@@ -34,6 +34,8 @@ interface Harness {
   rows: AuditRow[];
   /** 模拟游标失效：cursor 命中失败时从第 1 页重发（服务端重启/窗口清理后的常见容错） */
   cursorInvalid: boolean;
+  /** 设置后：带 cursor 的请求扣住不放，直到该 promise resolve（模拟慢响应下的快速连点） */
+  holdCursorRequests?: Promise<void>;
 }
 
 function makeHarness(initialRows = seed(45)): Harness {
@@ -44,6 +46,9 @@ function makeResource(harness: Harness) {
   const client: ResourceClient<AuditRow, Partial<AuditRow>, Partial<AuditRow>> = {
     list: async (params) => {
       harness.listCalls.push(params);
+      if (harness.holdCursorRequests && params.cursor !== undefined) {
+        await harness.holdCursorRequests;
+      }
       const pageSize = params.pageSize;
       let start = 0;
       if (params.cursor !== undefined) {
@@ -145,7 +150,9 @@ describe("useAuditTrail", () => {
     await waitFor(() => expect(result.current.list.state.page).toBe(2));
     const page2Cursor = harness.listCalls.at(-1)?.cursor;
     expect(page2Cursor).toBe("evt-026"); // 第 1 页末行 id（createdAt desc 种子）
-    expect(result.current.list.cursorStack).toContain("evt-026");
+
+    // keyset 顺序语义：第 2 页 nextCursor 落栈是前进第 3 页的前置（连点守卫单测见下条）
+    await waitFor(() => expect(result.current.list.cursorStack).toEqual(["evt-026", "evt-006"]));
 
     // 前进第 3 页后回退：cursor 栈只追加不弹（append-only），第 2 页请求被缓存命中
     await act(async () => result.current.list.nextPage());
@@ -158,6 +165,28 @@ describe("useAuditTrail", () => {
     await waitFor(() => expect(result.current.list.state.page).toBe(2));
     expect(harness.listCalls.length).toBe(callsAtPage3); // 后退零新请求
     expect(result.current.list.cursorStack).toEqual(["evt-026", "evt-006"]); // 未弹栈
+  });
+
+  it("keyset 顺序守卫：第 2 页 cursor 未落栈时连点 next 被拒绝——不发无 cursor 请求、页面不空跳", async () => {
+    const harness = makeHarness();
+    let release!: () => void;
+    harness.holdCursorRequests = new Promise<void>((r) => (release = r));
+    const { result } = renderTrail({ shape: "paged" }, harness);
+    await waitFor(() => expect(result.current.list.query.data?.rows.length).toBe(20));
+
+    await act(async () => result.current.list.nextPage());
+    await waitFor(() => expect(harness.listCalls.at(-1)?.cursor).toBe("evt-026")); // 第 2 页请求已发出但仍被扣住
+
+    // 栈长 1：目标第 3 页 > 栈长+1 → 守卫拒绝（修复前：发出缺 cursor 请求拿回第 1 页数据当第 3 页渲染）
+    await act(async () => result.current.list.nextPage());
+    expect(result.current.list.state.page).toBe(2);
+    expect(harness.listCalls.length).toBe(2);
+
+    release(); // 放行第 2 页 → 游标落栈后守卫放行
+    await waitFor(() => expect(result.current.list.cursorStack).toEqual(["evt-026", "evt-006"]));
+    await act(async () => result.current.list.nextPage());
+    await waitFor(() => expect(result.current.list.state.page).toBe(3));
+    expect(harness.listCalls.at(-1)?.cursor).toBe("evt-006");
   });
 
   it("断页：末页 nextCursor 缺失 → hasNextPage=false（load-more 档恒可累计）", async () => {

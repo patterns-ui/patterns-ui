@@ -281,6 +281,10 @@ function useRouterAccess(enabled: boolean): RouterAccess {
 
 export type ListMode = "client" | "server-offset" | "server-cursor" | "load-more";
 
+/** keyset 家族（游标链推进，前进依赖上一页 nextCursor 落栈）；client/server-offset 可自由跳页 */
+const isCursorMode = (mode: ListMode): mode is "server-cursor" | "load-more" =>
+  mode === "server-cursor" || mode === "load-more";
+
 // ---------------------------------------------------------------------------
 // 分页协议契约节点（def 一等节点，M7-A2，docs/core-api.md §3.1）
 // ---------------------------------------------------------------------------
@@ -560,6 +564,9 @@ export function useResourceTable<TData extends RowData>(
   /** 会引起回第 1 页的提交同时清空 cursor 栈 / load-more 累计 */
   const [cursorStack, setCursorStack] = useState<string[]>([]);
   const [loadedPages, setLoadedPages] = useState<TData[][]>([]);
+  // 栈的非破坏性读口：next/loadMore 守卫在回调里同步读，不能依赖渲染调度的新鲜度
+  const cursorStackRef = useRef(cursorStack);
+  cursorStackRef.current = cursorStack;
 
   const filterParamKeys = useMemo(() => ["f", ...defs.map((d) => d.field)], [defs]);
 
@@ -635,8 +642,10 @@ export function useResourceTable<TData extends RowData>(
     commitWithReset({ q: "", tree: undefined, sort: [] });
   }, [commitWithReset]);
   const loadMore = useCallback(() => {
-    commit({ page: stateRef.current.page + 1 });
-  }, [commit]);
+    const target = stateRef.current.page + 1;
+    if (isCursorMode(mode) && target > cursorStackRef.current.length + 1) return;
+    commit({ page: target });
+  }, [mode, commit]);
 
   // -------------------------------------------------------------------------
   // 数据取数（四模式参数构造）
@@ -849,13 +858,16 @@ export function useResourceTable<TData extends RowData>(
   }, [mode, clientTotal, query.data?.total, loadedPages]);
 
   const nextPage = useCallback(() => {
+    const target = stateRef.current.page + 1;
+    // keyset 顺序守卫：第 N+1 页 cursor 未落栈（栈长 < N-1）时不前进——否则请求缺 cursor
+    // 拿回第 1 页数据被当第 N+1 页渲染，且晚到的第 N 页游标因页面已先跳而被追加条件永久丢弃
+    if (isCursorMode(mode) && target > cursorStackRef.current.length + 1) return;
     const maxPage =
       totalRows !== undefined
         ? Math.max(1, Math.ceil(totalRows / stateRef.current.size))
         : undefined;
-    const target = stateRef.current.page + 1;
     if (maxPage === undefined || target <= maxPage) setPage(target);
-  }, [totalRows, setPage]);
+  }, [mode, totalRows, setPage]);
   const prevPage = useCallback(() => setPage(Math.max(1, stateRef.current.page - 1)), [setPage]);
 
   return {
