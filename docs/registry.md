@@ -2,7 +2,7 @@
 
 ## 1. 源与产物
 
-- **源**：`registry/blocks/<category>/<name>/`（tsx 源码 + `<name>.meta.json`）与 `registry/themes/<preset>.json`。
+- **源**：`registry/blocks/<category>/<name>/`（tsx 源码 + `<name>.meta.json`）、`registry/themes/<preset>.json` 与 `registry/skills/skills.json`（M7-D skills 通道一 item 定义——SKILL.md 源 = `.zcode/skills/` 单源，渲染脚本 = `registry/skills/render-skills.mjs`，仓内不复制第二份源）。
 - **产物**（`pnpm registry:build`，脚本 `registry/scripts/build.ts`）：
   - `registry/dist/r/<name>.json` —— 单个 registry-item JSON（shadcn registry-item schema）
   - `registry.json`（仓库根）—— 索引：`{ "$schema": ..., "name": "@patterns-ui", "homepage": ..., "items": [...] }`，**提交进仓库**（GitHub repo-as-registry 入口）
@@ -77,6 +77,9 @@
   npx shadcn add patterns-ui/patterns-ui/data-table
   ```
   版本 pin：`npx shadcn add patterns-ui/patterns-ui/data-table@0.3.0`（registryDependencies 内自引用 `name@semver`）。
+- **skills 双通道（M7-D，paradigm §4.3；用法全文见 README「AI / skills」节）**：
+  - **通道一 `skills` item（`registry:file`，按项目渲染）**：`npx shadcn add patterns-ui/patterns-ui/skills` → 三份 SKILL.md（源 `.zcode/skills/` 单源）+ 内嵌渲染脚本落 `<project>/.patterns-ui/skills/`（target `~/` 前缀 = **项目根**，官方 registry 文档 "Use ~ to refer to the root of the project"）→ 消费端手动 `node .patterns-ui/skills/render-skills.mjs` 按项目形态渲染到 `.claude/.zcode/.agents` 三宿主 skills 目录（`--host` 选宿主、`--pages-dir`/`--pm` 微调正文——「按消费项目生成变体」的最小自实现）。item 无 registryDependencies/dependencies（引用自家一律完整 URL 的禁裸名约束 vacuous 满足）；add + 渲染链路进 CI 冒烟（`pnpm registry:smoke`）。
+  - **通道二 skills.sh 静态源（生态主渠道）**：`npx skills add patterns-ui/patterns-ui`——skills CLI 标准扫描目录已含 `.claude/skills/` 与 `.agents/skills/`，仓内三目录单一源结构原生兼容，无需额外布局；静态源不随项目形态调整，需要变体走通道一。
 - **副通道**：`dist/` 静态 JSON 可挂任意静态托管（将来需要时）。
 
 ## 5. 升级策略（文档化到 README「升级」一节）
@@ -118,6 +121,8 @@
 | `registry-frozen` | 见 §7.1 | — |
 
 **运行命令**（CI / root script `lint:eslint` 接此）：`pnpm --filter @patterns-ui/eslint-plugin lint:eslint`。
+
+**发布状态（M7-D，定案 4）**：插件 `private: true`、仅本仓 CI 使用，**暂不 npm 发布**——推迟至有真实外部消费者反馈后（B1 的「规则不依赖仓内路径」约束即为届时发布预置）。
 
 ### 7.3 archetype slot 一致性校验
 

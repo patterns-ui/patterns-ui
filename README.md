@@ -122,7 +122,7 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit")({
 
 详情路由同样两行（`resourceDetailRouteOptions`：staticData + loader 走 createResource 同款 queryKey 预取），导航由 `navFromResources(defs, user)` 派生。实测与手写版功能等价、代码量约 1/3（见下方对比表）。
 
-## Block 目录（73 blocks + 2 主题 preset = 75 items）
+## Block 目录（73 blocks + 2 主题 preset + 1 skills item = 76 items）
 
 安装：`pnpm dlx shadcn@latest add @patterns-ui/<name>`。规格见 [docs/blocks.md](docs/blocks.md)。
 
@@ -138,6 +138,29 @@ export const Route = createFileRoute("/_shell/t/$tenantId/audit")({
 | shared（12）         | async-state · empty-state · error-state · error-pages（ErrorPage 单模板 + RouteErrorBoundary）· page-header · skeleton · status-badge · relative-time · copy-button · user-avatar · resource-icon · stat-strip                                                   |
 | team / settings（2） | team-page · settings-page（组织/个人/安全/外观四节）                                                                                                                                                                                                             |
 | 主题（2）            | default · aurora（`[data-preset]` 皮肤，theme item 分发）                                                                                                                                                                                                        |
+| skills（1）          | skills（三份 agent skill + 渲染脚本，`registry:file` item——见下「AI / skills」）                                                                                                                                                                                 |
+
+## AI / skills（双通道）
+
+三份 agent skill 与本仓库范式配套（正文 M7-C3、分发 M7-D，paradigm §4.2/§4.3）：
+- **ui-page**：建/改页面总入口（分类 → 抄 patterns 精选组合 → 写配置 0 JSX → typecheck / ui:check 自检 → 三态截图交付）。
+- **ui-block**：词表真缺组件的唯一合法路径（查重 → sandbox 落位+水印 → proposed 登记 → freeze 豁免 → 晋升）。
+- **ui-theme**：品牌定制唯一入口（preset 选择；只改 theme token，逐组件调色是反模式）。
+
+消费端分发走**双通道**：
+- **通道一 —— registry item（按项目渲染）**：
+
+  ```bash
+  npx shadcn add patterns-ui/patterns-ui/skills
+  node .patterns-ui/skills/render-skills.mjs                 # 渲染到 .claude/.zcode/.agents 三宿主 skills 目录
+  node .patterns-ui/skills/render-skills.mjs --host claude   # 只渲染所选宿主（zcode / agents 同理）
+  ```
+
+  `shadcn add` 把三份 SKILL.md + 渲染脚本落在 `.patterns-ui/skills/`（`~` target = 项目根），渲染脚本按项目形态微调正文（pages 目录前缀 `--pages-dir`、包管理器 `--pm` 按 lockfile 探测并改写命令、剥离仓内同步尾注、附消费端词表事实源提示）——「按消费项目生成变体」的最小自实现。
+- **通道二 —— skills.sh 静态源（生态主渠道）**：`npx skills add patterns-ui/patterns-ui`（[skills.sh](https://skills.sh)，Vercel 开源 CLI）。skills CLI 的标准扫描目录包含 `.claude/skills/` 与 `.agents/skills/`——本仓库三宿主目录单一源结构**原生兼容，无需额外布局**（容器目录三层深扫描，`<skill>/SKILL.md` 即条目）。静态源分发的是仓内原版（正文引用 patterns-ui 仓内路径），需要项目内适配时走通道一；仓库私有时按 skills CLI 的私有源约定安装（需本机 GitHub 认证）。
+
+仓内事实源 = `.zcode/skills/`（`ui-page` / `ui-block` / `ui-theme` 三 SKILL.md；`.claude/skills/`、`.agents/skills/` 为逐字节一致副本，CI `diff -r` 校验同步）。
+
 
 ## 升级策略
 
@@ -191,10 +214,11 @@ PLAYWRIGHT_HOST_PLATFORM_OVERRIDE=ubuntu24.04-x64 pnpm --filter demo exec playwr
 ## 开发（本仓库）
 
 ```
-packages/core/    # @patterns-ui/core —— 纯逻辑 npm 包（hooks、数据约定、类型）
-registry/         # UI blocks 源码（copy-paste 层事实源）+ 构建脚本
-apps/demo/        # 开发场 / 活文档 / 新项目参考实现（Vite + TanStack Router + mock API）
-docs/             # 规格文档（架构、core API、blocks、registry、里程碑验收）
+packages/core/            # @patterns-ui/core —— 纯逻辑 npm 包（hooks、数据约定、类型）
+packages/eslint-plugin/   # @patterns-ui/eslint-plugin —— 范式 lint（private，仅本仓 CI；npm 发布推迟至有真实外部消费者，M7-D 定案 4）
+registry/                 # UI blocks 源码（copy-paste 层事实源）+ 构建脚本 + skills 通道一 item（registry/skills/）
+apps/demo/                # 开发场 / 活文档 / 新项目参考实现（Vite + TanStack Router + mock API）
+docs/                     # 规格文档（架构、core API、blocks、registry、里程碑验收）
 ```
 
 ### 里程碑状态

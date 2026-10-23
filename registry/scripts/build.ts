@@ -15,7 +15,9 @@
  *     meta.pattern（可选，M7-C2）—— blocks ⊆ 全部 block 名且含组装入口自身、
  *     metaPatterns ∈ 元模式封闭词表、contractCard 文件存在且含 contractVersion 行。
  *  5. 输出 registry/dist/r/<name>.json（shadcn registry-item schema）与仓库根 registry.json
- *     （GitHub repo-as-registry 索引，items 内联，提交进仓库）。
+ *     （GitHub repo-as-registry 索引，items 内联，提交进仓库）。另产两类非 block item：
+ *     theme（registry:theme，自含 css）与 skills 通道一 item（registry:file，M7-D——三份
+ *     SKILL.md（.zcode/skills 单源）+ 渲染脚本，~ target staging 到 .patterns-ui/skills/）。
  *
  * 运行：pnpm registry:build（tsx）。validate 由 `pnpm dlx shadcn@latest registry validate` 单独执行（CI 亦跑）。
  *
@@ -31,6 +33,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const BLOCKS_DIR = join(ROOT, "registry", "blocks");
 const THEMES_DIR = join(ROOT, "registry", "themes");
+const SKILLS_DEF_DIR = join(ROOT, "registry", "skills");
 const DIST_DIR = join(ROOT, "registry", "dist", "r");
 const CORE_PACKAGE_JSON = join(ROOT, "packages", "core", "package.json");
 
@@ -147,6 +150,20 @@ interface ThemeDef {
   cssVars: { light: Record<string, string>; dark: Record<string, string> };
 }
 
+/** registry/skills/skills.json 的源格式（M7-D 通道一，docs/registry.md §4） */
+interface SkillsDef {
+  name: string;
+  type: string;
+  title?: string;
+  description?: string;
+  /** 消费端 staging 目录（~ 前缀 = 项目根，shadcn target 语义） */
+  stagingTarget: string;
+  /** 三份 SKILL.md 的仓内单源（.zcode/skills/<name>/SKILL.md——build 读取打包，仓内不复制第二份源） */
+  skills: { name: string; source: string }[];
+  /** 内嵌渲染脚本（staging 落盘后按项目形态渲染到宿主 skills 目录） */
+  renderScript: string;
+}
+
 /**
  * 主题 preset → CSS：`:root[data-preset]` / `:root[data-preset][data-theme="dark"]`。
  * 用 :root 前缀抬升优先级，保证压过宿主 styles.css 里的 `:root` 与 `[data-theme="dark"]`
@@ -233,6 +250,89 @@ function buildThemeItems(): RegistryItem[] {
     console.log(`  theme ${theme.name} → dist/r/theme-${theme.name}.json (+ ${theme.name}.css)`);
   }
   return items;
+}
+
+/**
+ * skills 通道一 item（M7-D，paradigm §4.3）：type `registry:file`，files 携带三份 SKILL.md
+ * （源 = .zcode/skills/ 单源，build 读取内联——仓内不复制第二份源）+ 内嵌渲染脚本
+ * （registry/skills/render-skills.mjs 单源）。target 全部 `~/` 前缀（= 消费端项目根，shadcn
+ * registry target 语义，官方 docs "Use ~ to refer to the root of the project"）：staging 落
+ * `<project>/.patterns-ui/skills/`，消费端手动运行渲染脚本分发到 .claude/.zcode/.agents 三宿主
+ * 目录并按项目形态微调——「按消费项目生成变体」的最小自实现（通道二 skills.sh 是静态源，见
+ * README「AI / skills」节）。item 无依赖（registryDependencies 为空——**禁裸名**约束 vacuous 满足：
+ * 引用自家一律完整 URL，此处无引用）。
+ */
+function buildSkillsItem(): RegistryItem[] {
+  const defPath = join(SKILLS_DEF_DIR, "skills.json");
+  if (!existsSync(defPath)) {
+    return [];
+  }
+  const def = JSON.parse(readFileSync(defPath, "utf8")) as SkillsDef;
+  if (!def.name || !def.type || !def.stagingTarget || !def.renderScript) {
+    fail(`${relative(ROOT, defPath)}: name/type/stagingTarget/renderScript are required`);
+  }
+  if (def.type !== "registry:file" && def.type !== "registry:item") {
+    fail(
+      `${relative(ROOT, defPath)}: type must be "registry:file" (channel-1 skills) or "registry:item" — ` +
+        "自定义 type 值会被 shadcn registry validate 拒（docs/registry.md §2）",
+    );
+  }
+  if (!Array.isArray(def.skills) || def.skills.length === 0) {
+    fail(`${relative(ROOT, defPath)}: skills 须为非空数组`);
+  }
+  const seen = new Set<string>();
+  const files: RegistryFile[] = [];
+  for (const skill of def.skills) {
+    if (!skill?.name || !skill?.source) {
+      fail(`${relative(ROOT, defPath)}: skills[] 每项须含 name 与 source`);
+    }
+    if (seen.has(skill.name)) {
+      fail(`${relative(ROOT, defPath)}: skills[] 重名 "${skill.name}"`);
+    }
+    seen.add(skill.name);
+    const sourcePath = resolve(ROOT, skill.source);
+    if (
+      !sourcePath.startsWith(ROOT) ||
+      !existsSync(sourcePath) ||
+      !sourcePath.endsWith("SKILL.md")
+    ) {
+      fail(
+        `${relative(ROOT, defPath)}: skills[].source "${skill.source}" 不存在（须为仓内 SKILL.md，` +
+          "单源 = .zcode/skills/<name>/SKILL.md）",
+      );
+    }
+    files.push({
+      path: relative(ROOT, sourcePath),
+      type: "registry:file",
+      target: `${def.stagingTarget}/${skill.name}/SKILL.md`,
+      content: readFileSync(sourcePath, "utf8"),
+    });
+  }
+  const scriptPath = resolve(ROOT, def.renderScript);
+  if (!scriptPath.startsWith(ROOT) || !existsSync(scriptPath)) {
+    fail(`${relative(ROOT, defPath)}: renderScript "${def.renderScript}" 不存在`);
+  }
+  files.push({
+    path: relative(ROOT, scriptPath),
+    type: "registry:file",
+    target: `${def.stagingTarget}/${basename(scriptPath)}`,
+    content: readFileSync(scriptPath, "utf8"),
+  });
+  console.log(
+    `  skills ${def.name} → dist/r/${def.name}.json (${files.length} files: ${def.skills.length} SKILL.md + render script, staging ${def.stagingTarget})`,
+  );
+  return [
+    {
+      $schema: "https://ui.shadcn.com/schema/registry-item.json",
+      name: def.name,
+      type: def.type,
+      ...(def.title ? { title: def.title } : {}),
+      ...(def.description ? { description: def.description } : {}),
+      files,
+      dependencies: [],
+      registryDependencies: [],
+    },
+  ];
 }
 
 /** 收集 block 源码里的静态 import / export-from / 动态 import 说明符 */
@@ -567,8 +667,8 @@ async function main(): Promise<void> {
     visit(node, []);
   }
 
-  // 输出（blocks + themes）
-  const items = [...blockItems, ...buildThemeItems()];
+  // 输出（blocks + themes + skills 通道一 item）
+  const items = [...blockItems, ...buildThemeItems(), ...buildSkillsItem()];
   rmSync(join(ROOT, "registry", "dist"), { recursive: true, force: true });
   mkdirSync(DIST_DIR, { recursive: true });
   for (const item of items) {

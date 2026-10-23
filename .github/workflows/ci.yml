@@ -107,8 +107,10 @@ jobs:
   # 消费端冒烟：tmp vite+react19+ts 工程里 shadcn add 我们的 theme + status-badge → vite build → headless 令牌断言。
   # M7-C2 起 smoke 内含 pattern item 的 `shadcn add --dry-run` 冒烟（audit-log 组装入口经 overlay
   # server 解析整棵依赖树；剥离坑与 overlay 语义见 scripts/registry-consumer-smoke.mjs 头注与 registry.md §2）。
+  # M7-D 起再含两段：skills 通道一 item 真实 add（~ target staging 落盘 + 内嵌渲染脚本三宿主渲染断言，
+  # registry.md §4）与消费端 typecheck 防线（core pack → file: 装包 → 词表外名字 tsc 报错列全表 → 复绿）。
   registry-consumer:
-    name: registry consumer smoke (shadcn add + pattern dry-run + build)
+    name: registry consumer smoke (shadcn add + pattern dry-run + skills channel + typecheck defense + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -126,10 +128,11 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # 冒烟脚本消费 registry/dist（静态 JSON 由本地 http server 托管给 shadcn add / dry-run）
+      # 与 packages/core dist（typecheck 防线段 pnpm pack 打包已构建产物）
       - name: Build (core + registry)
         run: pnpm build
 
-      - name: Consumer smoke (tmp vite app + shadcn add + pattern dry-run + build + assert)
+      - name: Consumer smoke (add + pattern dry-run + skills render + typecheck defense + build + assert)
         run: pnpm registry:smoke
 
   # M6-E：e2e 随 PR/push 跑（去掉 workflow_dispatch 门；顶层触发器保留可手动重跑）

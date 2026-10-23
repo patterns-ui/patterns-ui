@@ -1,0 +1,13 @@
+{
+  "name": "skills",
+  "type": "registry:file",
+  "title": "Agent Skills (ui-page / ui-block / ui-theme)",
+  "description": "三份 agent skill（ui-page 建/改页面总入口、ui-block 词表真缺组件的 sandbox 棘轮、ui-theme 品牌定制唯一入口）+ 内嵌渲染脚本。源 = 仓内 .zcode/skills/ 单源（三宿主目录逐字节一致，CI diff 校验）。add 后文件落在 ~/.patterns-ui/skills/（~ = 项目根，shadcn registry target 语义），随后运行 `node .patterns-ui/skills/render-skills.mjs` 按项目形态渲染到 .claude/skills/、.zcode/skills/、.agents/skills/（--host 选宿主；按 pages 目录 / 包管理器微调正文——按消费项目生成变体的最小自实现）。",
+  "stagingTarget": "~/.patterns-ui/skills",
+  "skills": [
+    { "name": "ui-page", "source": ".zcode/skills/ui-page/SKILL.md" },
+    { "name": "ui-block", "source": ".zcode/skills/ui-block/SKILL.md" },
+    { "name": "ui-theme", "source": ".zcode/skills/ui-theme/SKILL.md" }
+  ],
+  "renderScript": "registry/skills/render-skills.mjs"
+}

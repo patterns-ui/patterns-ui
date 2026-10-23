@@ -217,7 +217,37 @@
 
 ## M7 —— 范式落地（进行中；任务明细与判据见 docs/paradigm.md §6）
 
-A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugin 四规则/三态截图基线/一致性分数棘轮/核对器与编排）与 C1–C2（文档生成器/模式一级概念）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。已落小节：B4、C1、C2（见下）。
+A1–D 全部 10 个任务已落地（root scripts 与 CI 已接线），小节按落地序回写如下。M7-D（2026-10-23）为收官件；§6 验收清单勾选判定见 paradigm.md（主会话收口）。
+
+### M7-A1 词表生成器与类型层（2026-10-23 落地）
+
+- `pnpm vocab:generate`（registry/scripts/generate-blocks.ts）：读全部 block meta + themes 产 `packages/core/src/vocab/blocks.generated.ts`（**提交进 git**）——ARCHETYPES/Archetype（7 原型）、CELL_NAMES/CellName（排除映射器 cell-for）、BLOCK_NAMES/BlockName、BLOCKS_BY_ARCHETYPE + BlockNameFor<A>（原型收窄）、THEME_PRESET_NAMES 及 CELL_DOCS/BLOCK_DOCS（= meta description）。形态定案：`as const` 元组 + `(typeof X)[number]` 派生联合——报错信息展开全部合法值（报错即目录；别名直写只显示最近候选 TS2820 不满足验收）；确定性 = 码位排序 + biome canonicalize，连跑零 diff。registry meta 增可选 `archetype`（7 合法值，构建校验失败即红 + 透传 item 顶层；13 个原型宿主/预设赋值，overview 待 M8 dashboard-page）；core 出口增 `./vocab` 子路径；根 build 先 vocab 再 core；CI freshness 步纳词表生成物。
+- 验收：写 `cell-statuz` 报错列出全部 9 个合法 cell 名（TS2820 展开全表）；core 单测 blocks.test.ts（单源 fs 实扫、DOCS 一致、@ts-expect-error 编译期封闭、生成器新鲜度）随 187+13 全绿；vocab:generate 与 registry:build 幂等。
+
+### M7-A2 范式运行时层（2026-10-23 落地）
+
+- core/page 新子路径：按原型分组注入子表（BlockTable<A> 完整覆盖 Record，漏注入即编译错）+ PageBlockNameFor<A> + `definePage<Archetype>`（七原型 slot 结构收窄，禁 JSX/无类型闭包）+ resolveBlock/planPage/PageRenderer（名字缺失报错列注入域全表、slot 越界列该原型合法 slot 清单）。`defineFlow` headless 状态机（步骤机/转移/步骤间数据保留）+ **action 词表初版 10 个**（navigate/toast/refresh/invalidate/refetch/close/reload/copy/waitDialog/loading，封闭只追加，编译期+运行期双拒绝）。detail `kind:"custom"` 登记制（未登记 throw 列登记域）；settings-page 节化 sections[]（preset|node，内置四节转预置构件，输出与旧版逐卡一致）；分页协议升格 def 一等契约节点（page/offset/keyset 封闭词表；offset 类型层合法、引擎显式未实现 throw + 失败路径单测；legacy mode 双轨兼容冲突 throw；paginationCapabilitiesOf 能力派生）；parseError 单源（problem+json / {code,message} / 裸状态码 / 字段错误数组，422 必回填 fieldErrors）替换 form/team-page/error-state 三处自解析。docs：core-api.md §3 拆 §3.1 契约节点 + §3.2 引擎层、新 §17。
+- 验收：237+13 单测全绿（失败路径全含「报错即目录」断言）；typecheck/lint 绿；e2e dev 7 + preview 2 绿；词表封闭演示 action 全 10 名 / resource-list 全 11 名展开；registry/vocab 产物幂等。
+
+### M7-A3 demo 页面迁移（2026-10-23 落地）
+
+- 18 页三批配置化（v4 修订实数：25 路由 = 18 配置化 + 7 豁免）：批 1 资源 8 页（services×4 / audit / api-keys / regions / deployments）走 defineResourceListPage / defineResourceDetailPage 工厂（headerActions/toolbar/rowActions 声明化 + 类型化 ctx、table 受控/聚合、mutations 档位、dialogs 登记表、inlineSave；services 全交互等价重建——分组/批量/导出/快捷键/undoable）；批 2 模式 6 页（settings/team/notifications/search/onboarding/index）definePage 配置化（PAGE_SLOT_FILLS 扩 team-page/notification-inbox/global-search-page，auth-flow 增 footer 槽）；批 3 auth 4 页 definePage("auth-flow")。豁免 7 文件头注释（403 / __root / _shell×2 / t.$tenantId / preview / dev.audit-legacy）。净 -891 行。
+- 验收：`grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空；`ls apps/demo/src/pages/*.page.ts | wc -l` = 18；e2e 行为等价（dev 7 + preview 2 绿）；vocab 零 diff。遗留（M8 范围非 A3 债务）：api-keys/regions/deployments 渲染出口仍为 demo 视图组件、overview 摘要区待 dashboard-page、defineFlow 首次真实页面消费在 M8。
+
+### M7-B1 范式 lint 插件（2026-10-23 落地）
+
+- packages/eslint-plugin（flat config preset，**规则零仓内路径**——M7-D 发布预置）：no-jsx-in-pages（pages 域禁 JSX，豁免 = 文件头 `// sandbox:` 登记）、no-raw-primitives（裸 table 全家 + dialog，报错逐原语给替代 block）、no-hex-arbitrary-tailwind（hex 与 arbitrary 值；--fix 仅 4px 栅格确定性等价 `p-[8px]`→`p-2`）、registry-frozen（registry/.freeze.json 快照：路径/name/targetDir 三不变内容可变；结构归属判定，半改名漏报已修）。check-archetype-slots 三方一致校验（meta.archetype ↔ BLOCKS_BY_ARCHETYPE ↔ PAGE_SLOT_FILLS + 词表新鲜度，失败列全表）。eslint.config.mjs 仅辖 pages+registry 域，biome 全仓其余职责不变；文档 registry.md §7。
+- 验收：RuleTester 35 用例；故意写 `<table>` 与 `#ff0000` lint 拦截且 `--fix` 可用；`pnpm lint:eslint` / `pnpm slots:check` 进 CI 绿。**发布状态（定案 4）**：`private: true` 仅本仓 CI 使用，npm 发布推迟至有真实外部消费者反馈。
+
+### M7-B2 三态截图基线与 chaos（2026-10-23 落地）
+
+- chaos 统一：`?demo-error=` 派发器进 mock 入口（500 全局 / `<resource>:<code>` 定向 / 会话端点豁免防打死），9/9 路由组生效；旧 services/audit header gate 迁移删除（兼容超集）。三态基线 13 张（services 列表/详情 + settings + auth sign-in 的 loading/empty/error）入库 `apps/demo/e2e/screenshots/baseline/`，`toHaveScreenshot(maxDiffPixelRatio: 0.02)`，独立 playwright.config.shots.ts。确定性三件套：page.clock.setFixedTime(EPOCH) 冻结时钟 + `/api/__e2e/reset` 每测重置（本仓首个 mock 重置机制）+ reducedMotion 禁动画；workers=1、locale/timezone/viewport 钉死；.gitignore `screenshots/` 锚定根目录。
+- 验收：`pnpm ui:shots --check` 13 张 CI 绿（diff 图随 artifact 上传）；dev e2e 7 + preview 2 保持绿。
+
+### M7-B3 一致性分数棘轮（2026-10-23 落地）
+
+- scripts/consistency-score.mjs（零依赖）七项可枚举计数（§2.3 债务清单机械化子集，**非平均值**，新增页面不稀释）：手拼 queryKey / 裸 localStorage / 手写计时器 / pages JSX / 豁免外手工 block import / sandbox 数 = 反向只许降；词表覆盖页面比例 = 正向只许升。scores.json 基线入库（v1 口径，确定性生成）；`--check` 恶化 exit 1、改善提示重生成不自动写。基线：queryKey×5（demo ad-hoc）、localStorage×5（token 凭证语义 + theme 防闪，从严计入保持可见）、计时器×2、词表覆盖 13/18。
+- 验收：`pnpm ui:score --check` CI 绿；首份 scores.json 基线入库。
 
 ### M7-B4 核对器与编排（2026-10-23 落地）
 
@@ -288,3 +318,20 @@ A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugi
 - **docs/agent-acceptance.md**：梯度任务模板 L1 只读列表 / L2 全 CRUD（422+409+bulk 链路要求）/ L3 模式与品牌三选一；判定清单自动层四项（eslint 全规则 / check:names 三方核对 / sandbox 零新增 / 三态截图）+ 人工层只判配置可读性（paradigm §6-C3 两层口径逐条对齐）。
 - **e2e 三 spec**：form-422-loopback（services new「名称含 taken」服务端独有 422 字段回填→改正成功 + team 邀请重复邮箱 422→换邮箱成功，mock 零改动两机制正交）；conflict-409（真两上下文：页面缓存 V→API If-Match 直改 V+1→本页提交 409→统一冲突文案→reload 取他版→再提交 V+2 核实）；bulk-partial-failure（API 预置确定性数据→勾两行两段式确认→undo 撤销恢复→再删放行→汇总「成功 1 失败 1」+失败腿保留 API 核实）。确定性沿用 B2 三件套（EPOCH/reducedMotion/每测 reset）。
 - dev 全套 11 spec + preview 2 + shots 13 全绿（主会话集成验收 ui:check 十步全绿覆盖）。
+
+### M7-D 分发型执行层（2026-10-23 落地，M7 收官件）
+
+**交付物**
+
+1. **消费端 typecheck 防线**（scripts/registry-consumer-smoke.mjs 扩展，paradigm §6 验收「消费端空白项目装 core 后写错 block 名 typecheck 报错」）：`pnpm --filter @patterns-ui/core pack` 产 tarball → tmp 消费项目 `pnpm add @patterns-ui/core@file:<tarball>`（模拟装包，不触 npm）→ 引用 BlockName/CellName/PageBlockNameFor 的配置文件四拍验证：写对 `tsc --noEmit` 绿 → 词表外名字 `cell-statuz` 红**且报错列出全部合法 cell 名**（期望全表从 blocks.generated.ts 提取单源比对，下限 ≥9）→ 还原复绿。旋钮 `SMOKE_SKIP_TYPES=1`；CI registry-consumer job 覆盖（构建注释同步 core dist 供 pack）。
+2. **skills 通道一 registry item**（76th item）：新 item `skills`，type `registry:file`（schema 合法枚举；paradigm §4.3 落形），定义源 `registry/skills/skills.json`。files 携带三份 SKILL.md（**源 = .zcode/skills/ 单源**，build 链读取内联，仓内不复制第二份源）+ 内嵌渲染脚本（registry/skills/render-skills.mjs 单源）。target 全 `~/` 前缀 = **消费端项目根**（官方 registry 文档 "Use ~ to refer to the root of the project"，如 `~/.env`），staging 落 `.patterns-ui/skills/`；消费端 `node .patterns-ui/skills/render-skills.mjs` 渲染——`--host claude|zcode|agents|all` 选宿主落 `.claude/.zcode/.agents` skills 目录，`--pages-dir`（缺省 src/pages）与 `--pm`（lockfile 探测）按项目形态微调正文、剥离仓内同步尾注、注入渲染横幅（含消费端词表事实源提示）——「按消费项目生成变体」的最小自实现（零依赖 node mjs，幂等）。item 无 dependencies/registryDependencies（禁裸名约束 vacuous 满足）；build.ts 校验 def（type 枚举、~/ 前缀、SKILL.md 源存在、单源路径白名单）。
+3. **skills 通道二 skills.sh 静态兼容**：调研 vercel-labs/skills CLI 文档——标准扫描目录**已含 `.claude/skills/` 与 `.agents/skills/`**（容器目录三层深扫描，`<skill>/SKILL.md` 即条目，frontmatter name/description 已合规）——仓内三目录单一源结构**原生兼容，零布局改动**；静态源不随项目形态调整（通道张力按 paradigm §4.3 由通道一补）。README 新「AI / skills（双通道）」节 + Block 目录表增 skills 行（76 items）；registry.md §1/§4 同步。
+4. **eslint-plugin 发布状态确认（定案 4）**：`private: true` ✓、ci.yml/release.yml 无任何发布步 ✓（release 仅 changesets tag @patterns-ui/core）；registry.md §7.2 与 README 开发节一句话声明推迟发布。
+5. **smoke 扩展**：skills item 真实 add（在线路径，本地 server 托管 dist/r/skills.json）+ staging 落盘断言 + 渲染脚本三宿主渲染断言（frontmatter/横幅/路径改写/尾注剥离）；离线路径（SMOKE_SKIP_ADD=1）由仓内单源拷贝至相同落点走同款断言。ci.yml registry-consumer job 步骤名与注释同步。
+
+**验收记录（2026-10-23）**
+
+- typecheck 防线本机全绿（离线 SMOKE_SKIP_ADD 模式四拍全过）：pack → file: 装（peers 自动装）→ 写对绿 → `cell-statuz` 红 TS2820 列全部 9 个 cell 名 → 还原绿；SMOKE_SKIP_TYPES=1 跳过生效。
+- skills item 经 `pnpm registry:build` 产出（dist/r/skills.json 4 files、deps 空、targets `~/.patterns-ui/skills/**`）；渲染脚本 node 直跑演示：tmp 目录 3 宿主 × 3 skill 落盘，横幅/`apps/demo/src/pages`→`src/pages` 改写/`pnpm `→`npm run ` 改写/同步尾注剥离逐项断言过；`--host` 单选、`--dry-run`、未知宿主与缺源报错退出码 1 验证。
+- 在线 `shadcn add` 本机受限：CLI 于 "Checking registry ✔" 已消费 skills.json 通过其 registry-item zod 解析，随后 ui.shadcn.com/r/colors/neutral.json 拉取被本机网络断连（各版本 CLI 一致，与 item 无关，脚本头注既有记录）；`registry validate` 同不跑——CI 权威。
+- 三生成器链连跑零 diff；`pnpm ui:check --fast` / `pnpm -r typecheck` / `pnpm lint` / `pnpm -r test` 全绿；e2e 不涉（无 UI/block 改动）。

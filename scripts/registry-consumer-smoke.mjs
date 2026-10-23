@@ -16,11 +16,19 @@
  * URL 原样）。断言 dry-run 退出 0 且计划提及组装入口（pattern 顶层字段被 CLI zod parse
  * 静默剥离是已知且已记录的坑——契约卡经 files 通道分发不受影响，此处钉住"解析不炸"）。
  *
- * 前置：仓库根已跑 `pnpm build`（registry/dist 由 registry:build 产出）。
+ * M7-D 追加：**消费端 typecheck 防线**——`pnpm --filter @patterns-ui/core pack` 产 tarball，
+ * 同一 tmp 项目 `pnpm add @patterns-ui/core@file:<tarball>`（模拟装包，不触 npm publish），
+ * 写引用 BlockName/CellName/PageBlockNameFor 的配置文件：写对 → `tsc --noEmit` 绿；
+ * 改写词表外名字（cell-statuz）→ tsc 红**且报错列出全部合法 cell 名**（断言输出含
+ * CELL_NAMES 全表，特征 ≥9 名）；还原 → 复绿。旋钮 SMOKE_SKIP_TYPES=1 跳过本段。
+ *
+ * 前置：仓库根已跑 `pnpm build`（registry/dist 由 registry:build 产出；core dist 由 tsup 产出——
+ * pack 只打包已构建产物）。
  * 注意：shadcn CLI 在本机有网络挂起史（CI 正常）——本脚本各步骤带超时，挂起即失败退出；
  * CI 是权威判官。本机可用 SMOKE_SKIP_ADD=1 跳过 add 与 dry-run：两个文件直接从仓库源拷到
  * CLI 相同落点（src/theme/<name>.css、src/components/blocks/shared/status-badge/…），下游接线/
- * 构建/断言与真实路径完全一致（dry-run 属 CLI 网络路径，无离线等价物）。
+ * 构建/断言与真实路径完全一致（dry-run 属 CLI 网络路径，无离线等价物）。typecheck 防线不依赖
+ * shadcn CLI，SMOKE_SKIP_ADD 下照常运行（pnpm add file: 走本地 tarball + registry 装 peers）。
  */
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -39,6 +47,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DIST_DIR = join(ROOT, "registry", "dist");
+const CORE_PACKAGE = "@patterns-ui/core";
+/** 词表生成物单源（typecheck 防线断言的期望 cell 全表从此读取——脚本自带全表副本会漂移） */
+const VOCAB_GENERATED = join(ROOT, "packages", "core", "src", "vocab", "blocks.generated.ts");
 // 单步超时：CI 冷缓存下 pnpm dlx shadcn 首次拉包可能偏慢；真挂起（远超此值）则失败退出而非无限等
 const STEP_TIMEOUT_MS = 8 * 60_000;
 // shadcn 包版本可覆盖（本机网络对最新版 CLI 的 ui.shadcn.com 拉取不稳时，用旧版复现真实路径调试）
@@ -55,6 +66,8 @@ const TMP_PACKAGE_JSON = {
     "react-dom": "19.3.1",
   },
   devDependencies: {
+    // @types/node：vite.config.ts import "node:url"，M7-D 起 tsc --noEmit 覆盖该文件
+    "@types/node": "22.20.5",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
@@ -187,6 +200,29 @@ function runCapture(label, command, args, opts = {}) {
   return result;
 }
 
+/**
+ * runCapture 的反向形态：**期望非零退出**（typecheck 防线的"写错必红"断言用）。
+ * 退出 0 = 防线失效（词表收窄未生效），视为失败；非零则返回捕获的输出供内容断言。
+ */
+function runExpectFail(label, command, args, opts = {}) {
+  console.log(`\n[smoke] ${label}: ${command} ${args.join(" ")} (expecting failure)`);
+  const result = spawnSync(command, args, {
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: STEP_TIMEOUT_MS,
+    encoding: "utf8",
+    ...opts,
+  });
+  if (result.error) {
+    fail(`${label} failed to start: ${result.error.message}`);
+  }
+  if (result.status === 0) {
+    fail(
+      `${label} exited 0 — the vocab typecheck line did NOT catch the bad name (defense broken)`,
+    );
+  }
+  return result;
+}
+
 /** 递归列文件（跳过 node_modules / dist / .git） */
 function listFiles(dir, acc = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -309,8 +345,175 @@ function assertTokenPipeline(builtCss) {
   console.log("[smoke] ③ no hardcoded color in utility rule ok");
 }
 
+/**
+ * 期望的 cell 全表：从仓内词表生成物提取（单源——脚本自带副本会随 meta 演进漂移）。
+ * 防线断言 = typecheck 报错输出必须含全表每一个名字（全表特征下限 ≥9）。
+ */
+function expectedCellNames() {
+  const source = readFileSync(VOCAB_GENERATED, "utf8");
+  const section = source.match(/export const CELL_NAMES = \[([\s\S]*?)\] as const;/);
+  if (!section) {
+    fail(`cannot extract CELL_NAMES from ${relative(ROOT, VOCAB_GENERATED)}`);
+  }
+  const names = [...section[1].matchAll(/"([a-z0-9-]+)"/g)].map((match) => match[1]);
+  if (names.length < 9) {
+    fail(`CELL_NAMES extraction sanity failed: expected ≥9 names, got ${names.length}`);
+  }
+  return names;
+}
+
+/**
+ * M7-D 消费端 typecheck 防线（paradigm §6 验收："消费端空白项目装 core 后写错 block 名
+ * typecheck 报错"）。四拍：
+ *  ① pack：`pnpm --filter @patterns-ui/core pack` → tarball（file: 安装模拟装包，不触 npm）；
+ *  ② 写对：引用 BlockName/CellName/PageBlockNameFor 的配置文件，`tsc --noEmit` 绿；
+ *  ③ 写错：词表外名字 cell-statuz，tsc 红**且报错列出全部合法 cell 名**（断言全表在场）；
+ *  ④ 还原：复绿。
+ * 旋钮：SMOKE_SKIP_TYPES=1 跳过整段。
+ */
+function runTypecheckDefense(tmp) {
+  console.log("\n[smoke] === M7-D consumer typecheck defense (vocab as shipped types) ===");
+
+  const expectedCells = expectedCellNames();
+  const configPath = join(tmp, "src", "ui-config.ts");
+  const correctConfig = `import type { Archetype, BlockName, CellName } from "@patterns-ui/core/vocab";
+import type { PageBlockNameFor } from "@patterns-ui/core/page";
+
+export type SettingsHost = PageBlockNameFor<"settings">;
+export const archetype: Archetype = "settings";
+export const host: SettingsHost = "settings-page";
+export const cells: CellName[] = ["cell-status", "cell-time"];
+export const blocks: BlockName[] = ["status-badge", "data-table"];
+`;
+  // ③ 写错：仅 cells 行换词表外名字（cell-statuz），其余与写对版本逐字节一致
+  const wrongConfig = correctConfig.replace('["cell-status", "cell-time"]', '["cell-statuz"]');
+
+  // ① pack（--filter 须在仓根跑；--pack-destination 落 tmp 内随清理走）
+  const packDir = join(tmp, "core-pack");
+  mkdirSync(packDir, { recursive: true });
+  run(
+    "pack @patterns-ui/core",
+    "pnpm",
+    ["--filter", CORE_PACKAGE, "pack", "--pack-destination", packDir],
+    {
+      cwd: ROOT,
+    },
+  );
+  const tarball = readdirSync(packDir).find((file) => file.endsWith(".tgz"));
+  if (!tarball) {
+    fail(`no *.tgz produced by pnpm pack in ${relative(tmp, packDir)}`);
+  }
+  const tarballPath = join(packDir, tarball);
+
+  // 模拟装包：file: 协议安装 tarball（peers 走 registry 自动装——与真实消费者 pnpm add 同路径）
+  run("install core tarball (file:)", "pnpm", ["add", `${CORE_PACKAGE}@file:${tarballPath}`], {
+    cwd: tmp,
+  });
+
+  // ② 写对 → 绿
+  writeFileSync(configPath, correctConfig);
+  run("tsc (correct vocab names)", "pnpm", ["exec", "tsc", "--noEmit"], { cwd: tmp });
+  console.log("[smoke] ② correct config typechecks green");
+
+  // ③ 写错 → 红且报错列全表（TS2820：字面量联合在报错信息里展开全部合法值）
+  writeFileSync(configPath, wrongConfig);
+  const wrong = runExpectFail("tsc (cell-statuz)", "pnpm", ["exec", "tsc", "--noEmit"], {
+    cwd: tmp,
+  });
+  const wrongOut = `${wrong.stdout ?? ""}\n${wrong.stderr ?? ""}`;
+  if (!wrongOut.includes("cell-statuz")) {
+    fail(`tsc error output does not even mention the bad name "cell-statuz":\n${wrongOut}`);
+  }
+  const missing = expectedCells.filter((name) => !wrongOut.includes(name));
+  if (missing.length > 0) {
+    fail(
+      `tsc error output does not list the FULL cell vocab (missing ${missing.length}: ` +
+        `${missing.join(", ")} — 报错信息即目录，全表必须展开):\n${wrongOut}`,
+    );
+  }
+  console.log(
+    `[smoke] ③ bad name rejected; error lists the full cell vocab (${expectedCells.length} names, ≥9 floor)`,
+  );
+
+  // ④ 还原 → 复绿
+  writeFileSync(configPath, correctConfig);
+  run("tsc (restored)", "pnpm", ["exec", "tsc", "--noEmit"], { cwd: tmp });
+  console.log("[smoke] ④ restored config typechecks green again");
+}
+
+/**
+ * M7-D skills 通道一冒烟：staging 落盘断言 + 渲染脚本直跑。
+ *  - 在线路径：上方 `shadcn add skills.json` 已把 4 个文件落 <tmp>/.patterns-ui/skills/；
+ *  - 离线路径（SMOKE_SKIP_ADD=1）：从仓内单源拷到相同落点（与 theme/status-badge 同手法）。
+ * 随后按消费端手册同款命令渲染（node .patterns-ui/skills/render-skills.mjs），断言三宿主
+ * × 三 skill 落盘、frontmatter 完好、渲染横幅在场、仓内路径已按项目形态改写、仓内同步
+ * 尾注已剥离。
+ */
+function runSkillsChannel(tmp, offline) {
+  console.log("\n[smoke] === M7-D skills channel 1 (registry:file item + embedded renderer) ===");
+  const staging = join(tmp, ".patterns-ui", "skills");
+  const skillNames = ["ui-page", "ui-block", "ui-theme"];
+
+  if (offline) {
+    for (const skill of skillNames) {
+      mkdirSync(join(staging, skill), { recursive: true });
+      cpSync(join(ROOT, ".zcode", "skills", skill, "SKILL.md"), join(staging, skill, "SKILL.md"));
+    }
+    cpSync(
+      join(ROOT, "registry", "skills", "render-skills.mjs"),
+      join(staging, "render-skills.mjs"),
+    );
+    console.log("[smoke] SMOKE_SKIP_ADD=1 — skills staging copied from repo single source");
+  }
+
+  // staging 断言：3 SKILL.md + 渲染脚本（~ target = 项目根的落点）
+  for (const skill of skillNames) {
+    if (!existsSync(join(staging, skill, "SKILL.md"))) {
+      fail(`skills staging missing: .patterns-ui/skills/${skill}/SKILL.md`);
+    }
+  }
+  if (!existsSync(join(staging, "render-skills.mjs"))) {
+    fail("skills staging missing: .patterns-ui/skills/render-skills.mjs");
+  }
+  console.log("[smoke] staging ok — 3 SKILL.md + render-skills.mjs under .patterns-ui/skills/");
+
+  // 渲染：消费端手册同款命令（--host all = 三宿主全渲染）
+  run("render skills to hosts", process.execPath, [".patterns-ui/skills/render-skills.mjs"], {
+    cwd: tmp,
+  });
+
+  // 落盘断言：三宿主 × 三 skill
+  const hosts = [".claude/skills", ".zcode/skills", ".agents/skills"];
+  for (const host of hosts) {
+    for (const skill of skillNames) {
+      if (!existsSync(join(tmp, host, skill, "SKILL.md"))) {
+        fail(`rendered skill missing: ${host}/${skill}/SKILL.md`);
+      }
+    }
+  }
+  console.log("[smoke] rendered 3 hosts × 3 skills");
+
+  // 内容断言（ui-page 为代表）：frontmatter 完好 + 横幅在场 + 仓内路径已改写 + 尾注已剥离
+  const rendered = readFileSync(join(tmp, ".claude", "skills", "ui-page", "SKILL.md"), "utf8");
+  const expectations = [
+    ["frontmatter intact", rendered.includes("name: ui-page") && rendered.includes("description:")],
+    ["render banner present", rendered.includes("渲染自 @patterns-ui skills item")],
+    [
+      "repo pages prefix rewritten",
+      !rendered.includes("apps/demo/src/pages") && rendered.includes("src/pages"),
+    ],
+    ["repo sync footer stripped", !rendered.includes("三宿主目录同步")],
+  ];
+  for (const [label, ok] of expectations) {
+    if (!ok) {
+      fail(`rendered ui-page SKILL.md check failed: ${label}\n${rendered.slice(0, 400)}`);
+    }
+  }
+  console.log("[smoke] rendered content ok (frontmatter / banner / rewrites / stripped footer)");
+}
+
 async function main() {
-  for (const item of ["theme-default", "status-badge"]) {
+  for (const item of ["theme-default", "status-badge", "skills"]) {
     const file = join(DIST_DIR, "r", `${item}.json`);
     if (!existsSync(file)) {
       fail(`registry/dist/r/${item}.json missing — run "pnpm build" first`);
@@ -377,6 +580,15 @@ async function main() {
           `http://127.0.0.1:${port}/r/status-badge.json`,
           "--yes",
         ],
+        { cwd: tmp },
+      );
+
+      // M7-D：skills 通道一 item（registry:file + ~ target）真实 add——staging 落盘断言在
+      // runSkillsChannel（~ = 项目根，官方 registry 文档 "Use ~ to refer to the root of the project"）
+      run(
+        "shadcn add skills item (channel 1)",
+        "pnpm",
+        ["dlx", SHADCN_SPEC, "add", `http://127.0.0.1:${port}/r/skills.json`, "--yes"],
         { cwd: tmp },
       );
 
@@ -478,6 +690,22 @@ export function App() {
     console.log(
       "\n[smoke] PASS — consumer pipeline verified (token → @theme inline → utility, no hardcoded color)",
     );
+
+    // M7-D：skills 通道一（staging 断言 + 渲染脚本直跑；离线模式由仓内单源拷贝 staging）
+    runSkillsChannel(tmp, process.env.SMOKE_SKIP_ADD === "1");
+    console.log(
+      "\n[smoke] PASS — skills channel 1 verified (registry:file staging → per-project render)",
+    );
+
+    // M7-D：消费端 typecheck 防线（同一 tmp 项目追加装 core tarball；SMOKE_SKIP_TYPES=1 跳过）
+    if (process.env.SMOKE_SKIP_TYPES === "1") {
+      console.log("[smoke] SMOKE_SKIP_TYPES=1 — consumer typecheck defense skipped");
+    } else {
+      runTypecheckDefense(tmp);
+      console.log(
+        "\n[smoke] PASS — consumer typecheck defense verified (pack → file: install → wrong vocab name rejected with full table → restored)",
+      );
+    }
   } finally {
     if (serverProc) {
       serverProc.kill();
