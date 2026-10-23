@@ -29,7 +29,7 @@
     "ui:check": "node scripts/ui-check.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release-tag": "changeset tag"
+    "release-tag": "changeset tag && git push origin --tags"
   },
   "devDependencies": {
     "@base-ui/react": "catalog:",
