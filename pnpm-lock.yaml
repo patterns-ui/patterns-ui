@@ -486,7 +486,7 @@ importers:
   packages/core:
     dependencies:
       next-themes:
-        specifier: "catalog:"
+        specifier: ^0.4.6
         version: 0.4.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       use-sync-external-store:
         specifier: ^1.7.0

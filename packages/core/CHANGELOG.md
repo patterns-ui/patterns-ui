@@ -1,5 +1,11 @@
 # @patterns-ui/core
 
+## 0.2.2
+
+### Patch Changes
+
+- 修复发布清单：`dependencies.next-themes` 从 pnpm 工作区协议 `catalog:` 改为真实范围 `^0.4.6`。0.2.1 的发布清单带着 `catalog:`（npm publish 不改写该协议），真实 npm 消费者安装即报 `EUNSUPPORTEDPROTOCOL`，无法使用。与 pnpm-workspace.yaml catalog（0.4.6）保持一致，workspace 内解析不变。
+
 ## 0.2.1
 
 ### Patch Changes

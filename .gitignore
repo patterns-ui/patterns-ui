@@ -31,3 +31,4 @@ apps/demo/playwright-report/
 .zcode/*
 !.zcode/skills/
 /screenshots/
+.npmrc
