@@ -8,6 +8,7 @@
 > - v3（2026-10-22）：一致性审查收口。新增 §1.2 元模式层（两层模式、16 项元模式清单、分页适配示例、协议变异轴全景）与 §10 四项定案落实；M7 任务计数修正 10→11；补齐悬空归属（M7-A2 增分页 mode/错误信封出口、M7-B1 增 slot 结构校验、M7-B4/D 增补、M7-C2 增 adapter 校验与 pattern 字段剥离备注、M6-D 增 typed-form-field 绑定、M6-E 增 core-api/architecture/milestones 漂移项）；settings 节化统一归 M7-A2；"第 9 原型"残留修正为第 8；带圈数字专用指四象限。
 > - v4（2026-10-23，M7-A3 落地）：页面迁移实数修正与验收命令落形。25 个路由文件（原记 24：`_shell` 豁免项实覆盖 `_shell.tsx` + `_shell/index.tsx` 两文件；`403` 为 ErrorPage 错误小页不属七原型）= 18 页三批配置化（资源 8——原记 9 无第 9 页；模式 6；auth 4）+ 7 文件豁免；验收命令 `grep -L 'return <' apps/demo/src/pages/*.ts` 与「0 JSX 配置」意图相悖（.ts 本就不能含 JSX 且 -L 语义反了），改写为 `grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空 + `ls apps/demo/src/pages/*.page.ts | wc -l` = 18；§3.3(1) 目录表述更新为 pages/*.page.ts + 薄路由胶水。
 > - v5（2026-10-23，M7-B4 落地）：B4 一条龙与两新检查落地（明细与验收记录见 milestones.md M7-B4 小节）——`pnpm ui:check` 十步编排（含产物新鲜度/三方核对/a11y/chunk 预算）+ `--skip/--fast` 旋钮；三方一致核对 `pnpm check:names`（结构性提取，覆盖 meta.cell 与 tabs[].sandbox 等 string 位的 typecheck 盲区）；a11y 最小机械化集（@axe-core/playwright，wcag2a/2aa，serious/critical 判败、moderate 以下留账）随带修复 typed-form-field 全量 label 悬空（B2 记录的 SecretWidget 遗留即此症，已修）与 9 处无名 combobox trigger；chunk 预算表初值 = 实测 × 1.15（报警不失败）。
+> - v6（2026-10-23，M7-C2 落地）：模式升格为一级概念（明细与验收记录见 milestones.md M7-C2 小节）——registry meta 增 `pattern` 附加字段（contractCard/blocks/metaPatterns；顶层字段经 shadcn CLI zod parse 被静默剥离——仓内工具读源 meta、契约卡经 files 通道分发，写入 registry.md §2）；5 模式契约卡落 `registry/patterns/*.contract.md`（两层契约 + contractVersion + 变更日志）；audit-trail、read-state 两元模式引擎抽取下沉 core（§1.2 清单现状转 ✓，子路径 /audit /read /meta）；core/meta 公共机制（META_PATTERN_NAMES 封闭词表 + defineMetaPattern + dev 适配器形状校验与 contractVersion 失配警告）；patterns.md 增 §3.6 业务模式目录（决策树第一层落形）；registry-consumer 冒烟增 pattern item dry-run。
 
 状态：已评审定案（2026-10-22，四项开放问题拍板结果见 §10）。**断言基于 2026-10-22 对源码的逐条复核**（复审方法：四路独立审查对照 `packages/core/src`、`registry/**`、`apps/demo/src`、`.github/workflows`）。
 
@@ -45,9 +46,9 @@
 | auth-rbac | 会话快照 / 守卫 / 能力过滤 | ✓ core auth |
 | task-polling | 异步任务状态轮询 | ✓ core task |
 | new-items-signal | 轮询期新数据探测 | ✓ core task |
-| flow | 步骤机 / 转移 / 步骤间数据保留 | M7-A2（defineFlow） |
-| audit-trail | append 日志 / keyset / actor·action | 待抽取（现内嵌于 audit-log 业务模式） |
-| read-state | 未读计数 / 已读状态 | 待抽取（现散在 notification-inbox 业务模式内） |
+| flow | 步骤机 / 转移 / 步骤间数据保留 | ✓ core page（defineFlow，M7-A2） |
+| audit-trail | append 日志 / keyset / actor·action | ✓ core audit（M7-C2 自 audit-log 业务模式抽取） |
+| read-state | 未读计数 / 已读状态 | ✓ core read（M7-C2 自 notification-inbox 业务模式抽取） |
 | billing-lifecycle | plan / 席位 / 发票状态机 | M8 波1（纯契约先行） |
 | api-key-lifecycle | 签发 / 一次性 reveal / scope | M8 波1 |
 | import-pipeline | 解析 / 映射 / 校验 / 提交 | M8 波2 |

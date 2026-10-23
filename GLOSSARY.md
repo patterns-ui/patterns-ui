@@ -15,8 +15,12 @@ _Avoid_: 组件、模板、页面
 _Avoid_: hooks、工具函数、服务层
 
 **契约卡**：
-模式面向消费端的声明书：contractVersion、两层契约（元模式契约 + 业务契约）、内置决策及其理由。
+模式面向消费端的声明书：contractVersion、两层契约（元模式契约 + 业务契约）、内置决策及其理由。仓内单源文件 `registry/patterns/<name>.contract.md`；消费端 `shadcn add <组装入口>` 时随 files 通道落盘。
 _Avoid_: 文档、README
+
+**组装入口**：
+声明了 `pattern` 附加字段的 registry item——该业务模式的一行装配点。模式名 = 契约卡文件名，与 block 名不必相同（team-page block → team 模式）。顶层 `pattern` 字段经 shadcn CLI 解析被静默剥离：仓内工具读源 meta.json，不读 dist 产物。
+_Avoid_: 模式组件、入口页
 
 **适配器**：
 消费端按契约实现的边界代码，吸收自家服务端与协议的差异；协议声明的唯一手写处。

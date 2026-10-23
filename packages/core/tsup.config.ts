@@ -18,6 +18,9 @@ const modules = [
   "storage",
   "vocab",
   "page",
+  "meta",
+  "audit",
+  "read",
 ] as const;
 
 /** 模块入口同时支持 index.ts（纯逻辑）与 index.tsx（含 JSX 的 Provider） */

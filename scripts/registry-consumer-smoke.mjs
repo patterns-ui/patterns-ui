@@ -10,11 +10,17 @@
  *      由 theme 产物内的 `@theme inline` 映射生成）；
  *   ③ 该 utility 规则内无硬编码色值。
  *
+ * M7-C2 追加：**pattern item 的 CLI 分发冒烟（dry-run）**——`shadcn add audit-log --dry-run`
+ * 经独立 overlay server 解析整棵依赖树（dist 全集复制 + 自引用 `patterns-ui/patterns-ui/*`
+ * 改写为本 server URL——CI 无私有仓库 token，改写只换解析源不换依赖图；官方 ui.shadcn.com
+ * URL 原样）。断言 dry-run 退出 0 且计划提及组装入口（pattern 顶层字段被 CLI zod parse
+ * 静默剥离是已知且已记录的坑——契约卡经 files 通道分发不受影响，此处钉住"解析不炸"）。
+ *
  * 前置：仓库根已跑 `pnpm build`（registry/dist 由 registry:build 产出）。
  * 注意：shadcn CLI 在本机有网络挂起史（CI 正常）——本脚本各步骤带超时，挂起即失败退出；
- * CI 是权威判官。本机可用 SMOKE_SKIP_ADD=1 跳过 add：两个文件直接从仓库源拷到 CLI 相同
- * 落点（src/theme/<name>.css、src/components/blocks/shared/status-badge/…），下游接线/
- * 构建/断言与真实路径完全一致。
+ * CI 是权威判官。本机可用 SMOKE_SKIP_ADD=1 跳过 add 与 dry-run：两个文件直接从仓库源拷到
+ * CLI 相同落点（src/theme/<name>.css、src/components/blocks/shared/status-badge/…），下游接线/
+ * 构建/断言与真实路径完全一致（dry-run 属 CLI 网络路径，无离线等价物）。
  */
 import { spawn, spawnSync } from "node:child_process";
 import {
@@ -161,6 +167,26 @@ function run(label, command, args, opts = {}) {
   }
 }
 
+/** 同 run 但捕获 stdout/stderr（dry-run 输出断言用），失败时先回显输出再失败 */
+function runCapture(label, command, args, opts = {}) {
+  console.log(`\n[smoke] ${label}: ${command} ${args.join(" ")}`);
+  const result = spawnSync(command, args, {
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: STEP_TIMEOUT_MS,
+    encoding: "utf8",
+    ...opts,
+  });
+  if (result.error) {
+    fail(`${label} failed to start: ${result.error.message}`);
+  }
+  if (result.status !== 0) {
+    console.log(result.stdout ?? "");
+    console.error(result.stderr ?? "");
+    fail(`${label} exited with ${result.status}`);
+  }
+  return result;
+}
+
 /** 递归列文件（跳过 node_modules / dist / .git） */
 function listFiles(dir, acc = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -200,9 +226,10 @@ const server = createServer((req, res) => {
 server.listen(0, "127.0.0.1", () => console.log("READY " + server.address().port));
 `;
 
-function serveRegistryDist() {
+/** 静态 server 托管任意目录（serveDir 参数化：dist 与 dry-run overlay 共用） */
+function serveDir(serveDir) {
   return new Promise((resolvePromise, rejectPromise) => {
-    const proc = spawn(process.execPath, ["-e", SERVER_SOURCE, DIST_DIR], {
+    const proc = spawn(process.execPath, ["-e", SERVER_SOURCE, serveDir], {
       stdio: ["ignore", "pipe", "inherit"],
     });
     let buffer = "";
@@ -231,6 +258,30 @@ function serveRegistryDist() {
       }
     });
   });
+}
+
+/**
+ * M7-C2 dry-run overlay：复制 dist 全集并把自引用 `patterns-ui/patterns-ui/<name>` 改写为
+ * `http://127.0.0.1:<port>/r/<name>.json`（CI 无私有仓库 token；改写只换解析源不换依赖图，
+ * 官方 ui.shadcn.com URL 原样——CI 可达）。全量改写使依赖树各层都在本 server 解析。
+ * 落点 `tmp/registry-overlay/`（目录先建、server 先起、文件后写——server 按请求查盘）。
+ */
+function buildRegistryOverlay(tmp, port) {
+  const overlayRoot = join(tmp, "registry-overlay", "r");
+  mkdirSync(overlayRoot, { recursive: true });
+  const prefix = "patterns-ui/patterns-ui/";
+  for (const file of readdirSync(join(DIST_DIR, "r"))) {
+    if (!file.endsWith(".json")) continue;
+    const item = JSON.parse(readFileSync(join(DIST_DIR, "r", file), "utf8"));
+    if (Array.isArray(item.registryDependencies)) {
+      item.registryDependencies = item.registryDependencies.map((dep) =>
+        dep.startsWith(prefix)
+          ? `http://127.0.0.1:${port}/r/${dep.slice(prefix.length)}.json`
+          : dep,
+      );
+    }
+    writeFileSync(join(overlayRoot, file), `${JSON.stringify(item, null, 2)}\n`);
+  }
 }
 
 function assertTokenPipeline(builtCss) {
@@ -268,6 +319,7 @@ async function main() {
 
   const tmp = mkdtempSync(join(tmpdir(), "registry-smoke-"));
   let serverProc = null;
+  let overlayServerProc = null;
   try {
     console.log(`[smoke] tmp project: ${tmp}`);
     mkdirSync(join(tmp, "src"), { recursive: true });
@@ -309,7 +361,7 @@ async function main() {
       run("install cn (item npm dep)", "pnpm", ["add", "cn"], { cwd: tmp });
       console.log("[smoke] SMOKE_SKIP_ADD=1 — files copied to CLI landing spots");
     } else {
-      const { proc, port } = await serveRegistryDist();
+      const { proc, port } = await serveDir(DIST_DIR);
       serverProc = proc;
       console.log(`[smoke] serving ${DIST_DIR} on http://127.0.0.1:${port} (external process)`);
 
@@ -327,6 +379,36 @@ async function main() {
         ],
         { cwd: tmp },
       );
+
+      // M7-C2：pattern item（audit-log 组装入口，含契约卡 file + pattern 附加字段）dry-run
+      // 冒烟——CLI 对整棵依赖树解析不炸、计划含组装入口。overlay 自引用改写见函数注。
+      mkdirSync(join(tmp, "registry-overlay", "r"), { recursive: true });
+      const overlayServe = await serveDir(join(tmp, "registry-overlay"));
+      overlayServerProc = overlayServe.proc;
+      try {
+        buildRegistryOverlay(tmp, overlayServe.port);
+        const dry = runCapture(
+          "shadcn add --dry-run (pattern item)",
+          "pnpm",
+          [
+            "dlx",
+            SHADCN_SPEC,
+            "add",
+            `http://127.0.0.1:${overlayServe.port}/r/audit-log.json`,
+            "--dry-run",
+            "--yes",
+          ],
+          { cwd: tmp },
+        );
+        const dryOut = `${dry.stdout ?? ""}\n${dry.stderr ?? ""}`;
+        if (!/audit-log/i.test(dryOut)) {
+          fail(`pattern dry-run output does not mention the entry item "audit-log":\n${dryOut}`);
+        }
+        console.log("[smoke] pattern dry-run ok — CLI resolved the pattern item dependency tree");
+      } finally {
+        overlayServerProc.kill();
+        overlayServerProc = null;
+      }
     }
 
     // 落点发现：theme css（含 data-preset 段的 .css）与 status-badge 组件文件
@@ -399,6 +481,9 @@ export function App() {
   } finally {
     if (serverProc) {
       serverProc.kill();
+    }
+    if (overlayServerProc) {
+      overlayServerProc.kill();
     }
     if (process.env.SMOKE_KEEP === "1") {
       console.log(`[smoke] SMOKE_KEEP=1 — tmp kept for inspection: ${tmp}`);

@@ -30,6 +30,22 @@
 "archetype": "resource-list",
 ```
 
+业务模式组装入口 block（如 `audit-log`、`team-page`）额外带可选 `pattern` 字段（M7-C2，paradigm §1.3），位置紧跟 `archetype`：
+
+```json
+"pattern": {
+  "contractCard": "registry/patterns/audit-log.contract.md",
+  "blocks": ["async-state", "audit-log", "…"],
+  "metaPatterns": ["audit-trail", "list-browse", "reference-resolution"]
+}
+```
+
+- `pattern`（可选，M7-C2）：声明该 item 是某业务模式的**组装入口**——组合了哪些 block、基于哪些元模式、契约卡在哪。
+  - `contractCard`：契约卡仓内单源文件（仓库根相对路径，`registry/patterns/<name>.contract.md`；`<name>` 即模式名，与业务 block 名不必相同——如 team-page block → team 模式）。两层契约（元模式契约 + 业务契约）+ `contractVersion` + 变更日志都在卡里；**contractVersion 单源在卡**（`- **contractVersion**: <int>` 行，build.ts 与 docs 生成器同款解析）。
+  - `blocks`：该模式组合的 block 名（构建校验 ⊆ 全部 block 名且**含组装入口自身**；模式目录表单源发射进 patterns.md §3.6）。
+  - `metaPatterns`：基于的元模式名（封闭词表 16 值，`packages/core/src/meta` 的 `META_PATTERN_NAMES` 与 build.ts 的 `META_PATTERNS` 同源硬编码两处；元模式命名与业务模式不得同名，paradigm §1.2）。
+  - 构建（`registry:build`）校验三字段并把契约卡以 **file 形态并入 item files**（`type: "registry:file"`，target = `<targetDir>/<name>.contract.md`）——消费端 `shadcn add <组装入口>` 时契约卡随 files 通道**落盘**到 block 目录旁。
+- **CLI 剥离坑（已实测核实，paradigm §1.3/M7-C2）**：顶层 `pattern` 字段经 shadcn CLI 的 registry-item zod parse 会被**静默剥离**——`registry validate` 通过 ≠ 该字段透传给消费端。因此**仓内工具（docs 生成器、决策树等）一律读源 meta.json，不读 dist 产物**；契约卡本体走 files 通道分发，不受剥离影响。`archetype` 字段同理是「validate 不拒但消费端不可见」的仓内附加字段。
 - `dependencies`：npm 依赖（带 semver）。`@patterns-ui/core` 版本读 `packages/core/package.json` 自动填充；源码 import 的裸 npm 包（如 `@tanstack/react-query`）自动并入——只有 react 系（react/react-dom/react/jsx-runtime、`react/*`）视为宿主自带不声明。
 - `archetype`（可选）：页面原型归属，合法值 7 个（`resource-list` / `resource-detail` / `resource-form` / `settings` / `overview` / `auth-flow` / `wizard`，paradigm.md §3.2）。语义 = 该 block 是哪个原型的**宿主/预设**（如 list-page → resource-list、form-dialog/form-sheet/form-page → resource-form）；仅原型宿主/预设声明，其余 block 不写。构建校验非法值失败；`vocab:generate` 据此产 `BLOCKS_BY_ARCHETYPE`；M7-B1 消费做同原型 slot 结构一致性校验。
 - `registryDependencies` 的三种写法与构建期改写（**产物中永不出现裸名**——裸名永远解析到官方 shadcn）：
@@ -37,7 +53,7 @@
   - 其余裸名（button/table/dropdown-menu…官方件）→ 改写为 `https://ui.shadcn.com/r/styles/base-nova/<name>.json` 完整 URL（**方言钉扎点** `OFFICIAL_BASE_REGISTRY`，见 build.ts——消费端 components.json 的 style 不再影响我们 item 的方言）；
   - 已含 `/` 的引用（完整 URL / `owner/repo/item` / `@ns/item`）→ 原样保留。
 - `targetDir`：安装目标目录（默认 `components/blocks/<category>/<name>`）。
-- type 取值：组件 `registry:component`、页面模板 `registry:block`、主题 `registry:theme`。
+- type 取值：本仓 item 用——组件 `registry:component`、页面模板/模式预设 `registry:block`、主题 `registry:theme`。shadcn registry-item schema 的 type 枚举另含 `registry:item`（组合条目语义，不分发代码）、`registry:file`（任意文件分发）、`registry:lib` / `registry:ui` / `registry:hook` / `registry:page` / `registry:style` / `registry:base` / `registry:font` 等（item 顶层与 files[] 条目同域枚举）——**受 validate 枚举约束，本仓不自定义 type 值**（paradigm §1.3）；契约卡并入 files 时 file 条目 type 用 `registry:file`（消费端得到 .md 落盘，即契约卡分发通道）。
 
 ## 3. 构建脚本行为
 
@@ -48,10 +64,11 @@
    - `@/components/ui/<name>` → 钉扎为官方 base-nova 完整 URL 并入 registryDependencies（ui 别名永远指官方，即使存在同名我方 block）；barrel import `@/components/ui`（无具体名）构建直接 fail。
    - `@patterns-ui/core` → npm dependencies。
    - `@/lib/*`、`@/hooks/*` → 保留原样（用户项目别名解析）。
-4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码；`meta.archetype`（可选）∈ 7 原型，非法值构建失败，合法值透传到 registry item 顶层（schema 顶层 additionalProperties 开放，validate 不拒）。
+4. 校验：所有 registryDependencies 引用的 block 存在；无循环依赖（有则报错）；blocks 不得 import demo 代码；`meta.archetype`（可选）∈ 7 原型，非法值构建失败，合法值透传到 registry item 顶层（schema 顶层 additionalProperties 开放，validate 不拒）；`meta.pattern`（可选，M7-C2）三字段校验——blocks ⊆ 全部 block 名且含组装入口自身、metaPatterns ∈ 元模式封闭词表（与 core/meta `META_PATTERN_NAMES` 同源）、contractCard 文件存在且含 contractVersion 行——契约卡以 file 形态（`registry:file`）并入 item files，pattern 连同解析出的 contractVersion 透传到 item 顶层（CLI 消费端会剥离顶层 pattern，见 §2 剥离坑）。
 5. 主题：生成 `registry:theme` item（**仅 css 文件，不带 cssVars 字段**）。每个 preset css 文件自含 `@theme inline` 段（全部令牌 → `--color-*` 一对一映射 + radius 派生四档，口径与 apps/demo/src/styles.css 一致）——消费端只 add 一个 theme item、`@import` 落盘 css 即可用全部语义色/radius utility。不带 cssVars 的原因：CLI 对 registry:theme 的 cssVars 物化会向消费端 index.css 追加自生成的 `@theme inline`，其 var 引用双写前导横线（`var(----x)`，shadcn@4.21/4.22 实测，官方标准 token 一并损坏），且 `:root`/`.dark` 平铺物化与我们的 `data-preset` 多 preset 切换语义冲突——theme 的唯一交付面是自含 css 文件。
 6. 输出 `registry.json` + `dist/r/*.json`；CI 以 `git diff --exit-code` 校验产物新鲜度（词表生成物同入校验，见下），`pnpm dlx shadcn@latest registry validate` 校验 schema；`registry-consumer` job 跑消费端冒烟（`pnpm registry:smoke`）。
-7. **词表生成器**（`registry/scripts/generate-blocks.ts`，`pnpm vocab:generate`）：读全部 meta.json + themes/*.json，产出 `packages/core/src/vocab/blocks.generated.ts`（`ARCHETYPES`/`CELL_NAMES`/`BLOCK_NAMES`/`BLOCKS_BY_ARCHETYPE`/`THEME_PRESET_NAMES` 及派生类型与 `*_DOCS`，形态见 paradigm.md §3.3 (2)）。确定性：名字码位排序、格式经 biome canonicalize，连跑两次零 diff。**生成物提交进 git**；根 `build` 先 `vocab:generate` 再构建 core（词表先于 core 构建）；CI 在 build 后重跑并纳入 freshness diff（改 meta 不重新生成 = 红）；core 侧 `blocks.test.ts` 另有单源与新鲜度单测兜底。
+7. **词表生成器**（`registry/scripts/generate-blocks.ts`，`pnpm vocab:generate`）：读全部 meta.json + themes/*.json，产出 `packages/core/src/vocab/blocks.generated.ts`（`ARCHETYPES`/`CELL_NAMES`/`BLOCK_NAMES`/`BLOCKS_BY_ARCHETYPE`/`THEME_PRESET_NAMES` 及派生类型与 `*_DOCS`，形态见 paradigm.md §3.3 (2)）。确定性：名字码位排序、格式经 biome canonicalize，连跑两次零 diff。**生成物提交进 git**；根 `build` 先 `vocab:generate` 再构建 core（词表先于 core 构建）；CI 在 build 后重跑并纳入 freshness diff（改 meta 不重新生成 = 红）；core 侧 `blocks.test.ts` 另有单源与新鲜度单测兜底。pattern 不是 block（不进词表）；文档生成器（§8）读源 meta.pattern 发射业务模式目录。
+8. **文档生成器**（`registry/scripts/generate-docs.ts`，`pnpm docs:generate`，M7-C1；M7-C2 扩）：AGENTS.md + CLAUDE.md symlink + `docs/patterns.md`——其中 §3.6 业务模式目录单源读**源 meta.json 的 pattern 字段 + registry/patterns/*.contract.md**（目录表 × contractVersion × 契约卡摘要[首行 + 内置决策要点]；不读 dist——CLI 剥离坑，见 §2）；交叉校验 blocks ⊆ BLOCK_NAMES、metaPatterns ⊆ META_PATTERN_NAMES（core/meta 同源词表）。
 
 ## 4. 发布通道
 

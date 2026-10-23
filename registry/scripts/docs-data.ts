@@ -95,6 +95,13 @@ export const ARCHETYPE_TABLE: readonly ArchetypeRow[] = [
 // ---------------------------------------------------------------- 判别式
 
 export const DISCRIMINATORS = {
+  /**
+   * 三层决策树框架（paradigm §3.1；M7-C2 起第一层指向 §3.6 业务模式目录）。
+   * 目录数据本身单源在 meta.pattern + 契约卡（生成器直读），本条只是框架文案。
+   */
+  decisionTree: [
+    "三层决策树（paradigm §3.1）：第一层业务模式匹配（§3.6 业务模式目录）——命中即用组装入口 block + client 适配器一行装配；第二层未命中 → 元模式组合 + 七原型自组 UI（本节判别式 + §3 词表）；第三层词表仍不够 → sandbox 棘轮。",
+  ],
   /** auth-flow vs wizard 判别式（§3.2） */
   authVsWizard: [
     "步骤含账号语义（登录 / 注册 / 验证 / 找回密码）→ auth-flow；否则 wizard。",

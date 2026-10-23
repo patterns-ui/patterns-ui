@@ -192,6 +192,36 @@
         "types": "./dist/page/index.d.cts",
         "default": "./dist/page/index.cjs"
       }
+    },
+    "./meta": {
+      "import": {
+        "types": "./dist/meta/index.d.ts",
+        "default": "./dist/meta/index.js"
+      },
+      "require": {
+        "types": "./dist/meta/index.d.cts",
+        "default": "./dist/meta/index.cjs"
+      }
+    },
+    "./audit": {
+      "import": {
+        "types": "./dist/audit/index.d.ts",
+        "default": "./dist/audit/index.js"
+      },
+      "require": {
+        "types": "./dist/audit/index.d.cts",
+        "default": "./dist/audit/index.cjs"
+      }
+    },
+    "./read": {
+      "import": {
+        "types": "./dist/read/index.d.ts",
+        "default": "./dist/read/index.js"
+      },
+      "require": {
+        "types": "./dist/read/index.d.cts",
+        "default": "./dist/read/index.cjs"
+      }
     }
   },
   "files": [

@@ -764,7 +764,7 @@ export function createStorage<TData>(
 
 ## 16. 导出与构建
 
-- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`、`./vocab`、`./page`；`./mutation` 已于 M6-E 删除）。
+- `packages/core` 用 tsup 构建：**ESM + CJS 双格式**（`.js`/`.d.ts` 与 `.cjs`/`.d.cts`，attw node16 双向必需）、dts、sourcemap、external 全部依赖；`exports` 按模块子路径映射（`.`、`./data`、`./list`、`./filters`、`./form`、`./reference`、`./tenant`、`./auth`、`./router`、`./task`、`./inline`、`./datetime`、`./resource`、`./theme`、`./storage`、`./vocab`、`./page`、`./meta`、`./audit`、`./read`；`./mutation` 已于 M6-E 删除）。
 - `./vocab`（M7-A1，`src/vocab/index.ts` re-export `blocks.generated.ts` 全部导出）：封闭词表的类型与常量——`ARCHETYPES`/`Archetype`（7 页面原型）、`CELL_NAMES`/`CellName`（cells 词表，排除映射器工厂 cell-for）、`BLOCK_NAMES`/`BlockName`（全部 block，含 cell-for）、`BLOCKS_BY_ARCHETYPE` + `BlockNameFor<A extends Archetype>`（按原型收窄合法 block 名，M7-A2 `definePage<Archetype>` 消费）、`THEME_PRESET_NAMES`/`ThemePresetName`，及 `CELL_DOCS`/`BLOCK_DOCS` 描述映射。生成物由 `pnpm vocab:generate` 产出并提交进 git（registry meta/themes 为唯一事实源，形态见 paradigm.md §3.3 (2)）；运行时解析出口（name → component）随 M7-A2 在此追加。
 - 所有 hook 浏览器 API 访问收敛 effect/事件内；导出 `useMounted()` 惯例 helper。
 - 包名 `@patterns-ui/core`，scope 内后续包遵循 `@patterns-ui/*`（如 @patterns-ui/eslint-plugin）。
@@ -948,3 +948,154 @@ export function useActionExecutor(opts?: FlowRuntimeOptions): ActionExecutor
 ```
 
 动作序列的声明位置：flow 的 `transitions[].actions` / `steps[].onEnter` / `FlowConfig.actions`（完成回调），以及 definePage 各原型的 submit/onDone/actions 槽位。
+
+---
+
+## 18. meta/ —— 元模式公共机制（M7-C2）
+
+子路径 `@patterns-ui/core/meta`。元模式（headless 行为引擎，paradigm §1.2）的声明与 dev 期适配器校验；各元模式引擎（§19 audit / §20 read / 既有引擎）在本机制上挂契约。
+
+```ts
+/** 元模式封闭词表（16 值，paradigm §1.2 表序；与 registry/scripts/build.ts 的 META_PATTERNS 同源硬编码两处） */
+export const META_PATTERN_NAMES = ["resource-lifecycle", "list-browse", "reference-resolution",
+  "multi-tenant", "auth-rbac", "task-polling", "new-items-signal", "flow", "audit-trail",
+  "read-state", "billing-lifecycle", "api-key-lifecycle", "import-pipeline", "comment-thread",
+  "webhook-delivery", "permission-matrix"] as const
+export type MetaPatternName = (typeof META_PATTERN_NAMES)[number]
+
+export interface MetaPatternContract {
+  readonly name: MetaPatternName
+  readonly contractVersion: number            // 正整数；失配警告的对照值
+  readonly adapterShape: z.ZodType<unknown>   // 适配器期望形状（dev 期 safeParse）
+}
+
+/** 契约工厂：名字越出封闭词表 / 版本非正整数 → throw 列全表（报错即目录）；纯校验可脱离渲染测试 */
+export function defineMetaPattern<TSchema extends z.ZodType>(
+  name: MetaPatternName, contractVersion: number, adapterShape: TSchema,
+): MetaPatternContract
+
+/** 适配器可选携带的契约版本（消费端从契约卡抄写；不携带则跳过版本核对） */
+export interface MetaPatternAdapterVersion { contractVersion?: number }
+
+export interface ValidateAdapterOptions {
+  consumer?: string                            // 警告前缀定位（如 "useAuditTrail"）
+  env?: { NODE_ENV?: string }                  // 注入 env（测试）；缺省读 process.env.NODE_ENV
+  warn?: (message: string) => void             // 注入 warn（测试）；缺省 console.warn
+}
+
+/**
+ * dev-only 适配器校验（引擎 hook 挂载时调用，幂等）：
+ *  - contractVersion 失配 → console.warn（携带两侧版本与契约卡指引，不阻断）；
+ *  - adapterShape safeParse 失败 → console.warn 列字段级 issue（不阻断，注入对象原样使用）；
+ *  - NODE_ENV=production 立即返回（生产零开销，不执行 zod parse）。
+ */
+export function validateMetaPatternAdapter(
+  pattern: MetaPatternContract, adapter: unknown, opts?: ValidateAdapterOptions,
+): void
+```
+
+## 19. audit/ —— audit-trail 元模式引擎（M7-C2）
+
+子路径 `@patterns-ui/core/audit`。audit-trail 元模式（paradigm §1.2「append 日志 / keyset / actor·action」），自 registry `audit-log` block 抽取下沉（行为等价迁移，e2e/states-baseline 钉着）。headless：不渲染、不 import 组件；组合 list-browse 引擎（useResourceTable 的 server-cursor / load-more 两档）并**钉死协议为 keyset**（无 page/offset 选项——协议选择是 audit-log 模式的业务决策，理由在契约卡 `registry/patterns/audit-log.contract.md`）。
+
+```ts
+/** 审计事件行契约（actor·action 字段形状） */
+export interface AuditTrailEvent {
+  id: string; action: string; resource: string; actor: string; createdAt: string; ip?: string
+}
+
+/** audit-trail 元模式契约（适配器 = Resource：list 面兑现 cursor/filters/search/facets[action]） */
+export const AUDIT_TRAIL: MetaPatternContract        // contractVersion 1
+
+export type AuditTrailShape = "paged" | "load-more"  // keyset 的 URL 承载档（core-api §3.1 shape 同义）
+
+export interface AuditTrailLabels { action: string; resource: string; actor: string; createdAt: string }
+
+/** 审计过滤语义：action facet 多选 / resource 文本 / actor 文本 / createdAt 时间范围窗口。
+ *  文案属 ④ 应用层——labels 注入，缺省回落字段名（引擎不带文案） */
+export function auditTrailFilterDefs(
+  actionOptions: readonly { value: string; label: string }[], labels?: Partial<AuditTrailLabels>,
+): FilterDef[]
+
+export interface UseAuditTrailOptions<TData extends AuditTrailEvent> {
+  resource: Resource<TData, any, any>
+  columns: ListColumnDef<TData>[]               // 列定义透传 list 引擎（cell 渲染器是 UI，留模式层）
+  actionOptions: readonly { value: string; label: string }[]
+  shape?: AuditTrailShape                       // 缺省 "paged"
+  labels?: Partial<AuditTrailLabels>
+  searchFields?: string[]                       // 缺省 ["action", "resource", "actor"]
+  pagination?: { initialPageSize?: number; pageSizeOptions?: number[] }
+  queryOptions?: { staleTime?: number; refetchInterval?: number | false }
+  syncWithLocation?: boolean                    // 缺省 true（与 useResourceTable 同语义）
+}
+
+export interface AuditTrailResult<TData extends AuditTrailEvent> {
+  list: ResourceTableResult<TData>              // list-browse 引擎产物（恒 server-cursor | load-more）
+  defs: FilterDef[]                             // 审计过滤语义面（FilterBar/FacetSidebar 消费）
+  mode: ListMode                                // keyset 派生（pagination-bar 选形态）
+  capabilities: PaginationCapabilities          // { canJump:false, hasTotal:false, tokenInMemory:true }
+  hasNextPage: boolean                          // load-more 恒真；paged = nextCursor 存在
+}
+
+export function useAuditTrail<TData extends AuditTrailEvent>(opts: UseAuditTrailOptions<TData>): AuditTrailResult<TData>
+//   挂载时 dev 校验 resource 适配器形状（validateMetaPatternAdapter(AUDIT_TRAIL, …)）。
+//   append-only 游标栈 / 筛选必重置 / 深链钳制等不变量由 list 引擎承载（§3.2 行为规格 4-5）。
+```
+
+失败路径语义（单测锁定）：断页（末页 nextCursor 缺失 → hasNextPage=false）；游标失效（token 不再命中 → 后端回第 1 页数据，引擎不炸正常渲染）；过滤变更清栈回第 1 页。
+
+## 20. read/ —— read-state 元模式引擎（M7-C2）
+
+子路径 `@patterns-ui/core/read`。read-state 元模式（paradigm §1.2「未读计数 / 已读状态」），自 registry `notification-inbox` block 抽取下沉（行为等价迁移）。headless。
+
+```ts
+/** 读态行契约（最小面：id + read；业务字段由模式叠加） */
+export interface ReadStateRow { id: string; read: boolean }
+
+/** read-state 适配器：list 必须；update（单条已读 PATCH）与 markAllRead（全部已读端点）可选 */
+export interface ReadStateClient<TRow extends ReadStateRow> {
+  list(params: ListParams): Promise<Page<TRow>>
+  update?(id: string, vars: Partial<TRow>): Promise<TRow>
+  markAllRead?(ids: string[]): Promise<unknown>
+}
+
+/** read-state 元模式契约 */
+export const READ_STATE: MetaPatternContract       // contractVersion 1
+
+export const DEFAULT_READ_STATE_PAGE_SIZE: number  // 30
+export const DEFAULT_UNREAD_STALE_TIME: number     // 15_000（badge 侧）
+export type ReadStateMutationMode = "pessimistic" | "optimistic"
+
+export interface UseReadStateOptions<TRow extends ReadStateRow> {
+  /** 缓存命名空间（queryKey [name, 'list', pageSize]）——同 name 取数点共享缓存（收件箱与 badge 同 name） */
+  name: string
+  client: ReadStateClient<TRow>
+  pageSize?: number                                // 缺省 30
+  sort?: SortSpec[]                                // 缺省 [{ field: "createdAt", direction: "desc" }]
+  staleTime?: number
+  mutationMode?: ReadStateMutationMode             // 缺省 "pessimistic"
+}
+
+export interface ReadStateResult<TRow extends ReadStateRow> {
+  query: UseQueryResult<Page<TRow>>
+  rows: TRow[]
+  unreadRows: TRow[]
+  unreadCount: number
+  /** 单条已读 mutation（无 update 能力 → mutationFn 报契约错误，error 落 mutation.error 不外抛） */
+  markRead: UseMutationResult<TRow, Error, TRow>
+  markingAll: boolean
+  markAllRead(): Promise<void>   // markAllRead 端点优先；缺省逐条 update 扇出；无写能力 → 零请求静默返回
+  invalidate(): Promise<void>    // 失效本读态流（listKeyPrefix 前缀命中含 badge 查询）
+}
+
+export function useReadState<TRow extends ReadStateRow>(opts: UseReadStateOptions<TRow>): ReadStateResult<TRow>
+//   queryFn 取数参数规范化为 { pageSize, sort }——同 name 同 pageSize 的取数点发同一请求形状（共享缓存前提）。
+//   optimistic：onMutate 即翻缓存 read:true，onError 回滚 prev，onSettled 失效对账（失败路径单测锁定）。
+
+/** 未读数查询（top-bar badge 用；与收件箱同 name → 同 queryKey 共享缓存） */
+export function useUnreadCount<TRow extends ReadStateRow>(
+  name: string,
+  client: ReadStateClient<TRow>,
+  opts?: { pageSize?: number; staleTime?: number; sort?: SortSpec[] },
+): number
+```

@@ -67,7 +67,7 @@ export const BLOCK_NAMES = [
   "app-shell",
   /** 四态容器：loading→骨架 / error→error-state+重试 / 空数据→empty-state / 空过滤→清除过滤 CTA。 */
   "async-state",
-  /** 审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。 */
+  /** 审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。行为语义自 M7-C2 起单源在 core/audit（audit-trail 元模式引擎）。 */
   "audit-log",
   /** auth 卡片壳：居中 main + max-w-sm 卡片 + 居中 header（brand/title/description）+ footer；登录/注册/忘记密码/OTP 四页共用。 */
   "auth-card-layout",
@@ -141,7 +141,7 @@ export const BLOCK_NAMES = [
   "nav-user",
   /** 轮询发现新数据时的提示条：计数来自 core useNewItemsSignal，确认后 refetch（不自动插行防跳动）。 */
   "new-items-banner",
-  /** 通知收件箱页：类型图标、已读/未读、单条已读（PATCH）、全部已读、relative-time 活渲染；数据走 ResourceClient 约定；useUnreadCount 供 top-bar badge 共享缓存。 */
+  /** 通知收件箱页：类型图标、已读/未读、单条已读（PATCH）、全部已读、relative-time 活渲染；数据走 ResourceClient 约定；useUnreadCount 供 top-bar badge 共享缓存。行为语义自 M7-C2 起单源在 core/read（read-state 元模式引擎）。 */
   "notification-inbox",
   /** 带逻辑的首登引导向导：欢迎（团队名）→ 创建首个资源（异步提交）→ 邀请成员（动态行 + 邮箱校验）→ 完成 summary；步骤间数据保留；Stepper 驱动每步校验。 */
   "onboarding",
@@ -221,7 +221,7 @@ export const BLOCK_DOCS: Record<BlockName, string> = {
   "async-state":
     "四态容器：loading→骨架 / error→error-state+重试 / 空数据→empty-state / 空过滤→清除过滤 CTA。",
   "audit-log":
-    "审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。",
+    "审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。行为语义自 M7-C2 起单源在 core/audit（audit-trail 元模式引擎）。",
   "auth-card-layout":
     "auth 卡片壳：居中 main + max-w-sm 卡片 + 居中 header（brand/title/description）+ footer；登录/注册/忘记密码/OTP 四页共用。",
   breadcrumbs:
@@ -285,7 +285,7 @@ export const BLOCK_DOCS: Record<BlockName, string> = {
   "new-items-banner":
     "轮询发现新数据时的提示条：计数来自 core useNewItemsSignal，确认后 refetch（不自动插行防跳动）。",
   "notification-inbox":
-    "通知收件箱页：类型图标、已读/未读、单条已读（PATCH）、全部已读、relative-time 活渲染；数据走 ResourceClient 约定；useUnreadCount 供 top-bar badge 共享缓存。",
+    "通知收件箱页：类型图标、已读/未读、单条已读（PATCH）、全部已读、relative-time 活渲染；数据走 ResourceClient 约定；useUnreadCount 供 top-bar badge 共享缓存。行为语义自 M7-C2 起单源在 core/read（read-state 元模式引擎）。",
   onboarding:
     "带逻辑的首登引导向导：欢迎（团队名）→ 创建首个资源（异步提交）→ 邀请成员（动态行 + 邮箱校验）→ 完成 summary；步骤间数据保留；Stepper 驱动每步校验。",
   "otp-page": "MFA/验证码页：6 位分格输入（自动进格、退格回跳、粘贴整段填充、填满自动提交）。",

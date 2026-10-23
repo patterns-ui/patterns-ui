@@ -11,14 +11,21 @@
  *  4. 校验：registryDependencies 引用的 block 存在、无循环依赖、无相对路径逃逸出 block 目录、
  *     不得 import demo 代码（architecture.md §5 之外的 `@/*` 形态一律拒绝）、
  *     不得 barrel import `@/components/ui`（无法解析出具体官方组件名）、
- *     meta.archetype（可选）∈ 7 页面原型（docs/paradigm.md §3.2）并透传到 item 顶层。
+ *     meta.archetype（可选）∈ 7 页面原型（docs/paradigm.md §3.2）并透传到 item 顶层；
+ *     meta.pattern（可选，M7-C2）—— blocks ⊆ 全部 block 名且含组装入口自身、
+ *     metaPatterns ∈ 元模式封闭词表、contractCard 文件存在且含 contractVersion 行。
  *  5. 输出 registry/dist/r/<name>.json（shadcn registry-item schema）与仓库根 registry.json
  *     （GitHub repo-as-registry 索引，items 内联，提交进仓库）。
  *
  * 运行：pnpm registry:build（tsx）。validate 由 `pnpm dlx shadcn@latest registry validate` 单独执行（CI 亦跑）。
+ *
+ * **pattern 字段的 CLI 剥离坑（M7-C2，paradigm §1.3/M7-C2 已核实）**：顶层 `pattern` 字段经
+ * shadcn CLI zod parse 会被**静默剥离**——`registry validate` 通过 ≠ 透传给消费端。仓内工具
+ * （docs 生成器、决策树）一律读源 meta.json 不读 dist 产物；契约卡本体经 files 通道
+ * （type registry:file）分发不受剥离影响（消费端 `shadcn add` 得到 .md 落盘）。
  */
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -53,6 +60,43 @@ const ARCHETYPES = new Set([
 const IMPLICIT_NPM_IMPORTS = new Set(["react", "react-dom", "react/jsx-runtime"]);
 const CORE_PACKAGE = "@patterns-ui/core";
 
+/**
+ * 元模式封闭词表（M7-C2）——**与 packages/core/src/meta/index.ts 的 META_PATTERN_NAMES
+ * 同源硬编码两处**（docs/paradigm.md §1.2「元模式清单」16 值，表序即此序）。改清单属
+ * ①象限变更纪律：paradigm §1.2 表、core 词表、本处三地同步改。
+ */
+const META_PATTERNS = new Set([
+  "resource-lifecycle",
+  "list-browse",
+  "reference-resolution",
+  "multi-tenant",
+  "auth-rbac",
+  "task-polling",
+  "new-items-signal",
+  "flow",
+  "audit-trail",
+  "read-state",
+  "billing-lifecycle",
+  "api-key-lifecycle",
+  "import-pipeline",
+  "comment-thread",
+  "webhook-delivery",
+  "permission-matrix",
+]);
+
+/** 契约卡正文的 contractVersion 行（生成器 docs:generate 同款解析——两处同格式约定） */
+const CONTRACT_VERSION_RE = /^- \*\*contractVersion\*\*: (\d+)$/m;
+
+/** 业务模式附加字段（M7-C2，paradigm §1.3）：声明该 item 是某业务模式的组装入口 */
+interface BlockPattern {
+  /** 契约卡仓内单源文件（仓库根相对路径；build 并入 item files、docs 生成器读摘要） */
+  contractCard: string;
+  /** 该模式组合的 block（组装入口自身必含） */
+  blocks: string[];
+  /** 基于的元模式（封闭词表 META_PATTERNS） */
+  metaPatterns: string[];
+}
+
 /** 官方 base-nova item 完整 URL */
 function officialBaseItemUrl(name: string): string {
   return `${OFFICIAL_BASE_REGISTRY}/${name}.json`;
@@ -66,6 +110,8 @@ interface BlockMeta {
   categories?: string[];
   /** 页面原型（7 合法值，见 ARCHETYPES）；仅原型的宿主/预设 block 声明，透传到 registry item 顶层 */
   archetype?: string;
+  /** 业务模式组装入口声明（M7-C2；见 BlockPattern） */
+  pattern?: BlockPattern;
   dependencies?: string[];
   registryDependencies?: string[];
   targetDir: string;
@@ -85,6 +131,8 @@ interface RegistryItem {
   title?: string;
   description?: string;
   archetype?: string;
+  /** 业务模式组装入口（M7-C2；CLI zod parse 会剥离顶层 pattern——仓内工具读源 meta，见文件头注） */
+  pattern?: BlockPattern & { contractVersion: number };
   cssVars?: { light: Record<string, string>; dark: Record<string, string> };
   files: RegistryFile[];
   dependencies: string[];
@@ -230,6 +278,72 @@ function depName(dep: string): string {
   return dep.split("@")[0] || dep;
 }
 
+/**
+ * pattern 字段校验与解析（M7-C2，docs/registry.md §2）：
+ *  - blocks ⊆ 全部 block 名，且组装入口自身（meta.name）必含；
+ *  - metaPatterns ⊆ 元模式封闭词表（META_PATTERNS，与 core/meta 同源）且非空；
+ *  - contractCard（仓库根相对路径）存在，正文含 `- **contractVersion**: <int>` 行（版本单源在卡）。
+ * 返回并入 item 的 pattern 对象与契约卡绝对路径（files 通道分发用）。
+ */
+function validatePattern(
+  meta: BlockMeta,
+  metaPath: string,
+  blockNames: Set<string>,
+): { pattern: BlockPattern & { contractVersion: number }; cardPath: string } | undefined {
+  const raw = meta.pattern;
+  if (raw === undefined) return undefined;
+  const rel = relative(ROOT, metaPath);
+  if (
+    !Array.isArray(raw.blocks) ||
+    raw.blocks.length === 0 ||
+    !raw.blocks.every((block) => typeof block === "string")
+  ) {
+    fail(`${rel}: pattern.blocks 须为非空 block 名数组`);
+  }
+  if (!raw.blocks.includes(meta.name)) {
+    fail(`${rel}: pattern.blocks 须含组装入口自身 "${meta.name}"`);
+  }
+  const unknownBlocks = raw.blocks.filter((block) => !blockNames.has(block));
+  if (unknownBlocks.length > 0) {
+    fail(`${rel}: pattern.blocks 引用未知 block：${unknownBlocks.join(", ")}`);
+  }
+  if (
+    !Array.isArray(raw.metaPatterns) ||
+    raw.metaPatterns.length === 0 ||
+    !raw.metaPatterns.every((mp) => typeof mp === "string")
+  ) {
+    fail(`${rel}: pattern.metaPatterns 须为非空元模式名数组`);
+  }
+  const unknownPatterns = raw.metaPatterns.filter((mp) => !META_PATTERNS.has(mp));
+  if (unknownPatterns.length > 0) {
+    fail(
+      `${rel}: pattern.metaPatterns 越出元模式封闭词表：${unknownPatterns.join(", ")}（合法值：${[
+        ...META_PATTERNS,
+      ].join(", ")}——与 core/meta META_PATTERN_NAMES 同源，paradigm §1.2）`,
+    );
+  }
+  if (typeof raw.contractCard !== "string" || raw.contractCard === "") {
+    fail(`${rel}: pattern.contractCard 须为契约卡路径（仓库根相对）`);
+  }
+  const cardPath = resolve(ROOT, raw.contractCard);
+  if (!cardPath.startsWith(ROOT) || !existsSync(cardPath) || !cardPath.endsWith(".contract.md")) {
+    fail(
+      `${rel}: pattern.contractCard "${raw.contractCard}" 不存在（须为 registry/patterns/<name>.contract.md）`,
+    );
+  }
+  const cardContent = readFileSync(cardPath, "utf8");
+  const versionMatch = cardContent.match(CONTRACT_VERSION_RE);
+  if (versionMatch === null) {
+    fail(
+      `${relative(ROOT, cardPath)}: 缺 "- **contractVersion**: <int>" 行（契约卡格式见 registry/patterns/）`,
+    );
+  }
+  return {
+    pattern: { ...raw, contractVersion: Number(versionMatch[1]) },
+    cardPath,
+  };
+}
+
 async function main(): Promise<void> {
   const coreVersion = JSON.parse(readFileSync(CORE_PACKAGE_JSON, "utf8")).version as string;
   const metaFiles = findMetaFiles();
@@ -258,6 +372,16 @@ async function main(): Promise<void> {
     metas.set(key, { meta, metaPath });
   }
   const blockNames = new Set([...metas.values()].map(({ meta }) => meta.name));
+
+  /** pattern 字段校验（M7-C2）——结果按 block 名索引，item 构建时透传 + 契约卡并入 files */
+  const patternInfo = new Map<
+    string,
+    { pattern: BlockPattern & { contractVersion: number }; cardPath: string }
+  >();
+  for (const { meta, metaPath } of metas.values()) {
+    const info = validatePattern(meta, metaPath, blockNames);
+    if (info) patternInfo.set(meta.name, info);
+  }
 
   /** block 依赖图（用于存在性校验 + 环检测） */
   const graph = new Map<string, Set<string>>();
@@ -393,6 +517,18 @@ async function main(): Promise<void> {
 
     graph.set(meta.name, blockDeps);
 
+    // pattern（M7-C2）：契约卡以 file 形态并入（type registry:file——消费端 shadcn add 得到
+    // .md 落盘；顶层 pattern 字段会被 CLI zod parse 剥离，契约卡经 files 通道分发不受影响）
+    const pattern = patternInfo.get(meta.name);
+    if (pattern) {
+      files.push({
+        path: relative(ROOT, pattern.cardPath),
+        type: "registry:file",
+        target: `${meta.targetDir}/${basename(pattern.cardPath)}`,
+        content: readFileSync(pattern.cardPath, "utf8"),
+      });
+    }
+
     blockItems.push({
       $schema: "https://ui.shadcn.com/schema/registry-item.json",
       name: meta.name,
@@ -402,11 +538,15 @@ async function main(): Promise<void> {
       // archetype 透传到 item 顶层（schema additionalProperties 开放，validate 不拒）；
       // M7-B1 消费做同原型 slot 结构一致性校验，vocab:generate 消费产 BLOCKS_BY_ARCHETYPE。
       ...(meta.archetype ? { archetype: meta.archetype } : {}),
+      // pattern 透传到 item 顶层（同上开放；CLI 消费端会被剥离——仓内工具读源 meta.json）
+      ...(pattern ? { pattern: pattern.pattern } : {}),
       files,
       dependencies: [...dependencies].sort(),
       registryDependencies: [...registryDependencies].sort(),
     });
-    console.log(`  block ${key} → dist/r/${meta.name}.json (${files.length} files)`);
+    console.log(
+      `  block ${key} → dist/r/${meta.name}.json (${files.length} files${pattern ? ", pattern" : ""})`,
+    );
   }
 
   // 环检测
