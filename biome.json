@@ -13,7 +13,8 @@
       "!registry.json",
       "!registry/.freeze.json",
       "!registry/dist",
-      "!.changeset"
+      "!.changeset",
+      "!**/CHANGELOG.md"
     ]
   },
   "css": {

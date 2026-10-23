@@ -3,7 +3,6 @@
 **English** · [简体中文](README_ZH.md)
 
 A CRUD UI foundation for our console / SaaS products: install it and you get a high-completion application skeleton; adding a resource page approaches zero boilerplate.
-
 - **Stack**: pnpm monorepo · React 19 · TanStack Router / Query / Table v9 / Form v1 · shadcn/ui (Base UI dialect) · Tailwind v4 · zod v4
 - **Distribution**: logic in the npm package `@patterns-ui/core` (semver + changesets); UI as shadcn registry blocks (copied into your project — fully owned, freely editable)
 - **Repository**: `patterns-ui/patterns-ui` (private, repo-as-registry)
@@ -12,7 +11,6 @@ A CRUD UI foundation for our console / SaaS products: install it and you get a h
 ## The paradigm: archetypes + a closed vocabulary
 
 The library doesn't sell components or designs — it sells **reusable business patterns with consistent behavior**. Page work is **configuration, not JSX**:
-
 - **Seven page archetypes** (resource-list / resource-detail / resource-form / settings / overview / auth-flow / wizard), each with one fixed slot structure; variants are props, never parallel blocks.
 - **A closed vocabulary**: 73 blocks · 9 semantic cells · 2 theme presets · 10 actions · 3 pagination protocols (`page` / `keyset` shipped, `offset` reserved). Page files write only vocabulary names; a typo fails typecheck with the full list of legal values.
 - **A fact layer**: [docs/patterns.md](docs/patterns.md) (generated — `pnpm docs:generate`, do not hand-edit): archetype decision table, discriminators, vocabulary catalog, 18 curated combinations from real demo pages, 8 anti-patterns.
@@ -23,17 +21,17 @@ When the vocabulary truly lacks a component, the only legal path is the sandbox 
 
 ## Features
 
-| Capability | What it means |
-| --- | --- |
-| Layered L0–L4 | L0 Tokens (theme & presets) → L1 shadcn primitives → L2 composite components (DataTable / FilterBar …) → L3 page templates (list-page / form-page / detail-page …) → L4 `defineResource()` resource declaration. Every layer is a valid stop, swap, or fork point. |
-| Four list modes | One hook, `useResourceTable`, covers client (fetch-all + local filtering) / server-offset (page + keepPreviousData) / server-cursor (token stack) / load-more (accumulate & append). |
-| URL as source of truth | All query semantics (search / filter / sort / page / view) live in the URL (a zod schema guards bad values); a pasted link reproduces the exact view, back/forward work; the cursor stack and row selection stay in memory. |
-| Resource layer | `createResource` wraps queryKeys, invalidation rules, and three mutation modes (pessimistic / optimistic / **undoable**: optimistic change + toast countdown undo) — zero ad-hoc `fetch` calls. |
-| Multi-tenancy | `/t/$tenantId` route prefix + TenantProvider; queryKeys automatically carry the tenant segment so switching tenants clears exactly the right cache; remembered (localStorage) with stale-value fallback. |
-| Auth & permissions | requireAuth / requireRole route guards; `can()` always fails closed; `navFromResources` filters navigation by permission. |
-| Theme presets | dark default + light; `data-preset` swaps skins (default / aurora); the no-flash blocking script shares constants with core. |
-| Dates & time | Timezone / hour12 preferences (Intl cache, DST-correct); `formatRelative` live rendering. |
-| L4 resource layer | One `defineResource` declaration derives the list page, detail loader prefetch, navigation, permissions, and form field inference (`inferColumns` / `inferFormFields`; in dev the Guesser prints paste-ready config). |
+| Capability             | What it means                                                                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Layered L0–L4          | L0 Tokens (theme & presets) → L1 shadcn primitives → L2 composite components (DataTable / FilterBar …) → L3 page templates (list-page / form-page / detail-page …) → L4 `defineResource()` resource declaration. Every layer is a valid stop, swap, or fork point. |
+| Four list modes        | One hook, `useResourceTable`, covers client (fetch-all + local filtering) / server-offset (page + keepPreviousData) / server-cursor (token stack) / load-more (accumulate & append).                                                                               |
+| URL as source of truth | All query semantics (search / filter / sort / page / view) live in the URL (a zod schema guards bad values); a pasted link reproduces the exact view, back/forward work; the cursor stack and row selection stay in memory.                                        |
+| Resource layer         | `createResource` wraps queryKeys, invalidation rules, and three mutation modes (pessimistic / optimistic / **undoable**: optimistic change + toast countdown undo) — zero ad-hoc `fetch` calls.                                                                    |
+| Multi-tenancy          | `/t/$tenantId` route prefix + TenantProvider; queryKeys automatically carry the tenant segment so switching tenants clears exactly the right cache; remembered (localStorage) with stale-value fallback.                                                           |
+| Auth & permissions     | requireAuth / requireRole route guards; `can()` always fails closed; `navFromResources` filters navigation by permission.                                                                                                                                          |
+| Theme presets          | dark default + light; `data-preset` swaps skins (default / aurora); the no-flash blocking script shares constants with core.                                                                                                                                       |
+| Dates & time           | Timezone / hour12 preferences (Intl cache, DST-correct); `formatRelative` live rendering.                                                                                                                                                                          |
+| L4 resource layer      | One `defineResource` declaration derives the list page, detail loader prefetch, navigation, permissions, and form field inference (`inferColumns` / `inferFormFields`; in dev the Guesser prints paste-ready config).                                              |
 
 ## Using it in a new project (three steps)
 
@@ -142,30 +140,28 @@ The detail route is the same two lines (`resourceDetailRouteOptions`: staticData
 
 Install: `pnpm dlx shadcn@latest add @patterns-ui/<name>`. Specs in [docs/blocks.md](docs/blocks.md).
 
-| Category | Blocks |
-| --- | --- |
-| shell (8) | app-shell (variant: inset/floating/fullbleed) · top-bar · breadcrumbs · theme-toggle · preset-switcher · user-menu · command-palette · global-search-page |
-| sidebar (4) | side-nav (variant: inset/floating/icon) · nav-group · nav-user · tenant-switcher |
-| auth (6) | auth-card-layout · sign-in-page · sign-up-page · forgot-password-page · otp-page · onboarding |
-| list (14) | data-table · filter-bar · facet-sidebar · saved-views-menu · pagination-bar · selection-bar · refresh-bar · new-items-banner · export-button · list-page (table/grid variants) · audit-log · notification-inbox · resource-list-view (L4) · use-resource-mutations |
-| cells (10) | cell-for (semantic dispatch) · cell-id / -time / -user / -status / -boolean / -number / -enum-badge / -tags / -progress |
-| form (8) | typed-form-field (full widget set + createTypedForm factory) · form-page / form-sheet / form-dialog (three hosts) · stepper · confirm-dialog · reference-select · secret-reveal |
-| show (9) | detail-page · detail-grid · timeline · reference-field · inline-edit-field · danger-zone · record-pager · diff-viewer · resource-detail-view (L4) |
-| shared (12) | async-state · empty-state · error-state · error-pages (one ErrorPage template + RouteErrorBoundary) · page-header · skeleton · status-badge · relative-time · copy-button · user-avatar · resource-icon · stat-strip |
-| team / settings (2) | team-page · settings-page (org / personal / security / appearance sections) |
-| themes (2) | default · aurora (`[data-preset]` skins, distributed via the theme item) |
-| skills (1) | skills (three agent skills + render script, a `registry:file` item — see "AI / skills" below) |
+| Category            | Blocks                                                                                                                                                                                                                                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| shell (8)           | app-shell (variant: inset/floating/fullbleed) · top-bar · breadcrumbs · theme-toggle · preset-switcher · user-menu · command-palette · global-search-page                                                                                                          |
+| sidebar (4)         | side-nav (variant: inset/floating/icon) · nav-group · nav-user · tenant-switcher                                                                                                                                                                                   |
+| auth (6)            | auth-card-layout · sign-in-page · sign-up-page · forgot-password-page · otp-page · onboarding                                                                                                                                                                      |
+| list (14)           | data-table · filter-bar · facet-sidebar · saved-views-menu · pagination-bar · selection-bar · refresh-bar · new-items-banner · export-button · list-page (table/grid variants) · audit-log · notification-inbox · resource-list-view (L4) · use-resource-mutations |
+| cells (10)          | cell-for (semantic dispatch) · cell-id / -time / -user / -status / -boolean / -number / -enum-badge / -tags / -progress                                                                                                                                            |
+| form (8)            | typed-form-field (full widget set + createTypedForm factory) · form-page / form-sheet / form-dialog (three hosts) · stepper · confirm-dialog · reference-select · secret-reveal                                                                                    |
+| show (9)            | detail-page · detail-grid · timeline · reference-field · inline-edit-field · danger-zone · record-pager · diff-viewer · resource-detail-view (L4)                                                                                                                  |
+| shared (12)         | async-state · empty-state · error-state · error-pages (one ErrorPage template + RouteErrorBoundary) · page-header · skeleton · status-badge · relative-time · copy-button · user-avatar · resource-icon · stat-strip                                               |
+| team / settings (2) | team-page · settings-page (org / personal / security / appearance sections)                                                                                                                                                                                        |
+| themes (2)          | default · aurora (`[data-preset]` skins, distributed via the theme item)                                                                                                                                                                                           |
+| skills (1)          | skills (three agent skills + render script, a `registry:file` item — see "AI / skills" below)                                                                                                                                                                      |
 
 ## AI / skills (dual channel)
 
 Three agent skills accompany the paradigm (content in M7-C3, distribution in M7-D; paradigm §4.2/§4.3):
-
 - **ui-page**: the single entry point for creating or changing pages (classify the archetype → copy a curated combo from patterns → write configuration with 0 JSX → self-check with typecheck / `ui:check` → deliver with three-state screenshots).
 - **ui-block**: the only legal path when the vocabulary truly lacks a component (dedupe → sandbox placement + watermark → proposed registration → freeze exemption → promotion).
 - **ui-theme**: the only entry point for brand customization (preset choice; theme tokens only — per-component restyling is an anti-pattern).
 
 Consumer-side distribution runs on **two channels**:
-
 - **Channel 1 — registry item (rendered per project)**:
 
   ```bash
@@ -198,10 +194,10 @@ The in-repo fact source is `.zcode/skills/` (three SKILL.md files: ui-page / ui-
 
 The same "audit events list page" (keyset pagination + action facet + time-range filter + advanced and/or) written two ways, both kept in the demo for direct comparison (since M6 the product entry is the L4 version at `/t/:tid/audit`; the M2 hand-written page moved to `/t/:tid/dev/audit-legacy` as a reference):
 
-| Version | Route | Code | Notes |
-| --- | --- | --- | --- |
-| M2 hand-written | `/t/:tid/dev/audit-legacy` | ~229 lines (single file) | hand-written columns + useResourceTable + full FilterBar / FacetSidebar / DataTable / PaginationBar assembly + cursor/load-more dual-mode switch |
-| M4 resource layer | `/t/:tid/audit` | ~87-line page + ~55-line def | `defineResource` (columns inferred by `inferColumns` from a sample; filters/list declared together) + `resourceListRouteOptions` (validateSearch / staticData / permission guard) + one-line `ResourceListView` |
+| Version           | Route                      | Code                         | Notes                                                                                                                                                                                                           |
+| ----------------- | -------------------------- | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M2 hand-written   | `/t/:tid/dev/audit-legacy` | ~229 lines (single file)     | hand-written columns + useResourceTable + full FilterBar / FacetSidebar / DataTable / PaginationBar assembly + cursor/load-more dual-mode switch                                                                |
+| M4 resource layer | `/t/:tid/audit`            | ~87-line page + ~55-line def | `defineResource` (columns inferred by `inferColumns` from a sample; filters/list declared together) + `resourceListRouteOptions` (validateSearch / staticData / permission guard) + one-line `ResourceListView` |
 
 The resource layer's payoff scales linearly with the number of resources: the def also derives navigation (`navFromResources`), detail-route loader prefetch (`resourceDetailRouteOptions`), and form field inference (`inferFormFields`). In dev mode, opening `/t/:tid/audit` prints paste-ready config in the console (the Guesser). The hand-written version remains as the L3 reference — stop at L3 when you want full control of the assembly.
 
@@ -238,36 +234,36 @@ docs/                     # spec docs (architecture, core API, blocks, registry,
 
 ### Milestones
 
-| Milestone | Scope | Status |
-| --- | --- | --- |
-| M0 | monorepo skeleton, registry pipeline, demo alias chain | ✅ |
-| M1 | shell & cross-cutting (theme / tenant / auth / router / datetime + shell / sidebar / auth blocks) | ✅ |
-| M2 | list vertical slice (data / filters / list core + the list block family + services/audit pages) | ✅ |
-| M3 | forms, details & relations (form / reference / task core + the three form hosts / show blocks) | ✅ |
-| M4 | resource layer & advanced tables (defineResource / inferColumns + grouping / tree / aggregation / virtualization + SaaS template pages) | ✅ |
-| M5 | hardening (128 unit tests + 12 guard tests, Playwright smoke, CI, changesets, README, lint convergence) | ✅ |
-| M6 | foundation & structure fixes (release readiness / re-homing to the quadrant model / L4 robustness / variant convergence / copy & docs, see docs/milestones.md) | ✅ |
-| M7 | paradigm implementation (naming layer + execution layer + guidance layer + distribution; the one-stop `ui:check` gate, see docs/milestones.md) | ✅ |
+| Milestone | Scope                                                                                                                                                          | Status |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| M0        | monorepo skeleton, registry pipeline, demo alias chain                                                                                                         | ✅     |
+| M1        | shell & cross-cutting (theme / tenant / auth / router / datetime + shell / sidebar / auth blocks)                                                              | ✅     |
+| M2        | list vertical slice (data / filters / list core + the list block family + services/audit pages)                                                                | ✅     |
+| M3        | forms, details & relations (form / reference / task core + the three form hosts / show blocks)                                                                 | ✅     |
+| M4        | resource layer & advanced tables (defineResource / inferColumns + grouping / tree / aggregation / virtualization + SaaS template pages)                        | ✅     |
+| M5        | hardening (128 unit tests + 12 guard tests, Playwright smoke, CI, changesets, README, lint convergence)                                                        | ✅     |
+| M6        | foundation & structure fixes (release readiness / re-homing to the quadrant model / L4 robustness / variant convergence / copy & docs, see docs/milestones.md) | ✅     |
+| M7        | paradigm implementation (naming layer + execution layer + guidance layer + distribution; the one-stop `ui:check` gate, see docs/milestones.md)                 | ✅     |
 
 ### Scripts
 
-| Command | What it does |
-| --- | --- |
-| `pnpm dev` | start the demo (vite + mock API) |
-| `pnpm lint` / `pnpm format` | biome check / format (0-warning baseline) |
-| `pnpm -r typecheck` | tsc across the workspace (demo runs `tsr generate` first) |
-| `pnpm -r test` | core unit tests (vitest) + demo guard tests (node source scans) |
-| `pnpm test:e2e` | Playwright smoke (webServer boots vite dev on :4173; CI runs it on PR/push) |
-| `pnpm build` | core tsup build + `registry:build` (registry.json + dist/r/*.json) |
-| `pnpm review` | demo `vite build && vite preview` (pinned to :4173; CI smoke pings it) |
-| `pnpm lint:eslint` / `pnpm slots:check` | paradigm lint, 4 rules (M7-B1) / archetype slot three-way consistency (M7-B1) |
-| `pnpm ui:shots [--check]` | generate three-state screenshot baselines / CI verification (M7-B2) |
-| `pnpm ui:score [--check]` | consistency score report / ratchet check (M7-B3) |
-| `pnpm check:names` | three-way check: config names ⊆ injection table ∪ sandbox registry (M7-B4) |
-| `pnpm ui:a11y` | axe scan (wcag2a/2aa; serious/critical fail, moderate logged) |
-| `pnpm ui:check [--fast\|--skip 7,shots]` | one-stop 10-step quality gate (M7-B4; `--fast` static quick pass, `--list` lists all steps) |
-| `pnpm dlx shadcn@latest registry validate` | validate registry.json (CI runs it too) |
-| `pnpm changeset` / `pnpm version-packages` | record a change / bump versions + CHANGELOG (release flow: docs/registry.md §6) |
+| Command                                    | What it does                                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| `pnpm dev`                                 | start the demo (vite + mock API)                                                            |
+| `pnpm lint` / `pnpm format`                | biome check / format (0-warning baseline)                                                   |
+| `pnpm -r typecheck`                        | tsc across the workspace (demo runs `tsr generate` first)                                   |
+| `pnpm -r test`                             | core unit tests (vitest) + demo guard tests (node source scans)                             |
+| `pnpm test:e2e`                            | Playwright smoke (webServer boots vite dev on :4173; CI runs it on PR/push)                 |
+| `pnpm build`                               | core tsup build + `registry:build` (registry.json + dist/r/*.json)                          |
+| `pnpm review`                              | demo `vite build && vite preview` (pinned to :4173; CI smoke pings it)                      |
+| `pnpm lint:eslint` / `pnpm slots:check`    | paradigm lint, 4 rules (M7-B1) / archetype slot three-way consistency (M7-B1)               |
+| `pnpm ui:shots [--check]`                  | generate three-state screenshot baselines / CI verification (M7-B2)                         |
+| `pnpm ui:score [--check]`                  | consistency score report / ratchet check (M7-B3)                                            |
+| `pnpm check:names`                         | three-way check: config names ⊆ injection table ∪ sandbox registry (M7-B4)                  |
+| `pnpm ui:a11y`                             | axe scan (wcag2a/2aa; serious/critical fail, moderate logged)                               |
+| `pnpm ui:check [--fast\|--skip 7,shots]`   | one-stop 10-step quality gate (M7-B4; `--fast` static quick pass, `--list` lists all steps) |
+| `pnpm dlx shadcn@latest registry validate` | validate registry.json (CI runs it too)                                                     |
+| `pnpm changeset` / `pnpm version-packages` | record a change / bump versions + CHANGELOG (release flow: docs/registry.md §6)             |
 
 ### Documentation
 
