@@ -35,10 +35,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # version = 有 changeset 时更新 Version Packages PR；publish = PR 合并后执行（仅 changeset tag，不 npm publish）
+      # version = 有 changeset 时更新 Version Packages PR；publish = PR 合并后执行（仅 changeset tag，不 npm publish）。
+      # changeset tag 只在 runner 本地建 tag，必须显式 push，否则 tag 随 runner 丢弃。
       - uses: changesets/action@v1
         with:
           version: pnpm version-packages
-          publish: pnpm release-tag
+          publish: pnpm release-tag && git push origin --tags
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
