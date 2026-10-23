@@ -5,6 +5,11 @@
   "description": "带逻辑的首登引导向导：欢迎（团队名）→ 创建首个资源（异步提交）→ 邀请成员（动态行 + 邮箱校验）→ 完成 summary；步骤间数据保留；Stepper 驱动每步校验。",
   "categories": ["auth"],
   "archetype": "wizard",
+  "pattern": {
+    "contractCard": "registry/patterns/onboarding.contract.md",
+    "blocks": ["onboarding", "stepper"],
+    "metaPatterns": ["flow", "resource-lifecycle"]
+  },
   "dependencies": [],
   "registryDependencies": [],
   "targetDir": "components/blocks/auth/onboarding"

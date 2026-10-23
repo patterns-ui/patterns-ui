@@ -4,6 +4,20 @@
   "title": "Team Page",
   "description": "SaaS 模板页：成员表（角色 Select 行内改、2FA badge、移除 confirm）+ 待处理邀请区（撤销）+ 新邀请 form-dialog（邮箱+角色，zod 校验 + 422 回填）。",
   "categories": ["team"],
+  "pattern": {
+    "contractCard": "registry/patterns/team.contract.md",
+    "blocks": [
+      "cell-time",
+      "cell-user",
+      "confirm-dialog",
+      "data-table",
+      "form-dialog",
+      "page-header",
+      "team-page",
+      "typed-form-field"
+    ],
+    "metaPatterns": ["auth-rbac", "list-browse", "resource-lifecycle"]
+  },
   "dependencies": [],
   "registryDependencies": [],
   "targetDir": "components/blocks/team/team-page"

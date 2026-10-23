@@ -2,8 +2,25 @@
   "name": "audit-log",
   "type": "registry:block",
   "title": "Audit Log Preset",
-  "description": "审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。",
+  "description": "审计日志预设列表页：keyset cursor / load-more 双模式 + 时间范围 + action facet chips + actor 过滤；组装 useResourceTable + FilterBar + FacetSidebar + DataTable + PaginationBar 的 preset。行为语义自 M7-C2 起单源在 core/audit（audit-trail 元模式引擎）。",
   "categories": ["list"],
+  "pattern": {
+    "contractCard": "registry/patterns/audit-log.contract.md",
+    "blocks": [
+      "async-state",
+      "audit-log",
+      "cell-enum-badge",
+      "cell-id",
+      "cell-time",
+      "cell-user",
+      "data-table",
+      "facet-sidebar",
+      "filter-bar",
+      "list-page",
+      "pagination-bar"
+    ],
+    "metaPatterns": ["audit-trail", "list-browse", "reference-resolution"]
+  },
   "dependencies": [],
   "registryDependencies": [],
   "targetDir": "components/blocks/list/audit-log"

@@ -1,34 +1,33 @@
 /**
- * notification-inbox —— 通知收件箱页（docs/blocks.md list/）。
+ * notification-inbox —— 通知收件箱页（docs/blocks.md list/；notification 业务模式的组装入口）。
  *
+ * 行为语义自 M7-C2 起单源在 core/read（read-state 元模式引擎：未读计数共享缓存 /
+ * 单条已读 / 全部已读 / 读态翻转）；本 block 只保留 UI 预设（类型图标、已读视觉、
+ * relative-time 活渲染）与模式定名（缓存命名空间 "notification-inbox"）。
+ * 契约卡：registry/patterns/notification.contract.md。
  * 数据走 ResourceClient 约定：list（keyset/offset 均可，read 过滤参数透传）、
- * PATCH 单条已读（update(id, {read:true})）、POST 全部已读（bulkUpdate 约定或 host 自接）。
- * 通知行形状（约定字段）：{ id, type, title, body?, read, createdAt, actor? }。
+ * PATCH 单条已读（update(id, {read:true})）、POST 全部已读（markAllRead 或逐条 update）。
  */
+import type { ListParams, Page, ResourceClient } from "@patterns-ui/core/data";
 import {
-  type ListParams,
-  listKey,
-  listKeyPrefix,
-  type Page,
-  type ResourceClient,
-} from "@patterns-ui/core/data";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+  type ReadStateRow,
+  useUnreadCount as useCoreUnreadCount,
+  useReadState,
+} from "@patterns-ui/core/read";
 import { cn } from "cn";
 import { AlertTriangle, CheckCheck, CreditCard, type LucideIcon, Rocket } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CellUser } from "@/components/blocks/cells/cell-user/cell-user";
 import { RelativeTime } from "@/components/blocks/shared/relative-time/relative-time";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/** 约定的通知行形状 */
-export interface NotificationRow {
-  id: string;
+/** 约定的通知行形状（core/read 引擎契约 + 通知领域字段） */
+export interface NotificationRow extends ReadStateRow {
   type: string; // 'deploy' | 'alert' | 'billing' | …
   title: string;
   body?: string;
-  read: boolean;
   createdAt: string;
   actor?: { name: string; avatarUrl?: string };
 }
@@ -39,6 +38,9 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   alert: AlertTriangle,
   billing: CreditCard,
 };
+
+/** 读态流缓存命名空间（与抽取前 queryKey 同名：收件箱与 top-bar badge 共享缓存延续） */
+const READ_STATE_NAME = "notification-inbox";
 
 export interface NotificationInboxProps {
   /** 通知资源客户端（list 必须；markAll 可选缺省逐条 update） */
@@ -57,16 +59,6 @@ export interface NotificationInboxProps {
   className?: string;
 }
 
-const INBOX_KEY = "notification-inbox";
-
-/** 收件箱列表 queryKey（走 core/data 公共出口；形状 [name, tenantId?, "list", params]） */
-const inboxKey = (pageSize: number) => listKey(INBOX_KEY, pageSize);
-
-/**
- * 列表族失效前缀（core/data 公共出口）：命中任意 pageSize 的收件箱查询（含未读数 badge 查询）。
- */
-const inboxKeyPrefix = () => listKeyPrefix(INBOX_KEY);
-
 export function NotificationInbox({
   client,
   pageSize = 30,
@@ -74,45 +66,19 @@ export function NotificationInbox({
   onUnreadCountChange,
   className,
 }: NotificationInboxProps) {
-  const queryClient = useQueryClient();
-  const [markingAll, setMarkingAll] = useState(false);
-
-  const query = useQuery({
-    queryKey: inboxKey(pageSize),
-    queryFn: () => client.list({ pageSize, sort: [{ field: "createdAt", direction: "desc" }] }),
+  const feed = useReadState<NotificationRow>({
+    name: READ_STATE_NAME,
+    client,
+    pageSize,
+    // 与抽取前行为一致：pessimistic（服务器确认后失效刷新；乐观翻转是引擎能力，本模式未启用）
+    mutationMode: "pessimistic",
   });
-
-  const rows = query.data?.rows ?? [];
-  const unread = rows.filter((row) => !row.read);
+  const { query, rows, unreadRows, markRead, markingAll, markAllRead } = feed;
+  const unread = unreadRows;
 
   useEffect(() => {
     onUnreadCountChange?.(unread.length);
   }, [unread.length, onUnreadCountChange]);
-
-  const markRead = useMutation({
-    mutationFn: async (row: NotificationRow) => {
-      if (client.update) return client.update(row.id, { read: true });
-      return row;
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: inboxKeyPrefix() });
-    },
-  });
-
-  const markAll = async (): Promise<void> => {
-    setMarkingAll(true);
-    try {
-      const unreadIds = unread.map((row) => row.id);
-      if (client.markAllRead) {
-        await client.markAllRead(unreadIds);
-      } else if (client.update) {
-        await Promise.all(unreadIds.map((id) => client.update?.(id, { read: true })));
-      }
-      await queryClient.invalidateQueries({ queryKey: inboxKeyPrefix() });
-    } finally {
-      setMarkingAll(false);
-    }
-  };
 
   return (
     <section
@@ -132,7 +98,7 @@ export function NotificationInbox({
           variant="ghost"
           size="sm"
           disabled={markingAll || unread.length === 0}
-          onClick={() => void markAll()}
+          onClick={() => void markAllRead()}
         >
           <CheckCheck data-icon="inline-start" />
           全部已读
@@ -220,17 +186,11 @@ export function NotificationInbox({
   );
 }
 
-/** 未读数查询（top-bar badge 用；与收件箱同一 queryKey 共享缓存） */
+/** 未读数查询（top-bar badge 用；与收件箱同一 queryKey 共享缓存）——core/read 引擎出口的模式定名包装 */
 export function useUnreadCount(client: {
   list(params: ListParams): Promise<Page<NotificationRow>>;
 }): number {
-  const query = useQuery({
-    queryKey: inboxKey(30),
-    queryFn: () => client.list({ pageSize: 30 }),
-    // 与 NotificationInbox 相同 key → 缓存共享；staleTime 抑制重复请求
-    staleTime: 15_000,
-  });
-  return (query.data?.rows ?? []).filter((row) => !row.read).length;
+  return useCoreUnreadCount(READ_STATE_NAME, client);
 }
 
 export type NotificationClient = ResourceClient<NotificationRow>;

@@ -217,7 +217,7 @@
 
 ## M7 —— 范式落地（进行中；任务明细与判据见 docs/paradigm.md §6）
 
-A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugin 四规则/三态截图基线/一致性分数棘轮/核对器与编排）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。已落小节：B4、C1（见下）。
+A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugin 四规则/三态截图基线/一致性分数棘轮/核对器与编排）与 C1–C2（文档生成器/模式一级概念）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。已落小节：B4、C1、C2（见下）。
 
 ### M7-B4 核对器与编排（2026-10-23 落地）
 
@@ -256,6 +256,35 @@ A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugi
 - 连跑三次 sha256 逐字节一致（AGENTS.md 80d51afb… / patterns.md 9a6c2c95…；CLAUDE.md sha = AGENTS.md 内容，证 symlink 指向）。
 - 单源回环：篡改 cell-id meta description → `pnpm vocab:generate && pnpm docs:generate` → blocks.generated.ts 与 patterns.md 两表同步变 → git checkout 还原 + regen 后哈希复原。
 - 词表节一致性抽查（tsx 探针）：BLOCK 73 / CELL 9 / ACTION 10 / THEME 2 / PAGINATION 3 名字与描述前缀全部在场；反向核对 patterns.md 表内 103 行名字零词表外项。
-- symlink diff 命中验证：staged 后将 CLAUDE.md 换普通文件 → `git diff --exit-code -- … CLAUDE.md` 退出 1（捕获 type change）；恢复 symlink 后退出 0。
+- symlink diff 命中验证：staged 后将 CLAUDE.md 换普通文件 → `git diff --exit-code -- … CLAUDE.md` 退出 1（捕获 type type）；恢复 symlink 后退出 0。
 - `pnpm ui:check --fast` 六步静态全绿（freshness 步含文档路径）；`pnpm -r typecheck` / `pnpm lint`（biome 379 files，含两新脚本与 CLAUDE.md symlink 共存）/ `pnpm -r test`（241+35+13）全绿。
 - 本地 freshness 以 `git add -A` 暂存口径验证（同 B4 惯例；生成物为新文件，未暂存则 git diff 不见）。
+
+### M7-C2 模式一级概念（2026-10-23 落地）
+
+**交付物**
+
+1. **registry `pattern` 附加字段 + 5 模式契约卡**：meta 增可选 `pattern: { contractCard, blocks[], metaPatterns[] }`（组装入口声明）；5 模式各一页契约卡落 `registry/patterns/<name>.contract.md`（audit-log / team / notification / settings / onboarding；模式名 = 卡文件名，与 block 名解耦——team-page block → team 模式）。**contractVersion 单源在卡**（`- **contractVersion**: <int>` 行，build.ts 与 docs 生成器同款解析）；两层契约 = 元模式契约（按协议轴章节结构：端点形状/分页协议/错误语义）+ 业务契约（领域字段 + 内置决策及理由——如 audit 为何 keyset）；含变更日志节。build.ts 校验：blocks ⊆ 全部 block 名且含组装入口自身、metaPatterns ∈ 元模式封闭词表（16 值，与 core/meta `META_PATTERN_NAMES` 同源硬编码两处）、contractCard 存在且含版本行；契约卡以 file 形态并入 item files（`type: registry:file`，target = block targetDir 旁），pattern + contractVersion 透传 item 顶层。**CLI 剥离坑写进 registry.md §2**：顶层 pattern 经 shadcn CLI zod parse 静默剥离——validate 通过 ≠ 透传，仓内工具（docs 生成器等）一律读源 meta.json，契约卡经 files 通道分发不受影响。
+2. **audit-trail 元模式引擎**（`packages/core/src/audit`，子路径 `@patterns-ui/core/audit`）：headless（不渲染不 import 组件），组合 list-browse 引擎（useResourceTable server-cursor/load-more 两档）并**钉死 keyset 协议**（无 page/offset 选项——协议选择是模式业务决策，单源在契约卡）；叠加审计领域语义：`AuditTrailEvent`（actor·action 字段形状）、`auditTrailFilterDefs`（action facet 多选 / resource / actor / createdAt 时间范围窗口；文案标签注入、缺省回落字段名——引擎不带文案）、facets 恒 `["action"]`、搜索面缺省 action/resource/actor；出口 `useAuditTrail`（list 产物 + defs + mode + capabilities + hasNextPage）。audit-log block 改消费引擎：公开 props 不变（`mode?: "server-cursor" | "load-more"` 双向映射 shape），UI 预设（列定义/文案/ListPage 组装）留 block。
+3. **read-state 元模式引擎**（`packages/core/src/read`，子路径 `@patterns-ui/core/read`）：未读计数共享缓存（queryKey = `listKey(name, pageSize)`，同 name 取数点共享——badge 与收件箱；queryFn 规范化 `{ pageSize, sort }` 同请求形状）、单条已读（`update(id,{read:true})`；无能力 → mutation.error 契约错误不外抛）、全部已读（`markAllRead(ids)` 端点优先 → 逐条 update 扇出回落 → 无写能力静默返回）、读态翻转 `mutationMode: pessimistic（缺省）/ optimistic`（乐观档 onMutate 即翻缓存、onError 回滚、onSettled 失效对账）。出口 `useReadState` + `useUnreadCount`。notification-inbox block 改消费引擎（**pessimistic 缺省 = 抽取前行为**；缓存命名空间沿用 `"notification-inbox"`，bell/收件箱共享缓存延续；`useUnreadCount` 保留单参签名作模式定名包装——demo bell 零改动）。
+4. **core/meta 公共机制**（`packages/core/src/meta`，子路径 `@patterns-ui/core/meta`）：`META_PATTERN_NAMES` 封闭词表（16 值 = paradigm §1.2 表序）+ `defineMetaPattern(name, contractVersion, adapterShape)`（名字越表/版本非正整数 → throw 列全表）+ `validateMetaPatternAdapter`（dev-only：zod safeParse 形状校验 + contractVersion 失配警告，均 console.warn 不阻断；`NODE_ENV=production` 立即返回零开销；env/warn 可注入供单测）。两引擎在 hook 挂载时校验注入适配器（AUDIT_TRAIL v1 = Resource 形状；READ_STATE v1 = client 形状）。
+5. **patterns.md §3.6 业务模式目录**（docs 生成器数据源扩展）：读**源 meta.pattern**（不读 dist——剥离坑）+ 契约卡解析（首行 blockquote 摘要 + 「内置决策」节加粗要点 + contractVersion），发射目录表（模式 × 组装入口 × blocks × 元模式 × 契约版本）+ 逐模式摘要；交叉校验 blocks ⊆ BLOCK_NAMES、metaPatterns ⊆ META_PATTERN_NAMES、卡缺版本行/摘要/决策即失败；§2 判别式增三层决策树第一条（第一层指向 §3.6——决策树第二层引用落形）。docs-data.ts 仅增一条框架文案（编辑性内容最小化）。
+6. **registry.md 同步 + dry-run 冒烟 CI**：registry.md §2 补 pattern 字段语义/校验/剥离坑/契约卡 files 通道与 type 取值清单（本仓 item 三值 + schema 全枚举含 `registry:item`/`registry:file` 语义说明）、§3 构建校验步骤与 §8 文档生成器节。`scripts/registry-consumer-smoke.mjs` 增 **pattern item dry-run 冒烟**（M7-C2）：`shadcn add audit-log --dry-run` 经独立 overlay server（dist 全集复制 + 自引用 `patterns-ui/patterns-ui/*` 改写为本 server URL——CI 无私有仓库 token，改写只换解析源不换依赖图）解析整棵依赖树，断言退出 0 且计划提及组装入口；`SMOKE_SKIP_ADD=1` 跳过（dry-run 属 CLI 网络路径，无离线等价物）；ci.yml registry-consumer job 注释与步骤名同步（job 内跑 `pnpm registry:smoke` 即含 dry-run）。
+
+**验收记录（2026-10-23）**
+
+- 三生成器链 `pnpm registry:build && pnpm vocab:generate && pnpm docs:generate` 连跑两次零增量（sha256 一致：patterns.md / registry.json / blocks.generated.ts）；`registry validate` 本机不跑（CI 权威）。
+- **单源回环**：篡改 audit-log meta.pattern.blocks（移除 data-table）→ vocab+docs regen → patterns.md/registry.json 跟变（sha256 变化）→ 还原 + regen → 三产物哈希与篡改前逐字节一致。
+- **build 校验失败路径**：metaPatterns 越封闭词表 / blocks 引用未知 block / contractCard 不存在——三者均构建失败退出 1 且报错列合法值全表；还原后复绿。
+- **行为等价证据**：audit-log block 公开 props/缺省值/PaginationBar 映射逐项不变（mode→shape 双射；hasNextPage 语义同构 `nextCursor !== undefined || load-more`；staleTime 10s、pageSize [10,20,50]/20、搜索面、facets 原样进引擎）；notification-inbox queryKey（`["notification-inbox","list",30]`）、pessimistic 翻转、全部已读回落语义不变（mock list 忽略 sort 参数，queryFn 规范化后响应逐字节同）；bell 单参 `useUnreadCount(client)` 签名保留（demo `notification-bell.tsx` 零改动）。e2e 双套（dev 11 含 C3 在途 3 spec 全绿 / preview 2）+ shots --check 13 张 + `pnpm ui:check --fast` 六步全绿——两 block 均在渲染树内（bell 挂 top-bar 全程在树）。
+- **单测**：core 267（+26：meta 8——形状不符/版本失配/生产零开销/null 容错；audit 9——keyset 钉死与能力派生/append-only 栈后退零请求/断页 hasNextPage=false/游标失效容错/load-more 累计/过滤清栈/defs 形状与文案注入/请求面/残缺 Resource 挂载警告；read 9——共享缓存单请求/pessimistic 递减/乐观翻转成功/乐观失败回滚/全部已读端点优先与扇出回落/无写能力静默/无 update 契约错误/useUnreadCount）。
+- `pnpm -r typecheck` / `pnpm lint`（biome，含 registry/patterns/*.md）/ `pnpm lint:eslint` / `pnpm slots:check` / `pnpm ui:score --check` / `pnpm -r test`（core 267 + eslint-plugin 35 + demo 13）全绿。
+- **publint / attw**：core 三新子路径（./meta ./audit ./read）exports 三形态（import/require × types/default）+ tsup modules 后 `pnpm --filter @patterns-ui/core build && publint` All good；attw node16 profile 全子路径 CJS/ESM 双绿（node10 列结构性无解，CI 同口径忽略）。
+- dry-run 冒烟本机不跑真实 CLI（网络受限，CI 权威）；overlay 改写逻辑经 `node --check` 与 CI 接线评审。
+
+### M7-C3 skills 与验收附件（2026-10-23 落地）
+
+- **三 skill × 三 agent 目录**：`.zcode/skills/` 为单一源（ui-page 五步[分类→抄 patterns.md §4 组合→写配置四禁→typecheck+ui:check --fast 自检→三态截图交付]/ui-block 三处查重+sandbox 水印+PROPOSED 清单+freeze 豁免/ui-theme preset 词表指引+只动 themes css token），`.claude/skills/`、`.agents/skills/` 为 `cp -R` 副本——三目录逐字节一致（`diff -r` 零输出）；SKILL.md 正文零词表名泄漏（72 个词表名 grep CLEAN，词表以 patterns.md 与 typecheck 报错为单源）。`.gitignore` `.zcode/`→`.zcode/*`+`!.zcode/skills/` 放行单源入库。CI Freshness 步增 skills 三目录 `diff -r` 同步校验。
+- **docs/agent-acceptance.md**：梯度任务模板 L1 只读列表 / L2 全 CRUD（422+409+bulk 链路要求）/ L3 模式与品牌三选一；判定清单自动层四项（eslint 全规则 / check:names 三方核对 / sandbox 零新增 / 三态截图）+ 人工层只判配置可读性（paradigm §6-C3 两层口径逐条对齐）。
+- **e2e 三 spec**：form-422-loopback（services new「名称含 taken」服务端独有 422 字段回填→改正成功 + team 邀请重复邮箱 422→换邮箱成功，mock 零改动两机制正交）；conflict-409（真两上下文：页面缓存 V→API If-Match 直改 V+1→本页提交 409→统一冲突文案→reload 取他版→再提交 V+2 核实）；bulk-partial-failure（API 预置确定性数据→勾两行两段式确认→undo 撤销恢复→再删放行→汇总「成功 1 失败 1」+失败腿保留 API 核实）。确定性沿用 B2 三件套（EPOCH/reducedMotion/每测 reset）。
+- dev 全套 11 spec + preview 2 + shots 13 全绿（主会话集成验收 ui:check 十步全绿覆盖）。

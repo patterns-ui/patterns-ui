@@ -45,6 +45,9 @@ jobs:
           pnpm vocab:generate
           pnpm docs:generate
           git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css' 'packages/core/src/vocab/blocks.generated.ts' AGENTS.md docs/patterns.md CLAUDE.md
+          # skills 三目录单一源同步校验（M7-C3）：.zcode/skills 为源，另两目录为副本，逐字节一致
+          diff -r .zcode/skills .claude/skills
+          diff -r .zcode/skills .agents/skills
 
       - name: Typecheck (all workspaces)
         run: pnpm -r typecheck
@@ -101,9 +104,11 @@ jobs:
       - name: attw (pack & analyze)
         run: pnpm dlx @arethetypeswrong/cli -P packages/core --profile node16
 
-  # 消费端冒烟：tmp vite+react19+ts 工程里 shadcn add 我们的 theme + status-badge → vite build → headless 令牌断言
+  # 消费端冒烟：tmp vite+react19+ts 工程里 shadcn add 我们的 theme + status-badge → vite build → headless 令牌断言。
+  # M7-C2 起 smoke 内含 pattern item 的 `shadcn add --dry-run` 冒烟（audit-log 组装入口经 overlay
+  # server 解析整棵依赖树；剥离坑与 overlay 语义见 scripts/registry-consumer-smoke.mjs 头注与 registry.md §2）。
   registry-consumer:
-    name: registry consumer smoke (shadcn add → vite build)
+    name: registry consumer smoke (shadcn add + pattern dry-run + build)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -120,11 +125,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # 冒烟脚本消费 registry/dist（静态 JSON 由本地 http server 托管给 shadcn add）
+      # 冒烟脚本消费 registry/dist（静态 JSON 由本地 http server 托管给 shadcn add / dry-run）
       - name: Build (core + registry)
         run: pnpm build
 
-      - name: Consumer smoke (tmp vite app + shadcn add + build + assert)
+      - name: Consumer smoke (tmp vite app + shadcn add + pattern dry-run + build + assert)
         run: pnpm registry:smoke
 
   # M6-E：e2e 随 PR/push 跑（去掉 workflow_dispatch 门；顶层触发器保留可手动重跑）

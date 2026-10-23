@@ -1,16 +1,14 @@
 /**
- * audit-log —— 审计日志预设列表页（docs/blocks.md team/settings SaaS 模板）。
+ * audit-log —— 审计日志预设列表页（docs/blocks.md team/settings SaaS 模板；audit-log 业务模式的组装入口）。
  *
- * 组装 preset：useResourceTable（server-cursor / load-more 双模式）+ FilterBar（时间范围 +
- * action facet + actor 文本）+ FacetSidebar（action chips 计数）+ DataTable + PaginationBar。
- * 列定义内置（id/action/resource/actor/createdAt）；actor 经 resolve 反查展示。
+ * 行为语义自 M7-C2 起单源在 core/audit（audit-trail 元模式引擎：keyset 钉死 / append-only
+ * 游标栈 / actor·action 过滤面 / 时间范围窗口 / action facet 计数）；本 block 只保留 UI 预设：
+ * 列定义（cell 渲染器）+ 文案 + ListPage/FilterBar/FacetSidebar/DataTable/PaginationBar 组装。
+ * 契约卡：registry/patterns/audit-log.contract.md（两层契约 + 内置决策及理由）。
  */
+import { type AuditTrailEvent, useAuditTrail } from "@patterns-ui/core/audit";
 import type { Resource } from "@patterns-ui/core/data";
-import {
-  createListColumnHelper,
-  type ListColumnDef,
-  useResourceTable,
-} from "@patterns-ui/core/list";
+import { createListColumnHelper, type ListColumnDef } from "@patterns-ui/core/list";
 import { useMemo } from "react";
 import { CellEnumBadge } from "@/components/blocks/cells/cell-enum-badge/cell-enum-badge";
 import { CellId } from "@/components/blocks/cells/cell-id/cell-id";
@@ -23,15 +21,16 @@ import { ListPage } from "@/components/blocks/list/list-page/list-page";
 import { PaginationBar } from "@/components/blocks/list/pagination-bar/pagination-bar";
 import { AsyncState } from "@/components/blocks/shared/async-state/async-state";
 
-/** 约定的审计事件行形状（缺省列定义读取这些字段） */
-export interface AuditEventRow {
-  id: string;
-  action: string;
-  resource: string;
-  actor: string;
-  ip?: string;
-  createdAt: string;
-}
+/** 约定的审计事件行形状（core/audit 引擎契约的同名形态；保留导出名兼容既有消费方） */
+export type AuditEventRow = AuditTrailEvent;
+
+/** 过滤语义面文案（引擎字段名的本模式中文标签；④ 文案层，不进 core） */
+const AUDIT_LABELS = {
+  action: "动作",
+  resource: "资源",
+  actor: "操作者",
+  createdAt: "时间范围",
+} as const;
 
 export interface AuditLogPresetProps<TData extends AuditEventRow> {
   // biome-ignore lint/suspicious/noExplicitAny: Resource<TData, any, any>（core-api 约定形态）
@@ -40,7 +39,7 @@ export interface AuditLogPresetProps<TData extends AuditEventRow> {
   actionOptions: { value: string; label: string }[];
   /** actor id → 用户（cell-user 反查） */
   resolveActor?: (id: string) => { name: string; avatarUrl?: string } | undefined;
-  /** keyset 形态：cursor 前后翻 / load-more 累计（默认 cursor） */
+  /** keyset 承载档：cursor 前后翻 / load-more 累计（默认 cursor） */
   mode?: "server-cursor" | "load-more";
   /** 附加列（在缺省列之后、时间列之前插入） */
   extraColumns?: ListColumnDef<TData>[];
@@ -101,31 +100,16 @@ export function AuditLogPreset<TData extends AuditEventRow>({
     ];
   }, [columnsOverride, extraColumns, actionOptions, resolveActor]);
 
-  const defs = useMemo(
-    () => [
-      {
-        field: "action",
-        label: "动作",
-        kind: "multi-select" as const,
-        options: actionOptions,
-      },
-      { field: "resource", label: "资源", kind: "text" as const },
-      { field: "actor", label: "操作者", kind: "text" as const },
-      { field: "createdAt", label: "时间范围", kind: "date-range" as const },
-    ],
-    [actionOptions],
-  );
-
-  const list = useResourceTable<TData>({
+  const trail = useAuditTrail<TData>({
     resource,
-    mode,
     columns,
-    filters: defs,
-    facets: ["action"],
-    search: { fields: ["action", "resource", "actor"] },
+    actionOptions,
+    shape: mode === "load-more" ? "load-more" : "paged",
+    labels: AUDIT_LABELS,
     pagination: { pageSizeOptions: [10, 20, 50], initialPageSize: 20 },
     queryOptions: { staleTime: 10_000 },
   });
+  const list = trail.list;
 
   const rowsEmpty = list.table.getRowModel().rows.length === 0;
   const hasActiveFilters = list.state.filters !== undefined || list.state.search !== "";
@@ -135,11 +119,16 @@ export function AuditLogPreset<TData extends AuditEventRow>({
       title={title}
       description={description}
       filter={
-        <FilterBar list={list} defs={defs} advanced onRefresh={() => void list.query.refetch()} />
+        <FilterBar
+          list={list}
+          defs={trail.defs}
+          advanced
+          onRefresh={() => void list.query.refetch()}
+        />
       }
       body={
         <div className="flex gap-6">
-          <FacetSidebar facetData={list.facetData} list={list} defs={defs} />
+          <FacetSidebar facetData={list.facetData} list={list} defs={trail.defs} />
           <div className="min-w-0 flex-1">
             <AsyncState
               query={list.query}
@@ -157,9 +146,9 @@ export function AuditLogPreset<TData extends AuditEventRow>({
         <PaginationBar
           list={{
             ...list,
-            hasNextPage: list.query.data?.nextCursor !== undefined || mode === "load-more",
+            hasNextPage: trail.hasNextPage,
           }}
-          mode={mode === "server-cursor" ? "cursor" : "load-more"}
+          mode={trail.mode === "load-more" ? "load-more" : "cursor"}
           pageSizeOptions={[10, 20, 50]}
         />
       }

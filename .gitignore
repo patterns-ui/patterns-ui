@@ -27,5 +27,7 @@ apps/demo/playwright-report/
 
 # agent workspace（锚定根目录——前导 / 必须保留：apps/demo/e2e/screenshots/baseline
 # 是 M7-B2 三态截图基线，须入库）
-.zcode/
+# 例外：.zcode/skills/ 是 M7-C3 三 skill 的单源目录（同步 .claude/.agents 两副本），须入库
+.zcode/*
+!.zcode/skills/
 /screenshots/
