@@ -1,8 +1,9 @@
 name: Release
 
-# ADR-0007：MIT 定案但暂不 npm publish —— 本 workflow 只产出 git tag + CHANGELOG。
+# ADR-0011：npm publish 已启用（取代 ADR-0007 暂缓条款）。
 # 模式：push main 且有 changeset → changesets/action 开/更新 "Version Packages" PR；
-# 该 PR 合并（changeset 清空、版本落定）→ 执行 publish 脚本（= `changeset tag`，仅打 tag 推送）。
+# 该 PR 合并（changeset 清空、版本落定）→ publish 脚本（release-publish）：
+# changeset tag 推 tag + CHANGELOG，changeset publish 发 npm（NPM_TOKEN secret 门控，未配置保持 tag-only）。
 
 on:
   push:
@@ -15,12 +16,14 @@ concurrency:
 
 jobs:
   release:
-    name: Changesets (tag + changelog only)
+    name: Changesets (tag + changelog + npm)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write # 推送 tag 与版本提交
       pull-requests: write # 开/更新 Version Packages PR
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }} # 未配置时 npm-publish.mjs 静默跳过，保持 tag-only
     steps:
       - uses: actions/checkout@v4
 
@@ -35,12 +38,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # version = 有 changeset 时更新 Version Packages PR；publish = PR 合并后执行（仅 changeset tag，不 npm publish）。
-      # changeset tag 只在 runner 本地建 tag，release-tag 脚本内显式 push，否则 tag 随 runner 丢弃
-      #（action 不经 shell，publish 里写 && 会被当成 changeset 的参数）。
+      # npm publish 认证：仅在仓库 secret NPM_TOKEN 已配置时写入 ~/.npmrc（changesets publish 读用户级配置）
+      - name: Setup npm auth
+        if: env.NPM_TOKEN != ''
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
+      # version = 有 changeset 时更新 Version Packages PR；publish = 版本提交进 main 后执行
+      #（changeset tag 推 tag + npm publish；后者由 NPM_TOKEN 门控，见 scripts/npm-publish.mjs）。
+      # action 不经 shell，publish 里写 && 会被当成 changeset 的参数，故复合逻辑都在 npm 脚本内。
       - uses: changesets/action@v1
         with:
           version: pnpm version-packages
-          publish: pnpm release-tag
+          publish: pnpm release-publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

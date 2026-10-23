@@ -29,7 +29,8 @@
     "ui:check": "node scripts/ui-check.mjs",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release-tag": "changeset tag && git push origin --tags"
+    "release-tag": "changeset tag && git push origin --tags",
+    "release-publish": "pnpm release-tag && node scripts/npm-publish.mjs"
   },
   "devDependencies": {
     "@base-ui/react": "catalog:",

@@ -99,6 +99,8 @@
 - `packages/core` 用 changesets；minor = 新能力，patch = 修复，major = 破坏性。
 - blocks 与 core 同节奏打 tag（`v0.x.y`），registry.json 内 `name@^x.y.z` 自引用跟随发布版本。
 - 首个版本 `0.1.0`（M2 结束时发首个内部可用版）。
+- **npm 分发（ADR-0011）**：`@patterns-ui/core` 发布到 npm（首发 `0.2.1`；0.1.0/0.2.0 是 tag-only 时代版本不补发）。链路：changeset 进 main → Version Packages 落定进 main → Release workflow 自动 `changeset tag` 推 tag + `changeset publish` 发 npm——后者由仓库 secret `NPM_TOKEN`（granular token，Read & publish）门控，未配置时保持 tag-only。手动补发：`npm login` 后 `pnpm build && cd packages/core && npm publish`。
+- 发布前置自检：版本提交前必须 `pnpm registry:build` 刷新 registry.json 的 `core@^版本` pin（CI freshness 会抓）；publint / attw 是发布前实闸。
 
 ## 7. meta 冻结与范式 lint（M7-B1）
 
