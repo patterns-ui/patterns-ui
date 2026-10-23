@@ -1,5 +1,25 @@
 # @patterns-ui/core
 
+## 0.2.0
+
+### Minor Changes
+
+- 57ef6b6: M6 结构收口：data 唯一出口 + 统一存储 + 过滤树下沉。
+  
+  - `./data`：queryKey 工厂公共出口 `listKey` / `detailKey` / `manyKey` 与 `listKeyPrefix` / `detailKeyPrefix`，收敛三处手搓 key；`./mutation` 子路径删除，变更语义并入 `./data`（0.x minor 承载此移除）。
+  - 新增 `./storage`：`createStorage` 统一 localStorage 访问（信封封装 + zod 校验 + version/migrate），替代散落的多套手写 key。
+  - `./filters`：过滤树字段级操作 API 下沉（`evaluateLeaf` / `evaluateTree` / `applyFilterTree` / `flattenLeaves` / `removeLeaf` / `andTrees` / `diffFilters` / `minimalTree`）。
+  - `pageSize` 单源：`DEFAULT_PAGE_SIZE = 20` 唯一默认，`def.list.pageSize` 直灌，消除双源。
+  - `getId` 编译期约束：资源缺 id 字段在类型层报错，不再兜底 `"[object Object]"`。
+- 57ef6b6: M7 范式落地：封闭词表 + 页面/流程编译器 + 五个新子路径。
+  
+  - 新增 `./vocab`：封闭词表单源 `ARCHETYPES` / `CELL_NAMES` / `BLOCK_NAMES` / `BLOCKS_BY_ARCHETYPE` / `BlockNameFor` / `THEME_PRESET_NAMES` / `CELL_DOCS` / `BLOCK_DOCS`——写错词表名时 TS 报错直接展开全部合法值（报错即目录）。
+  - 新增 `./page`：`definePage` 七原型 slot 收窄、`PAGE_BLOCKS_BY_ARCHETYPE` / `PageBlockNameFor` 索引访问派生、`resolveBlock` / `planPage` / `PageRenderer`、`defineFlow` headless 状态机 + `ACTION_NAMES`（10 动作词表）、分页协议升格 `def.list.pagination.mode ∈ {page, offset, keyset}` + `paginationCapabilitiesOf`。
+  - `./data`：`parseError` 单源（四协议，422 必回填）。
+  - 新增 `./meta`：`META_PATTERN_NAMES` / `defineMetaPattern` / `validateMetaPatternAdapter`（元模式契约 v1）。
+  - 新增 `./audit`：`useAuditTrail`（audit-trail 契约 v1，keyset 钉死）。
+  - 新增 `./read`：`useReadState` / `useUnreadCount`（read-state 契约 v1）。
+
 ## 0.1.0
 
 ### Minor Changes
