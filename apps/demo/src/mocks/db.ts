@@ -652,6 +652,105 @@ export function metricsPointsOf(tenantId: string): MockMetricPoint[] {
 }
 
 // ---------------------------------------------------------------------------
+// certificates（只读资源：平台代管 TLS 证书；确定性种子 + 状态分布保证）
+// ---------------------------------------------------------------------------
+
+export interface MockCertificate {
+  id: string;
+  /** 证书主体名（域名形态） */
+  name: string;
+  issuer: string;
+  /** 状态分布刻意加权（active 多数 / expiring 次之 / expired、revoked 少量） */
+  status: "active" | "expiring" | "expired" | "revoked";
+  issuedAt: string;
+  expiresAt: string;
+}
+
+const CERT_ISSUERS = ["lets-encrypt", "digicert", "internal-ca"] as const;
+/** 加权模式表（14 循环 → 42 行 = active 21 / expiring 9 / expired 6 / revoked 6，分布确定） */
+const CERT_STATUS_PATTERN = [
+  "active",
+  "active",
+  "active",
+  "active",
+  "active",
+  "active",
+  "active",
+  "expiring",
+  "expiring",
+  "expiring",
+  "expired",
+  "expired",
+  "revoked",
+  "revoked",
+] as const satisfies readonly MockCertificate["status"][];
+
+const CERT_DOMAIN_WORDS = [
+  "api",
+  "gw",
+  "console",
+  "cdn",
+  "auth",
+  "admin",
+  "grafana",
+  "vault",
+  "status",
+  "docs",
+  "hooks",
+  "mq",
+  "files",
+  "ws",
+] as const;
+
+/** 未来/过去的确定性 ISO 时刻（offsetDays 正 = 未来；hour/minute 只向过去收，保证符号不变） */
+function isoFromAnchor(dayOffset: number, hour: number, minute: number): string {
+  return new Date(
+    nowMs() + dayOffset * 86_400_000 - hour * 3_600_000 - minute * 60_000,
+  ).toISOString();
+}
+
+function seedCertificates(tenantId: string): MockCertificate[] {
+  const prefix = tenantId === "torchwood" ? "tw" : tenantId === "playground" ? "pg" : "ac";
+  const rng = mulberry32(seedFrom(`certificates:${tenantId}`));
+  return Array.from({ length: CERT_STATUS_PATTERN.length * 3 }, (_, i) => {
+    const status = at(CERT_STATUS_PATTERN, i % CERT_STATUS_PATTERN.length);
+    const word = at(CERT_DOMAIN_WORDS, i % CERT_DOMAIN_WORDS.length);
+    const round = Math.floor(i / CERT_DOMAIN_WORDS.length) + 1;
+    // 到期时间按状态推算（与状态语义自洽）：active 远期 / expiring 5–30 天 /
+    // expired 已过 1–60 天 / revoked 未到期但已吊销
+    const expiresInDays =
+      status === "active"
+        ? intBetween(rng, 90, 365)
+        : status === "expiring"
+          ? intBetween(rng, 5, 30)
+          : status === "expired"
+            ? -intBetween(rng, 1, 60)
+            : intBetween(rng, 30, 200);
+    return {
+      id: `${prefix}-cert-${String(i + 1).padStart(3, "0")}`,
+      name: `${word}${round > 1 ? `-${round}` : ""}.fleetly.dev`,
+      issuer: pick(rng, CERT_ISSUERS),
+      status,
+      // 签发于 30–360 天前；到期 = 状态语义推算（小时/分钟只向后收，不跨日翻转符号）
+      issuedAt: isoFromAnchor(-intBetween(rng, 30, 360), (i * 5) % 24, (i * 11) % 60),
+      expiresAt: isoFromAnchor(expiresInDays, (i * 3) % 12, (i * 17) % 60),
+    };
+  });
+}
+
+const tenantCertificates = new Map<string, MockCertificate[]>();
+
+/** 42 行/租户（≥30 只读列表 + page 协议翻页演示；确定性 PRNG，跨租户序列互异） */
+export function certificatesOf(tenantId: string): MockCertificate[] {
+  let rows = tenantCertificates.get(tenantId);
+  if (!rows) {
+    rows = seedCertificates(tenantId);
+    tenantCertificates.set(tenantId, rows);
+  }
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
 // e2e 重置（M7-B2）：清空全部租户态/任务/token 并恢复根种子（org 名、用户目录）；
 // epochMs 置位同时钉死种子时间锚点（见 setMockNow）。由 plugin.ts 的
 // POST /api/__e2e/reset 调用（免鉴权，仅 demo dev/preview mock 服务器存在）。
@@ -667,6 +766,7 @@ export function resetMockDb(epochMs?: number): void {
   tenantNotifications.clear();
   tenantRegions.clear();
   tenantMetrics.clear();
+  tenantCertificates.clear();
   tasks.clear();
   db.tokens.clear();
   db.orgs = seedOrgs();

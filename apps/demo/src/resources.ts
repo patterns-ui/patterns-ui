@@ -3,6 +3,7 @@ import { createCursorClient, createRestClient } from "./lib/clients";
 import {
   type MockApiKey,
   type MockAuditEvent,
+  type MockCertificate,
   type MockDeployment,
   type MockService,
   usersForRef,
@@ -66,6 +67,19 @@ export const apiKeysResource = createResource<
   name: "api-keys",
   client: createRestClient<MockApiKey, { name: string; expiresIn?: string }, Partial<MockApiKey>>(
     (tid) => `/api/t/${tid}/api-keys`,
+  ),
+  tenantScoped: true,
+});
+
+/** certificates 只读资源（TLS 证书列表：平台代管，无 create/update 消费方） */
+export const certificatesResource = createResource<
+  MockCertificate,
+  Record<string, never>,
+  Record<string, never>
+>({
+  name: "certificates",
+  client: createRestClient<MockCertificate, Record<string, never>, Record<string, never>>(
+    (tid) => `/api/t/${tid}/certificates`,
   ),
   tenantScoped: true,
 });

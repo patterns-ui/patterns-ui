@@ -34,8 +34,8 @@
       "files": []
     },
     "vocabCoverage": {
-      "total": 18,
-      "covered": 13,
+      "total": 19,
+      "covered": 14,
       "uncovered": [
         "apps/demo/src/pages/api-keys.page.ts",
         "apps/demo/src/pages/deployments.page.ts",

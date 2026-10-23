@@ -335,3 +335,17 @@ A1–D 全部 10 个任务已落地（root scripts 与 CI 已接线），小节�
 - skills item 经 `pnpm registry:build` 产出（dist/r/skills.json 4 files、deps 空、targets `~/.patterns-ui/skills/**`）；渲染脚本 node 直跑演示：tmp 目录 3 宿主 × 3 skill 落盘，横幅/`apps/demo/src/pages`→`src/pages` 改写/`pnpm `→`npm run ` 改写/同步尾注剥离逐项断言过；`--host` 单选、`--dry-run`、未知宿主与缺源报错退出码 1 验证。
 - 在线 `shadcn add` 本机受限：CLI 于 "Checking registry ✔" 已消费 skills.json 通过其 registry-item zod 解析，随后 ui.shadcn.com/r/colors/neutral.json 拉取被本机网络断连（各版本 CLI 一致，与 item 无关，脚本头注既有记录）；`registry validate` 同不跑——CI 权威。
 - 三生成器链连跑零 diff；`pnpm ui:check --fast` / `pnpm -r typecheck` / `pnpm lint` / `pnpm -r test` 全绿；e2e 不涉（无 UI/block 改动）。
+
+### M7 总收口（2026-10-23）
+
+**paradigm §6 验收清单七条逐条判定（全绿）**：
+
+1. **A1/A2**：`cell-statuz` TS2820 报错展开全部 9 个合法 cell 名（A1 验收亲测 + D 消费端防线单源断言复验）；A2 失败路径单测全绿（core 267：解析器名字缺失/slot 越界/action 词表外/offset 未实现/flow 转移缺失，报错全含合法值清单）。
+2. **A3**：pages 0 JSX、18 页（时点）、7 豁免头注释（paradigm v4 验收命令亲测；后续新增页正常增长，见 §6 注）。
+3. **B1**：`<table>`/`#ff0000` lint 拦截（主会话现场演示，报错逐原语给替代）+ `--fix` p-[8px]→p-2；slots:check 三方一致 CI 绿。
+4. **B2/B3**：`pnpm ui:shots --check` 与 `pnpm ui:score --check` CI 绿（截图基线 CI 跨环境首跑即绿）；scores.json 基线入库（含收口重生成：vocabCoverage 13/18→14/19 改善入库）。
+5. **C3 agent 验收两层**：自动层四项机械化（eslint 全规则/check:names/sandbox 零新增/三态截图）+ **L1 标准任务实跑通过**——不喂仓内上下文的新 agent 会话仅凭 L1 提示词原样下发，自行经 AGENTS.md → ui-page skill → patterns.md 路由，产出 certificates 只读列表页（87 行纯配置含元模式决策记录 page-vs-keyset 理由 + mock 42 行确定性种子 + e2e 一条主链路 + 三态截图基线），主会话亲跑 `pnpm ui:check` 十步全绿；人工层配置可读性审查通过（§3.4 一等公民：声明式、无闭包、决策留痕）。验收产物作为范式活样例入库（demo 永久保有 certificates 页）。
+6. **C2/D**：pattern dry-run CI 绿（registry-consumer job 首跑即绿）；消费端空白项目装 core tarball 后写错 block 名 typecheck 报错列全表（冒烟四拍：写对绿→写错红全表→还原绿）。
+7. **C1**：三生成器链（registry/vocab/docs）+ skills 三目录 diff -r regen 后 `git diff --exit-code` 干净。
+
+**M7 全部 11 任务（先行项 + A1/A2/A3 + B1–B4 + C1/C2/C3 + D）收官**。commit 链：49aadd3 → 93f833d → a57f089 → 5505649 → 53b88cc → 9e4c161/75b3532/eabf7de → bb2eaba/504c718 → 0aadcdf → b91ddbd → eeeceae/1f0987d → 5ab650b →（本收口 commit）。范式三层（名字层/执行层/指导层/分发）闭环：封闭词表 0 手写副本单源注入、18→19 页 0 JSX 配置化、`ui:check` 十步质量门、AGENTS.md/skills/patterns.md 生成物 CI 钉新鲜度、消费端 typecheck 防线随 core 包零成本分发。

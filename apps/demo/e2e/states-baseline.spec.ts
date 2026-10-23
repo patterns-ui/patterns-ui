@@ -1,14 +1,16 @@
 /**
  * 三态截图基线（M7-B2，docs/paradigm.md §6-B2 / §3.2 横切三态）。
  *
- * 页集（写死；选取理由）——四页覆盖四个原型家族的核心宿主：
+ * 页集（写死；选取理由）——五页覆盖四个原型家族的核心宿主：
  *  1. services 列表  /t/acme-web/services        —— resource-list 旗舰：表格/过滤/
  *     分页三态俱全，是回归价值最高的页面；
  *  2. services 详情  /t/acme-web/services/ac-svc-001 —— resource-detail：hero +
  *     sections 骨架与 ErrorState；
  *  3. settings      /t/acme-web/settings         —— settings 原型：节化表单宿主；
  *  4. auth sign-in  /auth/sign-in                —— auth-flow：无壳独立页，演示
- *     会话端点的 chaos 定向（auth 全局豁免外）。
+ *     会话端点的 chaos 定向（auth 全局豁免外）；
+ *  5. certificates  /t/acme-web/certificates     —— resource-list 只读变体（page
+ *     协议、无 CRUD 动作）：同宿主不同 def 形态的回归面。
  *
  * 三态构造（逐态）：
  *  - loading：playwright route 拦截对目标 API 延迟 8s（Node 侧 setTimeout，不受
@@ -122,6 +124,36 @@ test.describe("services 列表三态", () => {
     await expect(page.locator('[data-slot="data-table"] tbody tr')).toHaveCount(30);
     await expect(page.getByText("第 1–30 条，共 120 条")).toBeVisible();
     await shot(page, "services-list-loaded");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// certificates 列表（resource-list 只读变体：page 协议、无 CRUD）
+// ---------------------------------------------------------------------------
+
+test.describe("certificates 三态", () => {
+  test("loading：列表 API 延迟 → 表格骨架", async ({ page, request }) => {
+    await prepare(page, request, true);
+    await delayApi(page, /\/api\/t\/[^/]+\/certificates($|\?)/);
+    await page.goto(`/t/${TENANT}/certificates`);
+    await expect(page.locator('[data-slot="skeleton-table"]')).toBeVisible();
+    await shot(page, "certificates-list-loading");
+  });
+
+  test("empty：q=zzz-no-match 空过滤 → 无匹配空态", async ({ page, request }) => {
+    await prepare(page, request, true);
+    await page.goto(`/t/${TENANT}/certificates?q=zzz-no-match`);
+    await expect(page.locator('[data-slot="empty-state"]')).toBeVisible();
+    await expect(page.getByText("没有匹配的结果")).toBeVisible();
+    await shot(page, "certificates-list-empty");
+  });
+
+  test("error：?demo-error=certificates:500 → 服务端错误态", async ({ page, request }) => {
+    await prepare(page, request, true);
+    await page.goto(`/t/${TENANT}/certificates?demo-error=certificates:500`);
+    await expect(page.locator('[data-slot="error-state"]')).toBeVisible();
+    await expect(page.getByText("服务端错误")).toBeVisible();
+    await shot(page, "certificates-list-error");
   });
 });
 

@@ -5,6 +5,7 @@ import { mulberry32, resetMockDb } from "./db";
 import { apiKeyRoutes } from "./handlers/api-keys";
 import { auditRoutes } from "./handlers/audit";
 import { authRoutes } from "./handlers/auth";
+import { certificateRoutes } from "./handlers/certificates";
 import { deploymentRoutes } from "./handlers/deployments";
 import { orgRoutes } from "./handlers/orgs";
 import { serviceRoutes } from "./handlers/services";
@@ -21,6 +22,7 @@ const routes: MockRoute[] = [
   ...orgRoutes,
   ...userRoutes,
   ...serviceRoutes,
+  ...certificateRoutes,
   ...deploymentRoutes,
   ...apiKeyRoutes,
   ...auditRoutes,

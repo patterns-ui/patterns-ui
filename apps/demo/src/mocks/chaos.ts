@@ -17,7 +17,8 @@ import { fail, type MockResult } from "./types";
 // 路由后、handler 前）：
 //   auth（/api/auth/*）、me（/api/me、/api/me/password）、orgs、users、search、
 //   services（含 /services/:id 与其下 deployments 子资源）、deployments、api-keys、
-//   audit-events、members、invitations、notifications、regions、metrics-points、tasks。
+//   audit-events、certificates、members、invitations、notifications、regions、
+//   metrics-points、tasks。
 //
 // 全局模式豁免会话端点（auth、me）：全局 401 会触发前端全局登出跳转、全局 5xx
 // 会让 AuthProvider.check 判定未认证——一次全局 chaos 即把演示会话打死。定向

@@ -8,6 +8,7 @@ import {
   Rocket,
   ScrollText,
   Settings,
+  ShieldCheck,
   Users,
 } from "lucide-react";
 import type { NavGroup } from "@/components/blocks/sidebar/nav-group/nav-group";
@@ -59,7 +60,10 @@ export function tenantNavGroups(tenantId: string): NavGroup[] {
     },
     {
       label: "Data",
-      items: [{ to: t("/api-keys"), label: "API Keys", icon: KeyRound }],
+      items: [
+        { to: t("/api-keys"), label: "API Keys", icon: KeyRound },
+        { to: t("/certificates"), label: "Certificates", icon: ShieldCheck },
+      ],
     },
     {
       label: "Manage",

@@ -248,7 +248,7 @@
 **验收清单**
 
 - [ ] 写 `cell-statuz` typecheck 报错并列出全部合法 cell 名（A1）；A2 单测含失败路径全绿（A2）
-- [ ] `grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空（pages/ 纯配置：0 JSX 元素，0 大写泛型实参——配置走类型推断与词表名）且 `ls apps/demo/src/pages/*.page.ts | wc -l` = 18、豁免清单文件头有注释（A3）
+- [ ] `grep -rEl '<[A-Z][a-zA-Z]*' apps/demo/src/pages` 为空（pages/ 纯配置：0 JSX 元素，0 大写泛型实参——配置走类型推断与词表名）且 `ls apps/demo/src/pages/*.page.ts | wc -l` = 18、豁免清单文件头有注释（A3。注：18 为 A3 验收时点数；M7 起新增页面为正常增长——agent 验收 L1 已加 certificates 页（19），页面数由 `ui:score` vocabCoverage 棘轮管理，验收语义恒为「全部 pages 无 JSX」）
 - [ ] 故意写 `<table>` 与 `#ff0000`，lint 拦截且 `--fix` 可用（B1）；同 archetype 的 item slot 结构 CI 校验绿（B1）
 - [ ] `pnpm ui:shots --check` 与 `pnpm ui:score --check` 在 CI 绿，首份 `scores.json` 基线入库（B2/B3）
 - [ ] **agent 验收两层**：自动层 = 新 agent 会话按 agent-acceptance.md 标准任务产出 PR，通过 eslint 全规则 + 三方核对 + sandbox 零新增 + 三态截图；人工层只判配置可读性（C3）
