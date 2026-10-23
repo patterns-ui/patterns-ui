@@ -17,6 +17,7 @@
     "typecheck": "pnpm -r typecheck",
     "registry:build": "tsx registry/scripts/build.ts",
     "vocab:generate": "tsx registry/scripts/generate-blocks.ts",
+    "docs:generate": "tsx registry/scripts/generate-docs.ts",
     "registry:smoke": "node scripts/registry-consumer-smoke.mjs",
     "lint:eslint": "pnpm --filter @patterns-ui/eslint-plugin lint:eslint",
     "slots:check": "pnpm --filter @patterns-ui/eslint-plugin check:slots",

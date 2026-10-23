@@ -10,10 +10,12 @@
  *   2  lint             pnpm lint（biome 全仓）
  *   3  范式 lint        pnpm lint:eslint（eslint-plugin 四规则：pages 0 JSX/裸原语/hex/冻结）
  *   4  archetype/slot   pnpm slots:check（meta ↔ vocab ↔ slot 三方）
- *   5  产物新鲜度       pnpm build（vocab:generate + core + registry:build）后
+ *   5  产物新鲜度       pnpm build（vocab:generate + core + registry:build）+ pnpm docs:generate 后
  *                        git diff --exit-code -- registry.json registry/dist/r
  *                        'registry/themes/*.css' 'packages/core/src/vocab/blocks.generated.ts'
- *                        （与 CI 同口径；改源不改产物 = 红）
+ *                        AGENTS.md docs/patterns.md CLAUDE.md
+ *                        （与 CI ci.yml Freshness 步同口径——两处同步改；改源不改产物 = 红；
+ *                        AGENTS.md/CLAUDE.md symlink/docs/patterns.md 为 M7-C1 文档生成物）
  *   6  三方一致核对     pnpm check:names（配置名字 ⊆ 注入表 ∪ sandbox 登记表）
  *   7  截图基线         pnpm ui:shots --check（三态基线 diff 即败）
  *   8  分数棘轮         pnpm ui:score --check（反向指标只许降/正向只许升）
@@ -61,10 +63,13 @@ const steps = [
   {
     id: "5",
     name: "freshness",
-    title: "产物新鲜度（pnpm build 后 git diff --exit-code，与 CI 同口径）",
+    title: "产物新鲜度（pnpm build + docs:generate 后 git diff --exit-code，与 CI 同口径）",
     run: () => {
       const build = shell("pnpm", ["build"]);
       if (build !== 0) return build;
+      // 词表在前、文档在后（文档词表节 import blocks.generated.ts）；diff 路径与 ci.yml Freshness 步同步
+      const docs = shell("pnpm", ["docs:generate"]);
+      if (docs !== 0) return docs;
       return shell("git", [
         "diff",
         "--exit-code",
@@ -73,6 +78,9 @@ const steps = [
         "registry/dist/r",
         "registry/themes/*.css",
         "packages/core/src/vocab/blocks.generated.ts",
+        "AGENTS.md",
+        "docs/patterns.md",
+        "CLAUDE.md",
       ]);
     },
   },

@@ -36,11 +36,15 @@ jobs:
       - name: Build (core + registry)
         run: pnpm build
 
-      # 产物新鲜度：registry 构建输出 + 词表生成物必须与提交进仓库的版本一致（改源不改产物 = 红）
-      - name: Freshness (registry.json / dist / theme css / vocab)
+      # 产物新鲜度：registry 构建输出 + 词表生成物 + agent 文档生成物必须与提交进仓库的版本一致
+      # （改源不改产物 = 红）。docs:generate 产出 AGENTS.md / CLAUDE.md symlink / docs/patterns.md
+      # （M7-C1）；词表在前、文档在后（文档词表节 import blocks.generated.ts）。
+      # 与 scripts/ui-check.mjs 第 5 步 freshness 同口径——两处同步改。
+      - name: Freshness (registry.json / dist / theme css / vocab / agent docs)
         run: |
           pnpm vocab:generate
-          git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css' 'packages/core/src/vocab/blocks.generated.ts'
+          pnpm docs:generate
+          git diff --exit-code -- registry.json registry/dist/r 'registry/themes/*.css' 'packages/core/src/vocab/blocks.generated.ts' AGENTS.md docs/patterns.md CLAUDE.md
 
       - name: Typecheck (all workspaces)
         run: pnpm -r typecheck

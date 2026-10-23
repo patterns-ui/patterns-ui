@@ -320,6 +320,8 @@ function main(): void {
     `vocab:generate done — ${blocks.length} block(s), ${cells} cell(s), ` +
       `${themePresetNames.length} theme preset(s), ${archetyped} block(s) with archetype → ${relative(ROOT, OUT_FILE)}`,
   );
+  // 词表是 patterns.md/AGENTS.md 词表节的单源：meta 描述变更须连跑 docs:generate（CI Freshness 同序校验）
+  console.log("vocab:generate — meta/themes 变更后请连跑 pnpm docs:generate（文档词表节单源注入）");
 }
 
 main();

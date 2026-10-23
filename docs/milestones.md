@@ -217,7 +217,7 @@
 
 ## M7 —— 范式落地（进行中；任务明细与判据见 docs/paradigm.md §6）
 
-A1–A3（词表生成器/运行时层/页面迁移）与 B1–B3（eslint-plugin 四规则/三态截图基线/一致性分数棘轮）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。先落 B4：
+A1–A3（词表生成器/运行时层/页面迁移）与 B1–B4（eslint-plugin 四规则/三态截图基线/一致性分数棘轮/核对器与编排）已落地（root scripts 与 CI 已接线）；各小节回写待 M7 收口统一补。已落小节：B4、C1（见下）。
 
 ### M7-B4 核对器与编排（2026-10-23 落地）
 
@@ -239,3 +239,23 @@ A1–A3（词表生成器/运行时层/页面迁移）与 B1–B3（eslint-plugi
 - 三方核对失败路径：team.page.ts 塞 `toolbar: "fake-block"` → 第 6 步红并列 resource-list 注入域全表；services def 塞 `sandbox: "fake-block"` → 红并列 sandbox 登记表全表；还原复绿。
 - `pnpm ui:a11y` 单独 3/3 绿（修复后 wcag2a/2aa 零违规，moderate 以下亦无留账项）。
 - `pnpm -r typecheck` / `pnpm lint` / `pnpm -r test`（core 241 + eslint-plugin 35 + demo 13）/ e2e dev 7 + preview 2 全绿；lockfile 变更经 `pnpm exec biome format --write pnpm-lock.yaml` 恢复仓内风格。
+
+### M7-C1 文档生成器（2026-10-23 落地）
+
+**交付物**
+
+1. **`pnpm docs:generate`**（registry/scripts/generate-docs.ts，tsx；确定性输出，连跑零 diff，生成物提交进 git）产出三件：
+   - **AGENTS.md**（仓根路由层，10 行 ≤12 上限，生成器内置行数断言）：ui-page skill 加载指引（.zcode/.claude/.agents 三目录按宿主取一）+ 3 铁律（页面=配置不写 JSX 词表内名字 / 真缺走 sandbox 棘轮 ui-block / 品牌定制只动 theme token ui-theme）+ patterns.md 事实层指针。终步过 biome format（markdown 在 biome 检查域，与 generate-blocks.ts 对生成 TS 同手法）。
+   - **CLAUDE.md → AGENTS.md 相对 symlink**（每次 regen 重建；git 存 mode 120000）。仓内原无 CLAUDE.md 文件，无冲突；生成器对「同名普通文件」走销毁替换路径（paradigm §4.1 注）。
+   - **docs/patterns.md**（事实层五节）：①原型判定表（七原型 × slot × 宿主 × **词表内宿主/预设列**——BLOCKS_BY_ARCHETYPE 单源注入）；②判别式（auth-flow vs wizard + error/empty 横切三态）；③词表目录（3.1 blocks 73 / 3.2 cells 9 / 3.3 主题 preset 2 / 3.4 action 10 / 3.5 分页协议 3 含 offset 未实现标注；节尾留 M7-C2 pattern 目录扩展位）；④每原型 2-3 精选组合（共 18，全部取材 demo 18 页真实组合）；⑤反模式 8 条（与 eslint 四规则、§3.5 对齐）。
+2. **编辑性内容单源 registry/scripts/docs-data.ts**：AGENTS 文案/判定表/判别式/组合/反模式/分页协议说明；词表节数据**零手写副本**——生成器直接 import core 源（blocks.generated.ts、page/actions 的 ACTION_NAMES/ACTION_DOCS、list 的 PAGINATION_MODES）+ 读 registry/themes/*.json（preset 描述）。生成器对编辑数据做词表交叉校验：组合 blocks ⊆ BLOCK_NAMES、判定表原型序 = ARCHETYPES、分页协议描述闭集覆盖、每原型组合 2-3 个、AGENTS.md ≤12 行——编辑数据漂出词表即失败。
+3. **新鲜度两处接线（同口径互参）**：ci.yml Freshness 步（`pnpm vocab:generate && pnpm docs:generate` 后 diff 路径追加 AGENTS.md / docs/patterns.md / CLAUDE.md）与 ui-check.mjs 第 5 步（pnpm build 后增跑 docs:generate 再同口径 diff）。根 build 不前置 docs:generate（文档不进构建链）；vocab:generate 收尾输出与 docs:generate 输出互加连跑提示（选简单方案：提示而非检测）。生成器收尾另有 git check-ignore 防线（生成物被 .gitignore 排除即失败）。
+
+**验收记录（2026-10-23）**
+
+- 连跑三次 sha256 逐字节一致（AGENTS.md 80d51afb… / patterns.md 9a6c2c95…；CLAUDE.md sha = AGENTS.md 内容，证 symlink 指向）。
+- 单源回环：篡改 cell-id meta description → `pnpm vocab:generate && pnpm docs:generate` → blocks.generated.ts 与 patterns.md 两表同步变 → git checkout 还原 + regen 后哈希复原。
+- 词表节一致性抽查（tsx 探针）：BLOCK 73 / CELL 9 / ACTION 10 / THEME 2 / PAGINATION 3 名字与描述前缀全部在场；反向核对 patterns.md 表内 103 行名字零词表外项。
+- symlink diff 命中验证：staged 后将 CLAUDE.md 换普通文件 → `git diff --exit-code -- … CLAUDE.md` 退出 1（捕获 type change）；恢复 symlink 后退出 0。
+- `pnpm ui:check --fast` 六步静态全绿（freshness 步含文档路径）；`pnpm -r typecheck` / `pnpm lint`（biome 379 files，含两新脚本与 CLAUDE.md symlink 共存）/ `pnpm -r test`（241+35+13）全绿。
+- 本地 freshness 以 `git add -A` 暂存口径验证（同 B4 惯例；生成物为新文件，未暂存则 git diff 不见）。
