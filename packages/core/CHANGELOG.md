@@ -1,5 +1,11 @@
 # @patterns-ui/core
 
+## 0.2.3
+
+### Patch Changes
+
+- 修复发布物缺失：0.2.2 发出的包只有 LICENSE + package.json（`dist/` 被 gitignore，CI 发布前未构建）。发布闸门现在在 `changeset publish` 前先构建 core，tarball 恢复完整 148 文件（全部子路径导出可用）。0.2.1（依赖协议坏）与 0.2.2（缺 dist）均不可用，已弃用，请用 0.2.3。
+
 ## 0.2.2
 
 ### Patch Changes

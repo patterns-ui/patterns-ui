@@ -1,6 +1,6 @@
 {
   "name": "@patterns-ui/core",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "@patterns-ui 的逻辑层：data/list/filters/form/reference/tenant/auth/router/task/inline/datetime/resource/theme/storage",
   "type": "module",
   "license": "MIT",
